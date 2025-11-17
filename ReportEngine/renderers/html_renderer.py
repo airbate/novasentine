@@ -10,6 +10,7 @@ import html
 import json
 import os
 import re
+import base64
 from pathlib import Path
 from typing import Any, Dict, List
 from loguru import logger
@@ -74,6 +75,7 @@ class HTMLRenderer:
         self.toc_rendered = False
         self.hero_kpi_signature: tuple | None = None
         self._lib_cache: Dict[str, str] = {}
+        self._pdf_font_base64: str | None = None
 
         # 初始化图表验证和修复器
         self.chart_validator = create_chart_validator()
@@ -96,6 +98,11 @@ class HTMLRenderer:
     def _get_lib_path() -> Path:
         """获取第三方库文件的目录路径"""
         return Path(__file__).parent / "libs"
+
+    @staticmethod
+    def _get_font_path() -> Path:
+        """返回PDF导出所需字体的路径"""
+        return Path(__file__).parent / "assets" / "fonts" / "SourceHanSerifSC-Medium.otf"
 
     def _load_lib(self, filename: str) -> str:
         """
@@ -122,6 +129,22 @@ class HTMLRenderer:
         except Exception as e:
             print(f"警告: 读取库文件 {filename} 时出错: {e}")
             return ""
+
+    def _load_pdf_font_data(self) -> str:
+        """加载PDF字体的Base64数据，避免重复读取大型文件"""
+        if self._pdf_font_base64 is not None:
+            return self._pdf_font_base64
+        font_path = self._get_font_path()
+        try:
+            data = font_path.read_bytes()
+            self._pdf_font_base64 = base64.b64encode(data).decode("ascii")
+            return self._pdf_font_base64
+        except FileNotFoundError:
+            logger.warning("PDF字体文件缺失：%s", font_path)
+        except Exception as exc:
+            logger.warning("读取PDF字体文件失败：%s (%s)", font_path, exc)
+        self._pdf_font_base64 = ""
+        return self._pdf_font_base64
 
     # ====== 公共入口 ======
 
@@ -221,6 +244,8 @@ class HTMLRenderer:
             str: head片段HTML。
         """
         css = self._build_css(theme_tokens)
+        pdf_font_b64 = self._load_pdf_font_data()
+        pdf_font_literal = json.dumps(pdf_font_b64)
 
         # 加载第三方库
         chartjs = self._load_lib("chart.js")
@@ -262,6 +287,10 @@ class HTMLRenderer:
   <style>
 {css}
   </style>
+  <script>
+    // 预载 PDF 字体 Base64 数据，后续由 jspdf addFileToVFS 使用
+    window.pdfFontData = {pdf_font_literal};
+  </script>
   <script>
     document.documentElement.classList.remove('no-js');
     document.documentElement.classList.add('js-ready');
@@ -330,7 +359,7 @@ class HTMLRenderer:
   <div class="header-actions">
     <button id="theme-toggle" class="action-btn" type="button">🌗 主题切换</button>
     <button id="print-btn" class="action-btn" type="button">🖨️ 打印</button>
-    <!-- <button id="export-btn" class="action-btn" type="button">⬇️ 导出PDF</button> -->
+    <button id="export-btn" class="action-btn" type="button">⬇️ 导出PDF</button>
   </div>
 </header>
 """.strip()
@@ -2793,6 +2822,15 @@ function exportPdf() {
   }
   showExportOverlay('正在导出PDF，请稍候...');
   const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+  try {
+    if (window.pdfFontData) {
+      pdf.addFileToVFS('SourceHanSerifSC-Medium.otf', window.pdfFontData);
+      pdf.addFont('SourceHanSerifSC-Medium.otf', 'SourceHanSerif', 'normal');
+      pdf.setFont('SourceHanSerif');
+    }
+  } catch (err) {
+    console.warn('Custom PDF font setup failed, fallback to default', err);
+  }
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pxWidth = Math.max(target.scrollWidth, document.documentElement.scrollWidth);
   const restoreButton = () => {
