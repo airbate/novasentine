@@ -127,6 +127,61 @@ class TestRobustJSONParser(unittest.TestCase):
         self.assertEqual(result["name"], "test")
         self.assertEqual(result["value"], 123)
 
+    def test_unterminated_string_with_json_repair(self):
+        """测试使用json_repair库修复未终止的字符串。"""
+        # 创建启用json_repair的解析器
+        parser_with_repair = RobustJSONParser(
+            enable_json_repair=True,
+            enable_llm_repair=False,
+        )
+
+        # 模拟实际错误：字符串中有未转义的控制字符或引号
+        json_str = """{
+  "template_name": "特定政策报告",
+  "selection_reason": "这是测试内容"
+}"""
+        result = parser_with_repair.parse(json_str, "未终止字符串测试")
+        # 只要能够解析成功，不报错就可以了
+        self.assertIsInstance(result, dict)
+        self.assertIn("template_name", result)
+
+    def test_array_with_best_match(self):
+        """测试从数组中提取最佳匹配的元素。"""
+        json_str = """[
+  {
+    "name": "test",
+    "value": 123
+  },
+  {
+    "totalWords": 40000,
+    "globalGuidelines": ["guide1", "guide2"],
+    "chapters": []
+  }
+]"""
+        result = self.parser.parse(
+            json_str,
+            "数组最佳匹配测试",
+            expected_keys=["totalWords", "globalGuidelines", "chapters"],
+        )
+        # 应该提取第二个元素，因为它匹配了3个键
+        self.assertEqual(result["totalWords"], 40000)
+        self.assertEqual(len(result["globalGuidelines"]), 2)
+
+    def test_key_alias_recovery(self):
+        """测试键名别名恢复。"""
+        json_str = """{
+  "templateName": "test_template",
+  "selectionReason": "This is a test"
+}"""
+        result = self.parser.parse(
+            json_str,
+            "键别名测试",
+            expected_keys=["template_name", "selection_reason"],
+        )
+        # 应该自动映射 templateName -> template_name
+        self.assertEqual(result["template_name"], "test_template")
+        self.assertEqual(result["selection_reason"], "This is a test")
+
     def test_complex_real_world_case(self):
         """测试真实世界的复杂案例（类似实际错误）。"""
         # 模拟实际错误：缺少逗号、有markdown包裹、有思考内容

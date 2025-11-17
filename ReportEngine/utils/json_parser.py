@@ -610,9 +610,34 @@ class RobustJSONParser:
 
         # 验证数据类型
         if not isinstance(data, dict):
-            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                logger.warning(f"{context_name} 返回数组，自动提取第一个元素")
-                data = data[0]
+            if isinstance(data, list):
+                if len(data) > 0:
+                    # 尝试找到最符合期望的元素
+                    best_match = None
+                    max_match_count = 0
+
+                    for item in data:
+                        if isinstance(item, dict):
+                            if expected_keys:
+                                # 计算匹配的键数量
+                                match_count = sum(1 for key in expected_keys if key in item)
+                                if match_count > max_match_count:
+                                    max_match_count = match_count
+                                    best_match = item
+                            elif best_match is None:
+                                best_match = item
+
+                    if best_match:
+                        logger.warning(
+                            f"{context_name} 返回数组，自动提取最佳匹配元素（匹配{max_match_count}/{len(expected_keys or [])}个键）"
+                        )
+                        data = best_match
+                    else:
+                        raise JSONParseError(
+                            f"{context_name} 返回的数组中没有有效的对象"
+                        )
+                else:
+                    raise JSONParseError(f"{context_name} 返回空数组")
             else:
                 raise JSONParseError(
                     f"{context_name} 返回的不是JSON对象: {type(data).__name__}"
@@ -625,6 +650,43 @@ class RobustJSONParser:
                 logger.warning(
                     f"{context_name} 缺少预期的键: {', '.join(missing_keys)}"
                 )
+                # 尝试修复常见的键名变体
+                data = self._try_recover_missing_keys(data, missing_keys, context_name)
+
+        return data
+
+    def _try_recover_missing_keys(
+        self, data: Dict[str, Any], missing_keys: List[str], context_name: str
+    ) -> Dict[str, Any]:
+        """
+        尝试从数据中恢复缺失的键，通过查找相似的键名。
+
+        参数:
+            data: 原始数据
+            missing_keys: 缺失的键列表
+            context_name: 上下文名称
+
+        返回:
+            Dict[str, Any]: 修复后的数据
+        """
+        # 常见的键名映射
+        key_aliases = {
+            "template_name": ["templateName", "name", "template"],
+            "selection_reason": ["selectionReason", "reason", "explanation"],
+            "title": ["reportTitle", "documentTitle"],
+            "chapters": ["chapterList", "chapterPlan", "sections"],
+            "totalWords": ["total_words", "wordCount", "totalWordCount"],
+        }
+
+        for missing_key in missing_keys:
+            if missing_key in key_aliases:
+                for alias in key_aliases[missing_key]:
+                    if alias in data:
+                        logger.info(
+                            f"{context_name} 找到键'{missing_key}'的别名'{alias}'，自动映射"
+                        )
+                        data[missing_key] = data[alias]
+                        break
 
         return data
 
