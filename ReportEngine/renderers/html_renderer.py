@@ -8,6 +8,8 @@ import ast
 import copy
 import html
 import json
+import os
+from pathlib import Path
 from typing import Any, Dict, List
 
 
@@ -61,6 +63,38 @@ class HTMLRenderer:
         self.secondary_heading_index = 0
         self.toc_rendered = False
         self.hero_kpi_signature: tuple | None = None
+        self._lib_cache: Dict[str, str] = {}
+
+    @staticmethod
+    def _get_lib_path() -> Path:
+        """获取第三方库文件的目录路径"""
+        return Path(__file__).parent / "libs"
+
+    def _load_lib(self, filename: str) -> str:
+        """
+        加载指定的第三方库文件内容
+
+        参数:
+            filename: 库文件名
+
+        返回:
+            str: 库文件的JavaScript代码内容
+        """
+        if filename in self._lib_cache:
+            return self._lib_cache[filename]
+
+        lib_path = self._get_lib_path() / filename
+        try:
+            with open(lib_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                self._lib_cache[filename] = content
+                return content
+        except FileNotFoundError:
+            print(f"警告: 库文件 {filename} 未找到，将使用CDN备用链接")
+            return ""
+        except Exception as e:
+            print(f"警告: 读取库文件 {filename} 时出错: {e}")
+            return ""
 
     # ====== 公共入口 ======
 
@@ -147,16 +181,31 @@ class HTMLRenderer:
             str: head片段HTML。
         """
         css = self._build_css(theme_tokens)
+
+        # 加载第三方库
+        chartjs = self._load_lib("chart.js")
+        chartjs_sankey = self._load_lib("chartjs-chart-sankey.js")
+        html2canvas = self._load_lib("html2canvas.min.js")
+        jspdf = self._load_lib("jspdf.umd.min.js")
+        mathjax = self._load_lib("mathjax.js")
+
+        # 如果库文件加载失败，使用CDN备用链接
+        chartjs_tag = f"<script>{chartjs}</script>" if chartjs else '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>'
+        sankey_tag = f"<script>{chartjs_sankey}</script>" if chartjs_sankey else '<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@4"></script>'
+        html2canvas_tag = f"<script>{html2canvas}</script>" if html2canvas else '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>'
+        jspdf_tag = f"<script>{jspdf}</script>" if jspdf else '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>'
+        mathjax_tag = f"<script defer>{mathjax}</script>" if mathjax else '<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>'
+
         return f"""
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{self._escape_html(title)}</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@4"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  {chartjs_tag}
+  {sankey_tag}
+  {html2canvas_tag}
+  {jspdf_tag}
   <script>
     window.MathJax = {{
       tex: {{
@@ -169,7 +218,7 @@ class HTMLRenderer:
       }}
     }};
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  {mathjax_tag}
   <style>
 {css}
   </style>
