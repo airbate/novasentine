@@ -1602,10 +1602,28 @@ class HTMLRenderer:
 
     def _build_css(self, tokens: Dict[str, Any]) -> str:
         """根据主题token拼接整页CSS，包括响应式与打印样式"""
-        colors = tokens.get("colors") or {}
-        typography = tokens.get("typography") or {}
-        fonts = tokens.get("fonts") or typography.get("fontFamily") or {}
-        spacing = tokens.get("spacing") or {}
+        # 安全获取各个配置项，确保都是字典类型
+        colors_raw = tokens.get("colors")
+        colors = colors_raw if isinstance(colors_raw, dict) else {}
+
+        typography_raw = tokens.get("typography")
+        typography = typography_raw if isinstance(typography_raw, dict) else {}
+
+        # 安全获取fonts，确保是字典类型
+        fonts_raw = tokens.get("fonts") or typography.get("fonts")
+        if isinstance(fonts_raw, dict):
+            fonts = fonts_raw
+        else:
+            # 如果fonts是字符串或None，构造一个字典
+            font_family = typography.get("fontFamily")
+            if isinstance(font_family, str):
+                fonts = {"body": font_family, "heading": font_family}
+            else:
+                fonts = {}
+
+        spacing_raw = tokens.get("spacing")
+        spacing = spacing_raw if isinstance(spacing_raw, dict) else {}
+
         primary_palette = self._resolve_color_family(
             colors.get("primary"),
             {"main": "#1a365d", "light": "#2d3748", "dark": "#0f1a2d"},
