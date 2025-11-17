@@ -2062,6 +2062,12 @@ body.exporting {{
   margin: 0;
   font-size: 1rem;
 }}
+.exporting *,
+.exporting *::before,
+.exporting *::after {{
+  animation: none !important;
+  transition: none !important;
+}}
 .export-progress {{
   width: 220px;
   height: 6px;
@@ -2120,6 +2126,10 @@ p {{
 ul, ol {{
   margin-left: 1.5em;
   padding-left: 0;
+}}
+img, canvas, svg {{
+  max-width: 100%;
+  height: auto;
 }}
 .meta-card {{
   background: rgba(0,0,0,0.02);
@@ -2344,21 +2354,38 @@ pre.code-block {{
   }}
   .chapter > *,
   .hero-section,
-  .callout,
-  .chart-card,
-  .kpi-grid,
-  .table-wrap,
-  figure,
-  blockquote {{
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }}
-  .chapter h2,
-  .chapter h3,
-  .chapter h4 {{
-    break-after: avoid;
-    page-break-after: avoid;
-  }}
+.callout,
+.chart-card,
+.kpi-grid,
+.table-wrap,
+figure,
+blockquote {{
+  break-inside: avoid;
+  page-break-inside: avoid;
+}}
+.chapter h2,
+.chapter h3,
+.chapter h4 {{
+  break-after: avoid;
+  page-break-after: avoid;
+  break-inside: avoid;
+}}
+.chart-card,
+.table-wrap {{
+  overflow: visible !important;
+}}
+.chart-card canvas {{
+  width: 100% !important;
+  height: auto !important;
+}}
+.table-wrap table {{
+  table-layout: fixed;
+  width: 100%;
+}}
+.table-wrap table th,
+.table-wrap table td {{
+  word-break: break-word;
+}}
 }}
 """
 
@@ -2821,6 +2848,7 @@ function exportPdf() {
     exportBtn.disabled = true;
   }
   showExportOverlay('正在导出PDF，请稍候...');
+  document.body.classList.add('exporting');
   const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
   try {
     if (window.pdfFontData) {
@@ -2832,14 +2860,25 @@ function exportPdf() {
     console.warn('Custom PDF font setup failed, fallback to default', err);
   }
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const pxWidth = Math.max(target.scrollWidth, document.documentElement.scrollWidth);
+  const pxWidth = Math.max(
+    target.scrollWidth,
+    document.documentElement.scrollWidth,
+    Math.round(pageWidth * 3.78)
+  );
   const restoreButton = () => {
     if (exportBtn) {
       exportBtn.disabled = false;
     }
+    document.body.classList.remove('exporting');
   };
   let renderTask;
   try {
+    // force charts to rerender at full width before capture
+    chartRegistry.forEach(chart => {
+      if (chart && typeof chart.resize === 'function') {
+        chart.resize();
+      }
+    });
     renderTask = pdf.html(target, {
       x: 8,
       y: 12,
@@ -2847,14 +2886,24 @@ function exportPdf() {
       margin: [12, 12, 20, 12],
       autoPaging: 'text',
       windowWidth: pxWidth,
+      html2canvas: {
+        scale: Math.min(1.2, Math.max(0.8, pageWidth / (target.clientWidth || pageWidth))),
+        useCORS: true,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        logging: false
+      },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.chapter > *', '.callout', '.chart-card', '.table-wrap', '.kpi-grid', '.hero-section']
-      },
-      html2canvas: {
-        scale: 0.72,
-        useCORS: true,
-        logging: false
+        avoid: [
+          '.chapter > *',
+          '.callout',
+          '.chart-card',
+          '.table-wrap',
+          '.kpi-grid',
+          '.hero-section'
+        ],
+        before: '.chapter-divider'
       },
       callback: (doc) => doc.save('report.pdf')
     });
