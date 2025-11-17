@@ -108,18 +108,13 @@ class RobustJSONParser:
         if not raw_text or not raw_text.strip():
             raise JSONParseError(f"{context_name}返回空内容")
 
-        # 步骤1: 清理markdown标记和思考内容
-        cleaned = self._clean_response(raw_text)
+        # 原始文本用于后续日志
+        original_text = raw_text
 
-        # 步骤2: 收集候选payload
-        candidates = [cleaned]
+        # 步骤1: 构造候选集，包含不同清理策略
+        candidates = self._build_candidate_payloads(raw_text, context_name)
 
-        # 步骤3: 应用本地修复策略
-        local_repaired = self._apply_local_repairs(cleaned)
-        if local_repaired != cleaned:
-            candidates.append(local_repaired)
-
-        # 步骤4: 尝试解析所有候选
+        # 步骤2: 尝试解析所有候选
         last_error: Optional[json.JSONDecodeError] = None
         for i, candidate in enumerate(candidates):
             try:
@@ -132,7 +127,9 @@ class RobustJSONParser:
                 last_error = exc
                 logger.debug(f"{context_name} 候选{i + 1}解析失败: {exc}")
 
-        # 步骤5: 使用json_repair库
+        cleaned = candidates[0] if candidates else original_text
+
+        # 步骤3: 使用json_repair库
         if self.enable_json_repair:
             repaired = self._attempt_json_repair(cleaned, context_name)
             if repaired:
@@ -146,7 +143,7 @@ class RobustJSONParser:
                     last_error = exc
                     logger.debug(f"{context_name} json_repair修复后仍无法解析: {exc}")
 
-        # 步骤6: 使用LLM修复（如果启用）
+        # 步骤4: 使用LLM修复（如果启用）
         if self.enable_llm_repair and self.llm_repair_fn:
             llm_repaired = self._attempt_llm_repair(cleaned, str(last_error), context_name)
             if llm_repaired:
@@ -163,8 +160,29 @@ class RobustJSONParser:
         # 所有策略都失败了
         error_msg = f"{context_name} JSON解析失败: {last_error}"
         logger.error(error_msg)
-        logger.debug(f"原始文本前500字符: {raw_text[:500]}")
-        raise JSONParseError(error_msg, raw_text=raw_text) from last_error
+        logger.debug(f"原始文本前500字符: {original_text[:500]}")
+        raise JSONParseError(error_msg, raw_text=original_text) from last_error
+
+    def _build_candidate_payloads(self, raw_text: str, context_name: str) -> List[str]:
+        """
+        针对原始文本构造多个候选JSON字符串，覆盖不同的清理策略。
+
+        返回:
+            List[str]: 候选JSON文本列表
+        """
+        cleaned = self._clean_response(raw_text)
+        candidates = [cleaned]
+
+        local_repaired = self._apply_local_repairs(cleaned)
+        if local_repaired != cleaned:
+            candidates.append(local_repaired)
+
+        # 对含有三层列表结构的内容强制拉平一次
+        flattened = self._flatten_nested_arrays(local_repaired)
+        if flattened not in candidates:
+            candidates.append(flattened)
+
+        return candidates
 
     def _clean_response(self, raw: str) -> str:
         """
@@ -299,6 +317,12 @@ class RobustJSONParser:
         repaired, commas_fixed = self._fix_missing_commas(repaired)
         if commas_fixed:
             logger.warning("检测到对象/数组之间缺少逗号，已自动补齐")
+            mutated = True
+
+        # 合并多余的方括号（LLM常见把二维列表层级写成三层）
+        repaired, brackets_collapsed = self._collapse_redundant_brackets(repaired)
+        if brackets_collapsed:
+            logger.warning("检测到连续的方括号嵌套，已尝试折叠为二维结构")
             mutated = True
 
         # 平衡括号
@@ -443,6 +467,46 @@ class RobustJSONParser:
             i += 1
 
         return "".join(chars), mutated
+
+    def _collapse_redundant_brackets(self, text: str) -> Tuple[str, bool]:
+        """
+        针对LLM生成的三层或更多层数组（如]]], [[ / [[[）进行折叠，避免表格/列表写出额外维度。
+
+        返回:
+            Tuple[str, bool]: (修复后的文本, 是否有修改)
+        """
+        if not text:
+            return text, False
+
+        mutated = False
+
+        patterns = [
+            # 典型错误: "]]], [[{...}" -> "]], [{...}"
+            (re.compile(r"\]\s*\]\s*\]\s*,\s*\[\s*\["), "]],["),
+            # 极端情况: 连续三层开头 "[[[" -> "[["
+            (re.compile(r"\[\s*\[\s*\["), "[["),
+            # 极端情况: 结尾 "]]]" -> "]]"
+            (re.compile(r"\]\s*\]\s*\]"), "]]"),
+        ]
+
+        repaired = text
+        for pattern, replacement in patterns:
+            new_text, count = pattern.subn(replacement, repaired)
+            if count > 0:
+                mutated = True
+                repaired = new_text
+
+        return repaired, mutated
+
+    def _flatten_nested_arrays(self, text: str) -> str:
+        """
+        对明显多余的一层列表进行折叠，例如 [[[x]]] -> [[x]]。
+        """
+        if not text:
+            return text
+        text = re.sub(r"\]\s*\]\s*\]", "]]", text)
+        text = re.sub(r"\[\s*\[\s*\[", "[[", text)
+        return text
 
     def _balance_brackets(self, text: str) -> Tuple[str, bool]:
         """
