@@ -51,12 +51,12 @@ class RobustJSONParser:
 
     # 常见的LLM思考内容模式
     _THINKING_PATTERNS = [
-        r"<thinking>.*?</thinking>",
-        r"<thought>.*?</thought>",
-        r"让我想想.*?(?=\{|\[|$)",
-        r"首先.*?(?=\{|\[|$)",
-        r"分析.*?(?=\{|\[|$)",
-        r"根据.*?(?=\{|\[|$)",
+        r"^\s*<thinking>.*?</thinking>\s*",
+        r"^\s*<thought>.*?</thought>\s*",
+        r"^\s*让我想想.*?(?=\{|\[|$)",
+        r"^\s*首先.*?(?=\{|\[|$)",
+        r"^\s*分析.*?(?=\{|\[|$)",
+        r"^\s*根据.*?(?=\{|\[|$)",
     ]
 
     # 冒号等号模式（LLM常见错误）
@@ -182,16 +182,21 @@ class RobustJSONParser:
         for pattern in self._THINKING_PATTERNS:
             cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
-        # 移除markdown代码块标记
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        elif cleaned.startswith("```"):
-            cleaned = cleaned[3:]
+        # 优先提取任意位置的```json```包裹内容
+        fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
+        if fenced_match:
+            cleaned = fenced_match.group(1).strip()
+        else:
+            # 如果没有找到完整代码块，再尝试移除前后缀
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            elif cleaned.startswith("```"):
+                cleaned = cleaned[3:]
 
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
 
-        cleaned = cleaned.strip()
+            cleaned = cleaned.strip()
 
         # 尝试提取第一个完整的JSON对象或数组
         cleaned = self._extract_first_json_structure(cleaned)
