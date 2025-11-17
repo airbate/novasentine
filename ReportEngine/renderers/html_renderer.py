@@ -11,6 +11,15 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+from loguru import logger
+
+from ReportEngine.utils.chart_validator import (
+    ChartValidator,
+    ChartRepairer,
+    create_chart_validator,
+    create_chart_repairer
+)
+from ReportEngine.utils.chart_repair_api import create_llm_repair_functions
 
 
 class HTMLRenderer:
@@ -64,6 +73,23 @@ class HTMLRenderer:
         self.toc_rendered = False
         self.hero_kpi_signature: tuple | None = None
         self._lib_cache: Dict[str, str] = {}
+
+        # 初始化图表验证和修复器
+        self.chart_validator = create_chart_validator()
+        llm_repair_fns = create_llm_repair_functions()
+        self.chart_repairer = create_chart_repairer(
+            validator=self.chart_validator,
+            llm_repair_fns=llm_repair_fns
+        )
+
+        # 统计信息
+        self.chart_validation_stats = {
+            'total': 0,
+            'valid': 0,
+            'repaired_locally': 0,
+            'repaired_api': 0,
+            'failed': 0
+        }
 
     @staticmethod
     def _get_lib_path() -> Path:
@@ -124,6 +150,15 @@ class HTMLRenderer:
         self.heading_label_map = self._compute_heading_labels(self.chapters)
         self.toc_entries = self._collect_toc_entries(self.chapters)
 
+        # 重置图表验证统计
+        self.chart_validation_stats = {
+            'total': 0,
+            'valid': 0,
+            'repaired_locally': 0,
+            'repaired_api': 0,
+            'failed': 0
+        }
+
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
         title = metadata.get("title") or metadata.get("query") or "智能舆情报告"
@@ -132,6 +167,10 @@ class HTMLRenderer:
 
         head = self._render_head(title, theme_tokens)
         body = self._render_body()
+
+        # 输出图表验证统计
+        self._log_chart_validation_stats()
+
         return f"<!DOCTYPE html>\n<html lang=\"zh-CN\" class=\"no-js\">\n{head}\n{body}\n</html>"
 
     # ====== 头部 / 正文 ======
@@ -1150,12 +1189,66 @@ class HTMLRenderer:
         """
         渲染Chart.js等交互组件的占位容器，并记录配置JSON。
 
+        在渲染前进行图表验证和修复：
+        1. 验证图表数据格式
+        2. 如果无效，尝试本地修复
+        3. 如果本地修复失败，尝试API修复
+        4. 如果所有修复都失败，使用原始数据（前端会降级处理）
+
         参数:
             block: widget类型的block，包含widgetId/props/data。
 
         返回:
             str: 含canvas与配置脚本的HTML。
         """
+        # 统计
+        widget_type = block.get('widgetType', '')
+        is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
+
+        if is_chart:
+            self.chart_validation_stats['total'] += 1
+
+            # 验证图表数据
+            validation_result = self.chart_validator.validate(block)
+
+            if not validation_result.is_valid:
+                logger.warning(
+                    f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
+                )
+
+                # 尝试修复
+                repair_result = self.chart_repairer.repair(block, validation_result)
+
+                if repair_result.success and repair_result.repaired_block:
+                    # 修复成功，使用修复后的数据
+                    block = repair_result.repaired_block
+                    logger.info(
+                        f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
+                        f"(方法: {repair_result.method}): {repair_result.changes}"
+                    )
+
+                    # 更新统计
+                    if repair_result.method == 'local':
+                        self.chart_validation_stats['repaired_locally'] += 1
+                    elif repair_result.method == 'api':
+                        self.chart_validation_stats['repaired_api'] += 1
+                else:
+                    # 修复失败，使用原始数据，前端会尝试降级渲染
+                    logger.warning(
+                        f"图表 {block.get('widgetId', 'unknown')} 修复失败，"
+                        f"将使用原始数据（前端会尝试降级渲染或显示fallback）"
+                    )
+                    self.chart_validation_stats['failed'] += 1
+            else:
+                # 验证通过
+                self.chart_validation_stats['valid'] += 1
+                if validation_result.warnings:
+                    logger.info(
+                        f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
+                        f"但有警告: {validation_result.warnings}"
+                    )
+
+        # 渲染图表HTML
         self.chart_counter += 1
         canvas_id = f"chart-{self.chart_counter}"
         config_id = f"chart-config-{self.chart_counter}"
@@ -1219,6 +1312,39 @@ class HTMLRenderer:
         </div>
         """
         return table_html
+
+    def _log_chart_validation_stats(self):
+        """输出图表验证统计信息"""
+        stats = self.chart_validation_stats
+        if stats['total'] == 0:
+            return
+
+        logger.info("=" * 60)
+        logger.info("图表验证统计")
+        logger.info("=" * 60)
+        logger.info(f"总图表数量: {stats['total']}")
+        logger.info(f"  ✓ 验证通过: {stats['valid']} ({stats['valid']/stats['total']*100:.1f}%)")
+
+        if stats['repaired_locally'] > 0:
+            logger.info(
+                f"  ⚠ 本地修复: {stats['repaired_locally']} "
+                f"({stats['repaired_locally']/stats['total']*100:.1f}%)"
+            )
+
+        if stats['repaired_api'] > 0:
+            logger.info(
+                f"  ⚠ API修复: {stats['repaired_api']} "
+                f"({stats['repaired_api']/stats['total']*100:.1f}%)"
+            )
+
+        if stats['failed'] > 0:
+            logger.warning(
+                f"  ✗ 修复失败: {stats['failed']} "
+                f"({stats['failed']/stats['total']*100:.1f}%) - "
+                f"这些图表将使用降级渲染或显示fallback表格"
+            )
+
+        logger.info("=" * 60)
 
     # ====== 前置信息防护 ======
 
@@ -2317,6 +2443,80 @@ function buildChartOptions(payload) {
   return mergeOptions(baseOptions, overrideOptions);
 }
 
+function validateChartData(payload, type) {
+  /**
+   * 前端验证图表数据
+   * 返回: { valid: boolean, errors: string[] }
+   */
+  const errors = [];
+
+  if (!payload || typeof payload !== 'object') {
+    errors.push('无效的payload');
+    return { valid: false, errors };
+  }
+
+  const data = payload.data;
+  if (!data || typeof data !== 'object') {
+    errors.push('缺少data字段');
+    return { valid: false, errors };
+  }
+
+  // 特殊图表类型（scatter, bubble）
+  const specialTypes = { 'scatter': true, 'bubble': true };
+  if (specialTypes[type]) {
+    // 这些类型需要特殊的数据格式 {x, y} 或 {x, y, r}
+    // 跳过标准验证
+    return { valid: true, errors };
+  }
+
+  // 标准图表类型验证
+  const datasets = data.datasets;
+  if (!Array.isArray(datasets)) {
+    errors.push('datasets必须是数组');
+    return { valid: false, errors };
+  }
+
+  if (datasets.length === 0) {
+    errors.push('datasets数组为空');
+    return { valid: false, errors };
+  }
+
+  // 验证每个dataset
+  for (let i = 0; i < datasets.length; i++) {
+    const dataset = datasets[i];
+    if (!dataset || typeof dataset !== 'object') {
+      errors.push(`datasets[${i}]不是对象`);
+      continue;
+    }
+
+    if (!Array.isArray(dataset.data)) {
+      errors.push(`datasets[${i}].data不是数组`);
+    } else if (dataset.data.length === 0) {
+      errors.push(`datasets[${i}].data为空`);
+    }
+  }
+
+  // 需要labels的图表类型
+  const labelRequiredTypes = {
+    'line': true, 'bar': true, 'radar': true,
+    'polarArea': true, 'pie': true, 'doughnut': true
+  };
+
+  if (labelRequiredTypes[type]) {
+    const labels = data.labels;
+    if (!Array.isArray(labels)) {
+      errors.push('缺少labels数组');
+    } else if (labels.length === 0) {
+      errors.push('labels数组为空');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
 function instantiateChart(ctx, payload, optionsTemplate, type) {
   if (!ctx) {
     return null;
@@ -2358,9 +2558,17 @@ function hydrateCharts() {
       renderChartFallback(canvas, payload, 'Canvas 初始化失败');
       return;
     }
+
+    // 前端数据验证
+    const desiredType = chartTypes[0];
+    const validation = validateChartData(payload, desiredType);
+    if (!validation.valid) {
+      console.warn('图表数据验证失败:', validation.errors);
+      // 验证失败但仍然尝试渲染，因为可能会降级成功
+    }
+
     const card = canvas.closest('.chart-card') || canvas.parentElement;
     const optionsTemplate = buildChartOptions(payload);
-    const desiredType = chartTypes[0];
     let chartInstance = null;
     let selectedType = null;
     let lastError;
