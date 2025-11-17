@@ -25,6 +25,7 @@ from ..prompts import (
     build_chapter_recovery_payload,
     build_chapter_user_prompt,
 )
+from ..utils.json_parser import RobustJSONParser, JSONParseError
 from .base_node import BaseNode
 
 try:
@@ -143,6 +144,11 @@ class ChapterGenerationNode(BaseNode):
         self._rescue_attempted_labels: Dict[str, Set[str]] = {}
         self._skipped_placeholder_chapters: Set[str] = set()
         self._archived_failed_json: Dict[str, str] = {}
+        # 兜底使用更鲁棒的JSON解析器，尽可能拆出合法块
+        self._robust_parser = RobustJSONParser(
+            enable_json_repair=True,
+            enable_llm_repair=False,
+        )
 
     def run(
         self,
@@ -551,6 +557,7 @@ class ChapterGenerationNode(BaseNode):
         if repaired != cleaned:
             candidate_payloads.append(repaired)
 
+        data: Dict[str, Any] | None = None
         try:
             data = self._parse_with_candidates(candidate_payloads)
         except json.JSONDecodeError as exc:
@@ -559,14 +566,19 @@ class ChapterGenerationNode(BaseNode):
                 candidate_payloads.append(repaired_payload)
                 try:
                     data = self._parse_with_candidates(candidate_payloads[-1:])
-                except json.JSONDecodeError as inner_exc:
+                except json.JSONDecodeError:
+                    data = None
+            if data is None:
+                try:
+                    data = self._robust_parser.parse(
+                        cleaned,
+                        context_name="ChapterJSON",
+                        expected_keys=["chapter", "blocks", "chapterId", "title"],
+                    )
+                except JSONParseError as robust_exc:
                     raise ChapterJsonParseError(
-                        f"章节JSON解析失败: {inner_exc}", raw_text=cleaned
-                    ) from inner_exc
-            else:
-                raise ChapterJsonParseError(
-                    f"章节JSON解析失败: {exc}", raw_text=cleaned
-                ) from exc
+                        f"章节JSON解析失败: {robust_exc}", raw_text=cleaned
+                    ) from robust_exc
 
         if "chapter" in data and isinstance(data["chapter"], dict):
             return data["chapter"]
