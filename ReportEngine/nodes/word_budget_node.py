@@ -14,6 +14,7 @@ from ..prompts import (
     SYSTEM_PROMPT_WORD_BUDGET,
     build_word_budget_prompt,
 )
+from ..utils.json_parser import RobustJSONParser, JSONParseError
 from .base_node import BaseNode
 
 
@@ -27,6 +28,12 @@ class WordBudgetNode(BaseNode):
     def __init__(self, llm_client):
         """仅记录LLM客户端引用，方便run阶段发起请求"""
         super().__init__(llm_client, "WordBudgetNode")
+        # 初始化鲁棒JSON解析器，启用所有修复策略
+        self.json_parser = RobustJSONParser(
+            enable_json_repair=True,
+            enable_llm_repair=False,  # 可以根据需要启用LLM修复
+            max_repair_attempts=3,
+        )
 
     def run(
         self,
@@ -79,8 +86,14 @@ class WordBudgetNode(BaseNode):
         """
         将LLM输出的JSON文本转为字典，失败时提示规划异常。
 
+        使用鲁棒JSON解析器进行多重修复尝试：
+        1. 清理markdown标记和思考内容
+        2. 本地语法修复（括号平衡、逗号补全、控制字符转义等）
+        3. 使用json_repair库进行高级修复
+        4. 可选的LLM辅助修复
+
         参数:
-            raw: LLM返回值，可能包含```包裹。
+            raw: LLM返回值，可能包含```包裹、思考内容等。
 
         返回:
             dict: 合法的篇幅规划JSON。
@@ -88,19 +101,25 @@ class WordBudgetNode(BaseNode):
         异常:
             ValueError: 当响应为空或JSON解析失败时抛出。
         """
-        cleaned = raw.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        if not cleaned:
-            raise ValueError("篇幅规划LLM返回空内容")
         try:
-            return json.loads(cleaned)
-        except json.JSONDecodeError as exc:
+            result = self.json_parser.parse(
+                raw,
+                context_name="篇幅规划",
+                expected_keys=["totalWords", "globalGuidelines", "chapters"],
+            )
+            # 验证关键字段的类型
+            if not isinstance(result.get("totalWords"), (int, float)):
+                logger.warning("篇幅规划缺少totalWords字段或类型错误，使用默认值")
+                result.setdefault("totalWords", 10000)
+            if not isinstance(result.get("globalGuidelines"), list):
+                logger.warning("篇幅规划缺少globalGuidelines字段或类型错误，使用空列表")
+                result.setdefault("globalGuidelines", [])
+            if not isinstance(result.get("chapters"), (list, dict)):
+                logger.warning("篇幅规划缺少chapters字段或类型错误，使用空列表")
+                result.setdefault("chapters", [])
+            return result
+        except JSONParseError as exc:
+            # 转换为原有的异常类型以保持向后兼容
             raise ValueError(f"篇幅规划JSON解析失败: {exc}") from exc
 
 

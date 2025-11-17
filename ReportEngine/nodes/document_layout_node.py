@@ -14,6 +14,7 @@ from ..prompts import (
     SYSTEM_PROMPT_DOCUMENT_LAYOUT,
     build_document_layout_prompt,
 )
+from ..utils.json_parser import RobustJSONParser, JSONParseError
 from .base_node import BaseNode
 
 
@@ -27,6 +28,12 @@ class DocumentLayoutNode(BaseNode):
     def __init__(self, llm_client):
         """记录LLM客户端并设置节点名字，供BaseNode日志使用"""
         super().__init__(llm_client, "DocumentLayoutNode")
+        # 初始化鲁棒JSON解析器，启用所有修复策略
+        self.json_parser = RobustJSONParser(
+            enable_json_repair=True,
+            enable_llm_repair=False,  # 可以根据需要启用LLM修复
+            max_repair_attempts=3,
+        )
 
     def run(
         self,
@@ -82,8 +89,14 @@ class DocumentLayoutNode(BaseNode):
         """
         解析LLM返回的JSON文本，若失败则抛出友好错误。
 
+        使用鲁棒JSON解析器进行多重修复尝试：
+        1. 清理markdown标记和思考内容
+        2. 本地语法修复（括号平衡、逗号补全、控制字符转义等）
+        3. 使用json_repair库进行高级修复
+        4. 可选的LLM辅助修复
+
         参数:
-            raw: LLM原始返回字符串，允许带```包裹。
+            raw: LLM原始返回字符串，允许带```包裹、思考内容等。
 
         返回:
             dict: 结构化的设计稿。
@@ -91,19 +104,25 @@ class DocumentLayoutNode(BaseNode):
         异常:
             ValueError: 当响应为空或JSON解析失败时抛出。
         """
-        cleaned = raw.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        if not cleaned:
-            raise ValueError("文档设计LLM返回空内容")
         try:
-            return json.loads(cleaned)
-        except json.JSONDecodeError as exc:
+            result = self.json_parser.parse(
+                raw,
+                context_name="文档设计",
+                expected_keys=["title", "toc", "hero"],
+            )
+            # 验证关键字段的类型
+            if not isinstance(result.get("title"), str):
+                logger.warning("文档设计缺少title字段或类型错误，使用默认值")
+                result.setdefault("title", "未命名报告")
+            if not isinstance(result.get("toc"), (list, dict)):
+                logger.warning("文档设计缺少toc字段或类型错误，使用空列表")
+                result.setdefault("toc", [])
+            if not isinstance(result.get("hero"), dict):
+                logger.warning("文档设计缺少hero字段或类型错误，使用空对象")
+                result.setdefault("hero", {})
+            return result
+        except JSONParseError as exc:
+            # 转换为原有的异常类型以保持向后兼容
             raise ValueError(f"文档设计JSON解析失败: {exc}") from exc
 
 

@@ -216,8 +216,17 @@ SYSTEM_PROMPT_TEMPLATE_SELECTION = f"""
 {json.dumps(output_schema_template_selection, indent=2, ensure_ascii=False)}
 </OUTPUT JSON SCHEMA>
 
-确保输出是一个符合上述输出JSON模式定义的JSON对象。
-只返回JSON对象，不要有解释或额外文本。
+**重要的输出格式要求：**
+1. 只返回符合上述Schema的纯JSON对象
+2. 严禁在JSON外添加任何思考过程、说明文字或解释
+3. 可以使用```json和```标记包裹JSON，但不要添加其他内容
+4. 确保JSON语法完全正确：
+   - 对象和数组元素之间必须有逗号分隔
+   - 字符串中的特殊字符必须正确转义（\n, \t, \"等）
+   - 括号必须成对且正确嵌套
+   - 不要使用尾随逗号（最后一个元素后不加逗号）
+   - 不要在JSON中添加注释
+5. 所有字符串值使用双引号，数值不使用引号
 """
 
 # HTML报告生成的系统提示词
@@ -372,7 +381,17 @@ SYSTEM_PROMPT_DOCUMENT_LAYOUT = f"""
 {json.dumps(document_layout_output_schema, ensure_ascii=False, indent=2)}
 </OUTPUT JSON SCHEMA>
 
-只返回JSON，勿附加额外文本。
+**重要的输出格式要求：**
+1. 只返回符合上述Schema的纯JSON对象
+2. 严禁在JSON外添加任何思考过程、说明文字或解释
+3. 可以使用```json和```标记包裹JSON，但不要添加其他内容
+4. 确保JSON语法完全正确：
+   - 对象和数组元素之间必须有逗号分隔
+   - 字符串中的特殊字符必须正确转义（\n, \t, \"等）
+   - 括号必须成对且正确嵌套
+   - 不要使用尾随逗号（最后一个元素后不加逗号）
+   - 不要在JSON中添加注释
+5. 所有字符串值使用双引号，数值不使用引号
 """
 
 # 篇幅规划提示词
@@ -390,7 +409,17 @@ SYSTEM_PROMPT_WORD_BUDGET = f"""
 {json.dumps(word_budget_output_schema, ensure_ascii=False, indent=2)}
 </OUTPUT JSON SCHEMA>
 
-只返回JSON，无额外说明。
+**重要的输出格式要求：**
+1. 只返回符合上述Schema的纯JSON对象
+2. 严禁在JSON外添加任何思考过程、说明文字或解释
+3. 可以使用```json和```标记包裹JSON，但不要添加其他内容
+4. 确保JSON语法完全正确：
+   - 对象和数组元素之间必须有逗号分隔
+   - 字符串中的特殊字符必须正确转义（\n, \t, \"等）
+   - 括号必须成对且正确嵌套
+   - 不要使用尾随逗号（最后一个元素后不加逗号）
+   - 不要在JSON中添加注释
+5. 所有字符串值使用双引号，数值不使用引号
 """
 
 

@@ -12,6 +12,7 @@ from loguru import logger
 
 from .base_node import BaseNode
 from ..prompts import SYSTEM_PROMPT_TEMPLATE_SELECTION
+from ..utils.json_parser import RobustJSONParser, JSONParseError
 
 
 class TemplateSelectionNode(BaseNode):
@@ -25,13 +26,19 @@ class TemplateSelectionNode(BaseNode):
     def __init__(self, llm_client, template_dir: str = "ReportEngine/report_template"):
         """
         初始化模板选择节点
-        
+
         Args:
             llm_client: LLM客户端
             template_dir: 模板目录路径
         """
         super().__init__(llm_client, "TemplateSelectionNode")
         self.template_dir = template_dir
+        # 初始化鲁棒JSON解析器，启用所有修复策略
+        self.json_parser = RobustJSONParser(
+            enable_json_repair=True,
+            enable_llm_repair=False,
+            max_repair_attempts=3,
+        )
         
     def run(self, input_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """
@@ -137,20 +144,22 @@ class TemplateSelectionNode(BaseNode):
         
         # 调用LLM
         response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_TEMPLATE_SELECTION, user_message)
-        
+
         # 检查响应是否为空
         if not response or not response.strip():
             logger.error("LLM返回空响应")
             return None
-        
+
         logger.info(f"LLM原始响应: {response}")
-        
-        # 尝试解析JSON响应
+
+        # 尝试解析JSON响应，使用鲁棒解析器
         try:
-            # 清理响应文本
-            cleaned_response = self._clean_llm_response(response)
-            result = json.loads(cleaned_response)
-            
+            result = self.json_parser.parse(
+                response,
+                context_name="模板选择",
+                expected_keys=["template_name", "selection_reason"],
+            )
+
             # 验证选择的模板是否存在
             selected_template_name = result.get('template_name', '')
             for template in available_templates:
@@ -161,38 +170,16 @@ class TemplateSelectionNode(BaseNode):
                         'template_content': template['content'],
                         'selection_reason': result.get('selection_reason', 'LLM智能选择')
                     }
-            
+
             logger.error(f"LLM选择的模板不存在: {selected_template_name}")
             return None
-            
-        except json.JSONDecodeError as e:
+
+        except JSONParseError as e:
             logger.error(f"JSON解析失败: {str(e)}")
             # 尝试从文本响应中提取模板信息
             return self._extract_template_from_text(response, available_templates)
     
-    def _clean_llm_response(self, response: str) -> str:
-        """
-        清理LLM响应。
 
-        去掉 ```json``` 包裹以及前后空白，方便 `json.loads`。
-
-        参数:
-            response: LLM原始响应。
-
-        返回:
-            str: 适合直接做JSON解析的纯文本。
-        """
-        # 移除可能的markdown代码块标记
-        if '```json' in response:
-            response = response.split('```json')[1].split('```')[0]
-        elif '```' in response:
-            response = response.split('```')[1].split('```')[0]
-        
-        # 移除前后空白
-        response = response.strip()
-        
-        return response
-    
     def _extract_template_from_text(self, response: str, available_templates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """
         从文本响应中提取模板信息。
