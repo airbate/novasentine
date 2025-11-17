@@ -9,6 +9,7 @@ import copy
 import html
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 from loguru import logger
@@ -451,23 +452,44 @@ class HTMLRenderer:
             chapters: Document IR中的章节数组。
 
         返回:
-            list[dict]: 规范化后的目录条目，包含level/text/anchor。
+            list[dict]: 规范化后的目录条目，包含level/text/anchor/description。
         """
         metadata = self.metadata
         toc_config = metadata.get("toc") or {}
         custom_entries = toc_config.get("customEntries")
         entries: List[Dict[str, Any]] = []
+
         if custom_entries:
             for entry in custom_entries:
                 anchor = entry.get("anchor") or self.chapter_anchor_map.get(entry.get("chapterId"))
+
+                # 验证anchor是否有效
                 if not anchor:
+                    logger.warning(
+                        f"目录项 '{entry.get('display') or entry.get('title')}' "
+                        f"缺少有效的anchor，已跳过"
+                    )
                     continue
+
+                # 验证anchor是否在chapter_anchor_map中或在chapters的blocks中
+                anchor_valid = self._validate_toc_anchor(anchor, chapters)
+                if not anchor_valid:
+                    logger.warning(
+                        f"目录项 '{entry.get('display') or entry.get('title')}' "
+                        f"的anchor '{anchor}' 在文档中未找到对应的章节"
+                    )
+
+                # 清理描述文本
+                description = entry.get("description")
+                if description:
+                    description = self._clean_text_from_json_artifacts(description)
+
                 entries.append(
                     {
                         "level": entry.get("level", 2),
                         "text": entry.get("display") or entry.get("title") or "",
                         "anchor": anchor,
-                        "description": entry.get("description"),
+                        "description": description,
                     }
                 )
             return entries
@@ -479,15 +501,51 @@ class HTMLRenderer:
                     if not anchor:
                         continue
                     mapped = self.heading_label_map.get(anchor, {})
+                    # 清理描述文本
+                    description = mapped.get("description")
+                    if description:
+                        description = self._clean_text_from_json_artifacts(description)
                     entries.append(
                         {
                             "level": block.get("level", 2),
                             "text": mapped.get("display") or block.get("text", ""),
                             "anchor": anchor,
-                            "description": mapped.get("description"),
+                            "description": description,
                         }
                     )
         return entries
+
+    def _validate_toc_anchor(self, anchor: str, chapters: List[Dict[str, Any]]) -> bool:
+        """
+        验证目录anchor是否在文档中存在对应的章节或heading。
+
+        参数:
+            anchor: 需要验证的anchor
+            chapters: Document IR中的章节数组
+
+        返回:
+            bool: anchor是否有效
+        """
+        # 检查是否是章节anchor
+        if anchor in self.chapter_anchor_map.values():
+            return True
+
+        # 检查是否在heading_label_map中
+        if anchor in self.heading_label_map:
+            return True
+
+        # 检查章节的blocks中是否有这个anchor
+        for chapter in chapters or []:
+            chapter_anchor = chapter.get("anchor")
+            if chapter_anchor == anchor:
+                return True
+
+            for block in chapter.get("blocks", []):
+                block_anchor = block.get("anchor")
+                if block_anchor == anchor:
+                    return True
+
+        return False
 
     def _prepare_chapters(self, chapters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """复制章节并展开其中序列化的block，避免渲染缺失"""
@@ -640,6 +698,9 @@ class HTMLRenderer:
             str: `<li>` 形式的HTML。
         """
         desc = entry.get("description")
+        # 清理描述文本中的JSON片段
+        if desc:
+            desc = self._clean_text_from_json_artifacts(desc)
         desc_html = f'<p class="toc-desc">{self._escape_html(desc)}</p>' if desc else ""
         level = entry.get("level", 2)
         css_level = 1 if level <= 2 else min(level, 4)
@@ -1575,6 +1636,64 @@ class HTMLRenderer:
         return "".join(result)
 
     # ====== 文本 / 安全工具 ======
+
+    def _clean_text_from_json_artifacts(self, text: Any) -> str:
+        """
+        清理文本中的JSON片段和伪造的结构标记。
+
+        LLM有时会在文本字段中混入未完成的JSON片段，如：
+        "描述文本，{ \"chapterId\": \"S3" 或 "描述文本，{ \"level\": 2"
+
+        此方法会：
+        1. 移除不完整的JSON对象（以 { 开头但未正确闭合的）
+        2. 移除不完整的JSON数组（以 [ 开头但未正确闭合的）
+        3. 移除孤立的JSON键值对片段
+
+        参数:
+            text: 可能包含JSON片段的文本
+
+        返回:
+            str: 清理后的纯文本
+        """
+        if not text:
+            return ""
+
+        text_str = self._safe_text(text)
+
+        # 模式1: 移除以逗号+空白+{开头的不完整JSON对象
+        # 例如: "文本，{ \"key\": \"value\"" 或 "文本，{\\n  \"key\""
+        text_str = re.sub(r',\s*\{[^}]*$', '', text_str)
+
+        # 模式2: 移除以逗号+空白+[开头的不完整JSON数组
+        text_str = re.sub(r',\s*\[[^\]]*$', '', text_str)
+
+        # 模式3: 移除孤立的 { 加上后续内容（如果没有匹配的 }）
+        # 检查是否有未闭合的 {
+        open_brace_pos = text_str.rfind('{')
+        if open_brace_pos != -1:
+            close_brace_pos = text_str.rfind('}')
+            if close_brace_pos < open_brace_pos:
+                # { 在 } 后面或没有 }，说明是未闭合的
+                # 截断到 { 之前
+                text_str = text_str[:open_brace_pos].rstrip(',，、 \t\n')
+
+        # 模式4: 类似处理 [
+        open_bracket_pos = text_str.rfind('[')
+        if open_bracket_pos != -1:
+            close_bracket_pos = text_str.rfind(']')
+            if close_bracket_pos < open_bracket_pos:
+                # [ 在 ] 后面或没有 ]，说明是未闭合的
+                text_str = text_str[:open_bracket_pos].rstrip(',，、 \t\n')
+
+        # 模式5: 移除看起来像JSON键值对的片段，如 "chapterId": "S3
+        # 这种情况通常出现在上面的模式之后
+        text_str = re.sub(r',?\s*"[^"]+"\s*:\s*"[^"]*$', '', text_str)
+        text_str = re.sub(r',?\s*"[^"]+"\s*:\s*[^,}\]]*$', '', text_str)
+
+        # 清理末尾的逗号和空白
+        text_str = text_str.rstrip(',，、 \t\n')
+
+        return text_str.strip()
 
     def _safe_text(self, value: Any) -> str:
         """将任意值安全转换为字符串，None与复杂对象容错"""
