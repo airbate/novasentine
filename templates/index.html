@@ -2594,21 +2594,29 @@
             fetch('/api/forum/log')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.log_lines.length > forumLogLineCount) {
-                    console.log(`Forum: 发现新消息，当前行数: ${data.log_lines.length}, 上次处理: ${forumLogLineCount}`);
-                    
-                    // 只处理新增的日志行
-                    const newLines = data.log_lines.slice(forumLogLineCount);
-                    newLines.forEach((line, index) => {
-                        console.log(`Forum: 处理新行 ${forumLogLineCount + index + 1}: ${line}`);
-                        const parsed = parseForumMessage(line);
-                        if (parsed) {
-                            console.log(`Forum: 解析成功，添加消息:`, parsed);
-                            addForumMessage(parsed);
-                        }
+                if (!data.success) return;
+
+                const logLines = data.log_lines || [];
+                const parsedMessages = data.parsed_messages || [];
+
+                if (logLines.length > forumLogLineCount) {
+                    const newLines = logLines.slice(forumLogLineCount);
+                    newLines.forEach(line => {
+                        appendConsoleTextLine('forum', line);
                     });
-                    forumLogLineCount = data.log_lines.length;
                 }
+
+                if (parsedMessages.length > 0) {
+                    const chatArea = document.getElementById('forumChatArea');
+                    if (chatArea) {
+                        chatArea.innerHTML = '';
+                        parsedMessages.forEach(message => {
+                            addForumMessage(message);
+                        });
+                    }
+                }
+
+                forumLogLineCount = logLines.length;
             })
             .catch(error => {
                 console.error('刷新论坛消息失败:', error);
@@ -2626,51 +2634,28 @@
             fetch('/api/forum/log')
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // 清空对话区
-                    const chatArea = document.getElementById('forumChatArea');
-                    chatArea.innerHTML += `
-                        <div class="forum-message system">
-                            <div class="forum-message-header">SYSTEM</div>
-                            <div class="forum-message-content">ForumEngine 论坛已启动，ID：98fiaw4324dwadhsl21awhs908147</div>
-                            <div class="forum-timestamp">${new Date().toLocaleTimeString('zh-CN')}</div>
-                        </div>
-                    `;
-                    
-                    // 加载控制台日志
-                    if (data.log_lines && data.log_lines.length > 0) {
-                        if (forumLogLineCount === 0) {
-                            clearConsoleLayer('forum', '[系统] Forum Engine 日志输出');
-                        }
+                if (!data.success) return;
 
-                        const newLines = data.log_lines.slice(forumLogLineCount);
-                        const linesToProcess = forumLogLineCount === 0 ? data.log_lines : newLines;
-
-                        linesToProcess.forEach(line => {
-                            appendConsoleTextLine('forum', line);
-                            
-                            // 解析并添加到对话区
-                            const parsed = parseForumMessage(line);
-                            //if (parsed) {
-                                //addForumMessage(parsed);
-                            //}
-                        });
-                        
-                        // 重置计数器以确保后续消息能正确显示
-                        forumLogLineCount = data.log_lines.length;
-                    } else {
-                        // 如果没有日志，重置计数器
-                        forumLogLineCount = 0;
-                    }
-                    
-                    // 如果有解析的消息，直接使用
-                    if (data.parsed_messages && data.parsed_messages.length > 0) {
-                        data.parsed_messages.forEach(message => {
-                            // addForumMessage(message);
-                        });
-                    }
-                    
+                const chatArea = document.getElementById('forumChatArea');
+                if (chatArea) {
+                    chatArea.innerHTML = '';
                 }
+
+                const logLines = data.log_lines || [];
+                const parsedMessages = data.parsed_messages || [];
+
+                if (logLines.length > 0) {
+                    clearConsoleLayer('forum', '[系统] Forum Engine 日志输出');
+                    logLines.forEach(line => appendConsoleTextLine('forum', line));
+                } else {
+                    forumLogLineCount = 0;
+                }
+
+                if (parsedMessages.length > 0) {
+                    parsedMessages.forEach(message => addForumMessage(message));
+                }
+
+                forumLogLineCount = logLines.length;
             })
             .catch(error => {
                 console.error('加载论坛日志失败:', error);
@@ -2682,25 +2667,35 @@
             fetch('/api/forum/log')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.log_lines.length > forumLogLineCount) {
-                    // 只添加新的行
-                    const newLines = data.log_lines.slice(forumLogLineCount);
-                    newLines.forEach(line => {
-                        appendConsoleTextLine('forum', line);
-                        
-                        // 如果是论坛对话内容，也显示到左侧对话区
-                        const parsed = parseForumMessage(line);
-                        if (parsed) {
-                            addForumMessage(parsed);
-                        }
-                    });
-                    
-                    forumLogLineCount = data.log_lines.length;
+                if (!data.success) return;
+
+                const logLines = data.log_lines || [];
+                const parsedMessages = data.parsed_messages || [];
+
+                if (logLines.length > forumLogLineCount) {
+                    const newLines = logLines.slice(forumLogLineCount);
+                    newLines.forEach(line => appendConsoleTextLine('forum', line));
                 }
+
+                if (parsedMessages.length && parsedMessages.length !== getForumMessageCount()) {
+                    const chatArea = document.getElementById('forumChatArea');
+                    if (chatArea) {
+                        chatArea.innerHTML = '';
+                        parsedMessages.forEach(message => addForumMessage(message));
+                    }
+                }
+
+                forumLogLineCount = logLines.length;
             })
             .catch(error => {
                 console.error('刷新论坛日志失败:', error);
             });
+        }
+
+        function getForumMessageCount() {
+            const chatArea = document.getElementById('forumChatArea');
+            if (!chatArea) return 0;
+            return chatArea.querySelectorAll('.forum-message').length;
         }
 
         // 刷新Report Engine日志
