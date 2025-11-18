@@ -316,14 +316,76 @@ uv pip install -r requirements.txt
 # If you do not want to use the local sentiment analysis model (which has low computational requirements and defaults to the CPU version), you can comment out the 'Machine Learning' section in this file before executing the command.
 ```
 
-### 3. Install Playwright Browser Drivers
+### 3. Install System Dependencies for PDF Export (Optional)
+
+> ⚠️ **Note**: If you need to use the PDF export function, please install system dependencies following the steps below. If you don't need PDF export, you can skip this step, and other system functions will not be affected.
+
+<details>
+<summary><b>📦 macOS Installation Steps</b></summary>
+
+```bash
+# 1. Install system dependencies (execute on host machine)
+brew install pango gdk-pixbuf libffi
+
+# 2. Set environment variable (required)
+export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+
+# Or permanently add to ~/.zshrc
+echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
+source ~/.zshrc
+```
+
+</details>
+
+<details>
+<summary><b>🐧 Ubuntu/Debian Installation Steps</b></summary>
+
+```bash
+# 1. Install system dependencies (execute on host machine)
+sudo apt-get update
+sudo apt-get install -y \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    libcairo2
+```
+
+</details>
+
+<details>
+<summary><b>🎩 CentOS/RHEL Installation Steps</b></summary>
+
+```bash
+# 1. Install system dependencies (execute on host machine)
+sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
+```
+
+</details>
+
+<details>
+<summary><b>🪟 Windows Installation Steps</b></summary>
+
+```powershell
+# 1. Download and install GTK3 Runtime (execute on host machine)
+# Visit: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+# Download the latest .exe file and install
+
+# 2. Restart command line or IDE
+```
+
+</details>
+
+> 💡 **Tip**: If using Docker deployment, no need to manually install these dependencies, the Docker image already contains all necessary system dependencies.
+
+### 4. Install Playwright Browser Drivers
 
 ```bash
 # Install browser drivers (for crawler functionality)
 playwright install chromium
 ```
 
-### 4. Configure LLM and Database
+### 5. Configure LLM and Database
 
 Copy the `.env.example` file in the project root directory and rename it to `.env`.
 
@@ -361,9 +423,9 @@ INSIGHT_ENGINE_MODEL_NAME=
 ```
 Recommended LLM API Provider: [aihubmix](https://aihubmix.com/?aff=8Ds9)
 
-### 5. Launch System
+### 6. Launch System
 
-#### 5.1 Complete System Launch (Recommended)
+#### 6.1 Complete System Launch (Recommended)
 
 ```bash
 # In project root directory, activate conda environment
@@ -390,7 +452,7 @@ python app.py
 
 Visit http://localhost:5000 to use the complete system
 
-#### 5.2 Launch Individual Agents
+#### 6.2 Launch Individual Agents
 
 ```bash
 # Start QueryEngine
@@ -403,7 +465,7 @@ streamlit run SingleEngineApp/media_engine_streamlit_app.py --server.port 8502
 streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 ```
 
-#### 5.3 Crawler System Standalone Use
+#### 6.3 Crawler System Standalone Use
 
 This section has detailed configuration documentation: [MindSpider Usage Guide](./MindSpider/README.md)
 
