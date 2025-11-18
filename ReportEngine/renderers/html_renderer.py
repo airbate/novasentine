@@ -889,6 +889,14 @@ class HTMLRenderer:
         if handler:
             html_fragment = handler(block)
             return self._wrap_error_block(html_fragment, block)
+        # 兼容旧格式：缺少type但包含inlines时按paragraph处理
+        if isinstance(block, dict) and block.get("inlines"):
+            html_fragment = self._render_paragraph({"inlines": block.get("inlines")})
+            return self._wrap_error_block(html_fragment, block)
+        # 兼容直接传入字符串的场景
+        if isinstance(block, str):
+            html_fragment = self._render_paragraph({"inlines": [{"text": block}]})
+            return self._wrap_error_block(html_fragment, {"meta": {}, "type": "paragraph"})
         if isinstance(block.get("blocks"), list):
             html_fragment = self._render_blocks(block["blocks"])
             return self._wrap_error_block(html_fragment, block)
