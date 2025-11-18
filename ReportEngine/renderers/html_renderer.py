@@ -259,9 +259,8 @@ class HTMLRenderer:
         jspdf_tag = f"<script>{jspdf}</script>" if jspdf else '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>'
         mathjax_tag = f"<script defer>{mathjax}</script>" if mathjax else '<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>'
 
-        # 加载PDF字体数据
-        pdf_font_data = self._load_pdf_font_data()
-        pdf_font_script = f"<script>window.pdfFontData = '{pdf_font_data}';</script>" if pdf_font_data else ""
+        # PDF字体数据不再嵌入HTML，减小文件体积
+        pdf_font_script = ""
 
         return f"""
 <head>
@@ -358,7 +357,7 @@ class HTMLRenderer:
   <div class="header-actions">
     <button id="theme-toggle" class="action-btn" type="button">🌗 主题切换</button>
     <button id="print-btn" class="action-btn" type="button">🖨️ 打印</button>
-    <button id="export-btn" class="action-btn" type="button">⬇️ 导出PDF</button>
+    <button id="export-btn" class="action-btn" type="button" style="display: none;">⬇️ 导出PDF</button>
   </div>
 </header>
 """.strip()
