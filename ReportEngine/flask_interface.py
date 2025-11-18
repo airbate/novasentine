@@ -160,6 +160,14 @@ def initialize_report_engine():
     try:
         report_agent = create_agent()
         logger.info("Report Engine初始化成功")
+
+        # 检测 PDF 生成依赖（Pango）
+        try:
+            from .utils.dependency_check import log_dependency_status
+            log_dependency_status()
+        except Exception as dep_err:
+            logger.warning(f"依赖检测失败: {dep_err}")
+
         return True
     except Exception as e:
         logger.exception(f"Report Engine初始化失败: {str(e)}")
@@ -198,6 +206,8 @@ class ReportTask:
         self.report_file_name = ""
         self.state_file_path = ""
         self.state_file_relative_path = ""
+        self.ir_file_path = ""
+        self.ir_file_relative_path = ""
         # ====== 流式事件缓存与并发保护 ======
         # 使用deque保存最近的事件，结合锁保证多线程下的安全访问
         self.event_history: deque = deque(maxlen=1000)
@@ -248,7 +258,9 @@ class ReportTask:
             'report_file_name': self.report_file_name,
             'report_file_path': self.report_file_relative_path or self.report_file_path,
             'state_file_ready': bool(self.state_file_path),
-            'state_file_path': self.state_file_relative_path or self.state_file_path
+            'state_file_path': self.state_file_relative_path or self.state_file_path,
+            'ir_file_ready': bool(self.ir_file_path),
+            'ir_file_path': self.ir_file_relative_path or self.ir_file_path
         }
 
     def publish_event(self, event_type: str, payload: Dict[str, Any]) -> None:
@@ -431,6 +443,8 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             task.report_file_name = generation_result.get('report_filename', '')
             task.state_file_path = generation_result.get('state_filepath', '')
             task.state_file_relative_path = generation_result.get('state_relative_path', '')
+            task.ir_file_path = generation_result.get('ir_filepath', '')
+            task.ir_file_relative_path = generation_result.get('ir_relative_path', '')
         task.publish_event('html_ready', {
             'message': 'HTML渲染完成，可刷新预览',
             'report_file': task.report_file_relative_path or task.report_file_path,
@@ -1027,6 +1041,17 @@ def export_pdf(task_id: str):
         Response: PDF文件流或错误信息
     """
     try:
+        # 检测 Pango 依赖
+        from .utils.dependency_check import check_pango_available
+        pango_available, pango_message = check_pango_available()
+        if not pango_available:
+            return jsonify({
+                'success': False,
+                'error': 'PDF 导出功能不可用：缺少 Pango 系统依赖',
+                'details': '请查看 requirements.txt 文件中的 "===== PDF生成 =====" 部分了解如何安装 Pango',
+                'system_message': pango_message
+            }), 503
+
         # 获取任务信息
         task = tasks_registry.get(task_id)
         if not task:
@@ -1104,6 +1129,17 @@ def export_pdf_from_ir():
         Response: PDF文件流或错误信息
     """
     try:
+        # 检测 Pango 依赖
+        from .utils.dependency_check import check_pango_available
+        pango_available, pango_message = check_pango_available()
+        if not pango_available:
+            return jsonify({
+                'success': False,
+                'error': 'PDF 导出功能不可用：缺少 Pango 系统依赖',
+                'details': '请查看 requirements.txt 文件中的 "===== PDF生成 =====" 部分了解如何安装 Pango',
+                'system_message': pango_message
+            }), 503
+
         data = request.get_json()
 
         if not data or 'document_ir' not in data:

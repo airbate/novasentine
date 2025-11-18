@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/root/.local/bin:${PATH}" \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Install system dependencies required by scientific Python stack, Playwright, and Streamlit
+# Install system dependencies required by scientific Python stack, Playwright, Streamlit, and WeasyPrint PDF
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -19,6 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
+    libpangoft2-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    libcairo2 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
     libxcb1 \
