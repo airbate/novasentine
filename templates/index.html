@@ -1242,21 +1242,30 @@
                 this.trimTarget = 1500; // 裁剪后保留的目标行数，避免频繁裁剪
                 this.rafId = null;
                 this.autoScrollEnabled = true;
-                this.resumeDelay = 10000; // 手动滚动后重新自动滚动的延迟
+                this.resumeDelay = 3000; // 手动滚动后重新自动滚动的延迟（降低到3秒）
                 this.resumeTimer = null;
+                this.lastRenderHash = null; // 用于检测内容是否真正变化
+                this.scrollLocked = false; // 防止滚动冲突的锁
+                this.needsScroll = false; // 标记是否需要滚动
+                this.lastScrollTime = 0; // 上次滚动时间，用于节流
+                this.scrollThrottle = 100; // 滚动节流时间（毫秒）
                 this.attachScroll();
             }
 
             attachScroll() {
                 if (!this.scrollElement) return;
+                let scrollTimer = null;
                 this.scrollElement.addEventListener('scroll', () => {
-                    this.handleUserScroll();
-                    this.scheduleRender();
-                });
+                    // 防抖处理，避免频繁触发
+                    if (scrollTimer) clearTimeout(scrollTimer);
+                    scrollTimer = setTimeout(() => {
+                        this.handleUserScroll();
+                    }, 100);
+                }, { passive: true });
             }
 
             handleUserScroll() {
-                if (!this.scrollElement) return;
+                if (!this.scrollElement || this.scrollLocked) return;
                 const atBottom = this.isNearBottom();
                 if (atBottom) {
                     this.autoScrollEnabled = true;
@@ -1264,8 +1273,10 @@
                     return;
                 }
 
+                // 用户主动向上滚动，禁用自动滚动
                 this.autoScrollEnabled = false;
                 this.clearResumeTimer();
+                // 设置定时器，在用户停止滚动一段时间后自动恢复吸底
                 this.resumeTimer = setTimeout(() => {
                     this.autoScrollEnabled = true;
                     this.scrollToBottom();
@@ -1282,12 +1293,52 @@
             isNearBottom() {
                 if (!this.scrollElement) return true;
                 const { scrollTop, clientHeight, scrollHeight } = this.scrollElement;
-                return (scrollTop + clientHeight) >= (scrollHeight - this.lineHeight * 2);
+                // 增加阈值到 50px，使吸底判断更宽容
+                return (scrollTop + clientHeight) >= (scrollHeight - 50);
             }
 
             scrollToBottom() {
                 if (!this.scrollElement) return;
-                this.scrollElement.scrollTop = this.scrollElement.scrollHeight;
+
+                // 节流：如果上次滚动时间距离现在不到 scrollThrottle 毫秒，则跳过
+                const now = Date.now();
+                if (now - this.lastScrollTime < this.scrollThrottle) {
+                    return;
+                }
+                this.lastScrollTime = now;
+
+                // 使用锁防止重入
+                if (this.scrollLocked) return;
+                this.scrollLocked = true;
+
+                // 使用 requestAnimationFrame 确保在下一帧执行，避免闪烁
+                requestAnimationFrame(() => {
+                    if (!this.scrollElement) {
+                        this.scrollLocked = false;
+                        return;
+                    }
+
+                    // 平滑滚动到底部，避免突然跳跃
+                    const targetScroll = this.scrollElement.scrollHeight;
+                    const currentScroll = this.scrollElement.scrollTop;
+
+                    // 如果已经在底部附近，直接设置，否则平滑滚动
+                    if (Math.abs(targetScroll - currentScroll) < 100) {
+                        this.scrollElement.scrollTop = targetScroll;
+                    } else {
+                        // 使用平滑滚动
+                        this.scrollElement.scrollTo({
+                            top: targetScroll,
+                            behavior: 'auto' // 使用 auto 而不是 smooth，避免性能问题
+                        });
+                    }
+
+                    // 延迟解锁，避免立即触发 scroll 事件导致循环
+                    setTimeout(() => {
+                        this.scrollLocked = false;
+                        this.needsScroll = false; // 滚动完成后重置标志
+                    }, 150);
+                });
             }
 
             setLineHeight(px) {
@@ -1295,8 +1346,14 @@
             }
 
             append(text, className = 'console-line') {
+                // 在添加内容前检查是否在底部，如果是则标记需要滚动
+                if (this.autoScrollEnabled && this.isNearBottom()) {
+                    this.needsScroll = true;
+                }
+
                 this.pending.push({ text, className });
-                if (this.pending.length > 200) {
+                // 降低批处理阈值到 50，更快响应
+                if (this.pending.length > 50) {
                     this.flush();
                 }
                 this.maybeTrim();
@@ -1310,6 +1367,8 @@
                 if (message) {
                     this.lines.push({ text: message, className: 'console-line' });
                 }
+                this.lastRenderHash = null;
+                this.needsScroll = true; // 清空后需要滚动到底部
                 this.scheduleRender(true);
             }
 
@@ -1327,16 +1386,17 @@
                 const toDrop = this.lines.length - this.trimTarget;
                 if (toDrop > 0) {
                     this.lines.splice(0, toDrop);
-                    // 调整滚动位置使得视觉保持在底部附近
-                    if (this.scrollElement && !this.autoScrollEnabled) {
-                        this.scrollElement.scrollTop = Math.max(0, this.scrollElement.scrollTop - toDrop * this.lineHeight);
-                    }
+                    // 不调整滚动位置，让用户保持当前位置或自动吸底
                 }
             }
 
             scheduleRender(force = false) {
                 if (!this.container) return;
                 if (!force && this.rafId) return;
+                // 取消之前的请求，使用节流
+                if (this.rafId) {
+                    cancelAnimationFrame(this.rafId);
+                }
                 this.rafId = requestAnimationFrame(() => {
                     this.rafId = null;
                     this.render();
@@ -1347,9 +1407,22 @@
                 this.flush();
                 const total = this.lines.length;
                 if (!total) {
-                    this.container.innerHTML = '';
+                    if (this.container.innerHTML !== '') {
+                        this.container.innerHTML = '';
+                    }
                     return;
                 }
+
+                // 计算内容哈希，只在内容真正变化时才更新 DOM
+                const contentHash = `${total}-${this.lines[total - 1].text}`;
+                if (this.lastRenderHash === contentHash) {
+                    // 内容没有变化，只需要处理滚动（如果需要的话）
+                    if (this.needsScroll && this.autoScrollEnabled) {
+                        this.scrollToBottom();
+                    }
+                    return;
+                }
+                this.lastRenderHash = contentHash;
 
                 const lh = this.lineHeight;
                 const viewport = (this.scrollElement && this.scrollElement.clientHeight) || 1;
@@ -1364,39 +1437,60 @@
                 const afterHeight = (total - end) * lh;
 
                 const needed = Math.max(0, end - start);
+
+                // 复用现有的 DOM 节点池
                 while (this.pool.length < needed) {
                     const node = document.createElement('div');
                     node.className = 'console-line';
                     this.pool.push(node);
                 }
 
-                // 截断池中过期结点，减少 DOM 引用
-                if (needed && this.pool.length > needed * 2) {
-                    this.pool.length = needed * 2;
-                }
-
+                // 不要完全清空容器，而是更新现有节点
+                const existingChildren = Array.from(this.container.children);
                 const fragment = document.createDocumentFragment();
+
+                // 更新或创建前置占位符
+                let beforeSpacer = existingChildren.find(el => el.dataset.spacer === 'before');
+                if (!beforeSpacer) {
+                    beforeSpacer = document.createElement('div');
+                    beforeSpacer.dataset.spacer = 'before';
+                }
+                beforeSpacer.style.height = `${beforeHeight}px`;
+
+                // 更新或创建后置占位符
+                let afterSpacer = existingChildren.find(el => el.dataset.spacer === 'after');
+                if (!afterSpacer) {
+                    afterSpacer = document.createElement('div');
+                    afterSpacer.dataset.spacer = 'after';
+                }
+                afterSpacer.style.height = `${afterHeight}px`;
+
+                // 只更新可见区域的节点
                 for (let idx = start; idx < end; idx++) {
                     const line = this.lines[idx];
                     const node = this.pool[idx - start];
-                    if (!node) continue; // 防御性避免越界
-                    node.className = line.className || 'console-line';
-                    node.textContent = line.text;
+                    if (!node) continue;
+
+                    // 只在内容或类名变化时才更新节点
+                    if (node.textContent !== line.text || node.className !== (line.className || 'console-line')) {
+                        node.className = line.className || 'console-line';
+                        node.textContent = line.text;
+                    }
                     fragment.appendChild(node);
                 }
 
+                // 一次性更新 DOM
                 this.container.innerHTML = '';
-                const beforeSpacer = document.createElement('div');
-                beforeSpacer.style.height = `${beforeHeight}px`;
-                const afterSpacer = document.createElement('div');
-                afterSpacer.style.height = `${afterHeight}px`;
                 this.container.appendChild(beforeSpacer);
                 this.container.appendChild(fragment);
                 this.container.appendChild(afterSpacer);
 
-                const shouldStick = this.autoScrollEnabled || this.isNearBottom();
-                if (shouldStick) {
-                    this.scrollToBottom();
+                // 只在有标记且自动滚动启用时才滚动到底部
+                if (this.needsScroll && this.autoScrollEnabled) {
+                    // 延迟执行滚动，确保 DOM 已经更新完毕
+                    requestAnimationFrame(() => {
+                        this.scrollToBottom();
+                    });
                 }
             }
         }
@@ -1521,16 +1615,20 @@
             // 初始化Report Engine锁定状态检查
             checkReportLockStatus();
             reportLockCheckInterval = setInterval(checkReportLockStatus, 10000); // 每10秒检查一次
-            
-            // 定期刷新控制台输出
+
+            // 优化控制台刷新频率：从 1 秒改为 2 秒，减少不必要的 API 调用
             setInterval(() => {
-                refreshConsoleOutput();
-            }, 1000);
-            
-            // 定期刷新论坛对话（实时更新）
-            setInterval(() => {
-                refreshForumMessages();
+                if (appStatus[currentApp] === 'running' || appStatus[currentApp] === 'starting') {
+                    refreshConsoleOutput();
+                }
             }, 2000);
+
+            // 优化论坛对话刷新频率：从 2 秒改为 3 秒
+            setInterval(() => {
+                if (currentApp === 'forum' || appStatus.forum === 'running') {
+                    refreshForumMessages();
+                }
+            }, 3000);
             
             // 初始化论坛相关功能
             initializeForum();
@@ -2339,15 +2437,9 @@
         }
 
         function syncConsoleScroll(app) {
-            if (app !== currentApp) {
-                return;
-            }
-
-            const renderer = logRenderers[app];
-            if (renderer && renderer.container) {
-                renderer.container.scrollTop = renderer.container.scrollHeight;
-                consoleLayerScrollPositions[app] = renderer.container.scrollTop;
-            }
+            // 这个函数已经不需要了，因为 LogVirtualList 内部已经处理了滚动
+            // 保留函数签名以避免破坏现有调用，但不执行任何操作
+            return;
         }
 
         function appendConsoleTextLine(app, text, className = 'console-line') {
@@ -2358,8 +2450,11 @@
         function appendConsoleElement(app, element) {
             const renderer = logRenderers[app] || (logRenderers[app] = new LogVirtualList(getConsoleLayer(app)));
             if (!element || !renderer.container) return;
-            renderer.container.appendChild(element);
-            renderer.scheduleRender(true);
+
+            // 将元素转换为文本行，统一使用 LogVirtualList 的渲染逻辑
+            const text = element.textContent || element.innerText || '';
+            const className = element.className || 'console-line';
+            renderer.append(text, className);
         }
 
         function clearConsoleLayer(app, message = null) {
@@ -3708,27 +3803,18 @@
                 return; // 章节内容流式写入不再逐条输出
             }
 
-            const line = document.createElement('div');
-            line.className = `console-line report-stream-line ${level}`;
+            // 格式化时间戳
+            const timestamp = new Date().toLocaleTimeString('zh-CN');
 
-            const timestampSpan = document.createElement('span');
-            timestampSpan.className = 'timestamp';
-            timestampSpan.textContent = new Date().toLocaleTimeString('zh-CN');
-            line.appendChild(timestampSpan);
-
+            // 构建文本内容而不是 DOM 元素
+            let textContent = `[${timestamp}]`;
             if (options.badge) {
-                const badge = document.createElement('span');
-                badge.className = 'stream-badge';
-                badge.textContent = options.badge;
-                line.appendChild(badge);
+                textContent += ` [${options.badge}]`;
             }
+            textContent += ` ${message}`;
 
-            const textSpan = document.createElement('span');
-            textSpan.className = 'line-text';
-            textSpan.textContent = message;
-            line.appendChild(textSpan);
-
-            appendConsoleElement('report', line);
+            // 使用统一的文本添加方法，避免直接操作 DOM
+            appendConsoleTextLine('report', textContent, `console-line report-stream-line ${level}`);
         }
 
         function startStreamHeartbeat() {
