@@ -3150,6 +3150,7 @@
                 <div class="report-controls">
                     <button class="report-button primary" id="generateReportButton">生成最终报告</button>
                     <button class="report-button" id="downloadReportButton" disabled>下载HTML</button>
+                    <button class="report-button" id="downloadPdfButton" disabled>下载PDF</button>
                 </div>
                 
                 <!-- 任务进度区域 -->
@@ -3212,9 +3213,14 @@
             }
 
             const downloadButton = document.getElementById('downloadReportButton');
+            const downloadPdfButton = document.getElementById('downloadPdfButton');
             if (downloadButton && !downloadButton.dataset.bound) {
                 downloadButton.dataset.bound = 'true';
                 downloadButton.addEventListener('click', () => downloadReport());
+            }
+            if (downloadPdfButton && !downloadPdfButton.dataset.bound) {
+                downloadPdfButton.dataset.bound = 'true';
+                downloadPdfButton.addEventListener('click', () => downloadPdfFromPreview());
             }
 
             if (reportTaskId) {
@@ -3247,7 +3253,8 @@
 
         function updateDownloadButtonState(task) {
             const downloadButton = document.getElementById('downloadReportButton');
-            if (!downloadButton) return;
+            const downloadPdfButton = document.getElementById('downloadPdfButton');
+            if (!downloadButton || !downloadPdfButton) return;
 
             if (task && task.status === 'completed' && (task.report_file_ready || task.report_file_path)) {
                 downloadButton.disabled = false;
@@ -3255,12 +3262,16 @@
                 downloadButton.dataset.filename = task.report_file_name || '';
                 const label = task.report_file_name ? `下载HTML (${task.report_file_name})` : '下载HTML';
                 downloadButton.textContent = label;
+                downloadPdfButton.disabled = false;
+                downloadPdfButton.dataset.taskId = task.task_id;
                 lastCompletedReportTask = task;
             } else if (!lastCompletedReportTask || (task && task.status !== 'completed')) {
                 downloadButton.disabled = true;
                 downloadButton.dataset.taskId = '';
                 downloadButton.dataset.filename = '';
                 downloadButton.textContent = '下载HTML';
+                downloadPdfButton.disabled = true;
+                downloadPdfButton.dataset.taskId = '';
                 if (!reportTaskId) {
                     lastCompletedReportTask = null;
                 }
@@ -3318,6 +3329,59 @@
                 console.error('下载报告失败:', error);
                 showMessage('下载报告失败: ' + error.message, 'error');
             });
+        }
+
+        async function downloadPdfFromPreview() {
+            const iframe = document.getElementById('report-iframe');
+            const btn = document.getElementById('downloadPdfButton');
+            if (!iframe || !iframe.contentDocument) {
+                showMessage('请先加载报告预览再下载PDF', 'error');
+                return;
+            }
+            const target = iframe.contentDocument.documentElement;
+            if (!target) {
+                showMessage('报告内容未就绪', 'error');
+                return;
+            }
+            if (btn) btn.disabled = true;
+            showMessage('正在生成PDF，请稍候...', 'info');
+            try {
+                const { jsPDF } = window.jspdf || {};
+                if (!jsPDF) {
+                    throw new Error('PDF依赖未加载');
+                }
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pxWidth = Math.max(target.scrollWidth || 0, Math.round(pageWidth * 3.78));
+                const renderTask = pdf.html(target, {
+                    x: 10,
+                    y: 10,
+                    width: pageWidth - 20,
+                    windowWidth: pxWidth,
+                    margin: [10, 10, 16, 10],
+                    autoPaging: 'text',
+                    html2canvas: {
+                        scale: Math.min(1.2, Math.max(0.8, pageWidth / (target.clientWidth || pageWidth))),
+                        useCORS: true,
+                        scrollX: 0,
+                        scrollY: -iframe.contentWindow.scrollY,
+                        logging: false
+                    },
+                    pagebreak: {
+                        mode: ['css', 'legacy'],
+                        avoid: ['.chapter', '.callout', '.chart-card', '.table-wrap', '.kpi-grid', '.hero-section'],
+                        before: '.chapter-divider'
+                    }
+                });
+                await (renderTask && typeof renderTask.then === 'function' ? renderTask : Promise.resolve());
+                pdf.save('report.pdf');
+                showMessage('PDF生成完成，已开始下载', 'success');
+            } catch (err) {
+                console.error('生成PDF失败:', err);
+                showMessage('生成PDF失败: ' + err.message, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
         }
 
         // 渲染任务状态（使用新的进度条样式）

@@ -244,8 +244,6 @@ class HTMLRenderer:
             str: head片段HTML。
         """
         css = self._build_css(theme_tokens)
-        pdf_font_b64 = self._load_pdf_font_data()
-        pdf_font_literal = json.dumps(pdf_font_b64)
 
         # 加载第三方库
         chartjs = self._load_lib("chart.js")
@@ -287,10 +285,6 @@ class HTMLRenderer:
   <style>
 {css}
   </style>
-  <script>
-    // 预载 PDF 字体 Base64 数据，后续由 jspdf addFileToVFS 使用
-    window.pdfFontData = {pdf_font_literal};
-  </script>
   <script>
     document.documentElement.classList.remove('no-js');
     document.documentElement.classList.add('js-ready');
@@ -2845,6 +2839,7 @@ function hideExportOverlay(delay) {
   }
 }
 
+// exportPdf已移除
 function exportPdf() {
   const target = document.querySelector('main');
   if (!target || typeof jspdf === 'undefined' || typeof jspdf.jsPDF !== 'function') {
