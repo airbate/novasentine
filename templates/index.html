@@ -1212,6 +1212,13 @@
             forum: 'stopped',  // 前端启动后再标记为 running
             report: 'stopped'  // Report Engine
         };
+        // 为每个Engine存储进度条状态
+        let engineProgress = {
+            insight: null,
+            media: null,
+            query: null,
+            report: null
+        };
         let customTemplate = ''; // 存储用户上传的自定义模板内容
         let configValues = {};
         let configDirty = false;
@@ -1228,6 +1235,122 @@
         let activeConsoleLayer = currentApp;
         const logRenderers = {};
 
+        // 页面可见性状态管理
+        let isPageVisible = !document.hidden;
+        let allTimers = {
+            updateTime: null,
+            checkStatus: null,
+            refreshConsole: null,
+            refreshForum: null,
+            reportLockCheck: null,
+            connectionProbe: null,
+            updateEngineProgress: null  // 新增：更新所有Engine进度的定时器
+        };
+
+        // 页面可见性变化处理
+        function handleVisibilityChange() {
+            isPageVisible = !document.hidden;
+
+            if (isPageVisible) {
+                console.log('页面可见，恢复定时器');
+                startAllTimers();
+            } else {
+                console.log('页面隐藏，暂停定时器以节省资源');
+                pauseAllTimers();
+            }
+        }
+
+        // 启动所有定时器
+        function startAllTimers() {
+            // 清理旧定时器
+            stopAllTimers();
+
+            // 时间更新定时器 - 只在页面可见时更新
+            if (isPageVisible) {
+                allTimers.updateTime = setInterval(updateTime, 1000);
+            }
+
+            // 状态检查定时器 - 从5秒增加到10秒
+            allTimers.checkStatus = setInterval(checkStatus, 10000);
+
+            // 控制台刷新定时器 - 从2秒增加到3秒，只在有运行中应用时执行
+            allTimers.refreshConsole = setInterval(() => {
+                if (appStatus[currentApp] === 'running' || appStatus[currentApp] === 'starting') {
+                    refreshConsoleOutput();
+                }
+            }, 3000);
+
+            // 论坛刷新定时器 - 从3秒增加到5秒
+            allTimers.refreshForum = setInterval(() => {
+                if (currentApp === 'forum' || appStatus.forum === 'running') {
+                    refreshForumMessages();
+                }
+            }, 5000);
+
+            // 报告锁定检查定时器 - 从10秒增加到15秒
+            allTimers.reportLockCheck = setInterval(checkReportLockStatus, 15000);
+
+            // 更新所有Engine进度的定时器 - 每5秒更新一次
+            allTimers.updateEngineProgress = setInterval(updateAllEngineProgress, 5000);
+        }
+
+        // 暂停所有定时器
+        function pauseAllTimers() {
+            // 只保留关键的连接检查定时器，其他全部暂停
+            Object.keys(allTimers).forEach(key => {
+                if (key !== 'connectionProbe' && allTimers[key]) {
+                    clearInterval(allTimers[key]);
+                    allTimers[key] = null;
+                }
+            });
+        }
+
+        // 停止所有定时器
+        function stopAllTimers() {
+            Object.keys(allTimers).forEach(key => {
+                if (allTimers[key]) {
+                    clearInterval(allTimers[key]);
+                    allTimers[key] = null;
+                }
+            });
+        }
+
+        // 页面卸载时清理资源
+        function cleanupOnUnload() {
+            console.log('页面卸载，清理所有资源');
+
+            // 停止所有定时器
+            stopAllTimers();
+
+            // 清理所有日志渲染器
+            Object.values(logRenderers).forEach(renderer => {
+                if (renderer && typeof renderer.dispose === 'function') {
+                    renderer.dispose();
+                }
+            });
+
+            // 卸载所有iframe
+            Object.keys(preloadedIframes).forEach(app => {
+                unloadIframe(app);
+            });
+
+            // 关闭Socket连接
+            if (socket) {
+                socket.close();
+            }
+
+            // 关闭SSE连接
+            safeCloseReportStream();
+
+            // 清理全局变量
+            Object.keys(consoleLayers).forEach(key => {
+                delete consoleLayers[key];
+            });
+            Object.keys(logRenderers).forEach(key => {
+                delete logRenderers[key];
+            });
+        }
+
         // 轻量日志虚拟渲染器：可视窗口渲染 + 节流 + 包级别截断，降低内存占用
         class LogVirtualList {
             constructor(container) {
@@ -1238,8 +1361,9 @@
                 this.pool = [];
                 this.lineHeight = 18;
                 this.maxVisible = 120;
-                this.maxLines = 2000; // 硬性保留的最大行数，超出时裁剪老旧数据
-                this.trimTarget = 1500; // 裁剪后保留的目标行数，避免频繁裁剪
+                this.maxLines = 500; // 减少到500行，降低75%内存占用
+                this.trimTarget = 300; // 裁剪后保留300行
+                this.maxPoolSize = 200; // 限制DOM节点池大小
                 this.rafId = null;
                 this.autoScrollEnabled = true;
                 this.resumeDelay = 3000; // 手动滚动后重新自动滚动的延迟（降低到3秒）
@@ -1249,19 +1373,57 @@
                 this.needsScroll = false; // 标记是否需要滚动
                 this.lastScrollTime = 0; // 上次滚动时间，用于节流
                 this.scrollThrottle = 100; // 滚动节流时间（毫秒）
+                this.scrollHandler = null; // 存储滚动处理器引用
                 this.attachScroll();
             }
 
             attachScroll() {
                 if (!this.scrollElement) return;
+                if (this.scrollHandler) return; // 防止重复绑定
+
                 let scrollTimer = null;
-                this.scrollElement.addEventListener('scroll', () => {
+                this.scrollHandler = () => {
                     // 防抖处理，避免频繁触发
                     if (scrollTimer) clearTimeout(scrollTimer);
                     scrollTimer = setTimeout(() => {
                         this.handleUserScroll();
-                    }, 100);
-                }, { passive: true });
+                    }, 150); // 增加防抖时间到150ms
+                };
+
+                this.scrollElement.addEventListener('scroll', this.scrollHandler, { passive: true });
+            }
+
+            // 添加清理方法
+            dispose() {
+                // 清理定时器
+                if (this.rafId) {
+                    cancelAnimationFrame(this.rafId);
+                    this.rafId = null;
+                }
+                this.clearResumeTimer();
+
+                // 移除事件监听器
+                if (this.scrollElement && this.scrollHandler) {
+                    this.scrollElement.removeEventListener('scroll', this.scrollHandler);
+                    this.scrollHandler = null;
+                }
+
+                // 清空数据结构
+                this.lines = [];
+                this.pending = [];
+
+                // 清空并释放DOM节点池
+                this.pool.forEach(node => {
+                    if (node && node.parentNode) {
+                        node.parentNode.removeChild(node);
+                    }
+                });
+                this.pool = [];
+
+                // 清空容器
+                if (this.container) {
+                    this.container.innerHTML = '';
+                }
             }
 
             handleUserScroll() {
@@ -1352,8 +1514,8 @@
                 }
 
                 this.pending.push({ text, className });
-                // 降低批处理阈值到 50，更快响应
-                if (this.pending.length > 50) {
+                // 增加批处理阈值到 100，减少渲染频率
+                if (this.pending.length > 100) {
                     this.flush();
                 }
                 this.maybeTrim();
@@ -1409,6 +1571,8 @@
                 if (!total) {
                     if (this.container.innerHTML !== '') {
                         this.container.innerHTML = '';
+                        // 清空时也清理pool
+                        this.pool = [];
                     }
                     return;
                 }
@@ -1438,19 +1602,29 @@
 
                 const needed = Math.max(0, end - start);
 
+                // 限制DOM节点池大小，防止内存泄漏
+                if (this.pool.length > this.maxPoolSize) {
+                    const excess = this.pool.length - this.maxPoolSize;
+                    // 移除多余的节点
+                    this.pool.splice(this.maxPoolSize, excess).forEach(node => {
+                        if (node && node.parentNode) {
+                            node.parentNode.removeChild(node);
+                        }
+                    });
+                }
+
                 // 复用现有的 DOM 节点池
-                while (this.pool.length < needed) {
+                while (this.pool.length < needed && this.pool.length < this.maxPoolSize) {
                     const node = document.createElement('div');
                     node.className = 'console-line';
                     this.pool.push(node);
                 }
 
-                // 不要完全清空容器，而是更新现有节点
-                const existingChildren = Array.from(this.container.children);
+                // 使用DocumentFragment来减少DOM重绘
                 const fragment = document.createDocumentFragment();
 
                 // 更新或创建前置占位符
-                let beforeSpacer = existingChildren.find(el => el.dataset.spacer === 'before');
+                let beforeSpacer = this.container.querySelector('[data-spacer="before"]');
                 if (!beforeSpacer) {
                     beforeSpacer = document.createElement('div');
                     beforeSpacer.dataset.spacer = 'before';
@@ -1458,7 +1632,7 @@
                 beforeSpacer.style.height = `${beforeHeight}px`;
 
                 // 更新或创建后置占位符
-                let afterSpacer = existingChildren.find(el => el.dataset.spacer === 'after');
+                let afterSpacer = this.container.querySelector('[data-spacer="after"]');
                 if (!afterSpacer) {
                     afterSpacer = document.createElement('div');
                     afterSpacer.dataset.spacer = 'after';
@@ -1468,7 +1642,8 @@
                 // 只更新可见区域的节点
                 for (let idx = start; idx < end; idx++) {
                     const line = this.lines[idx];
-                    const node = this.pool[idx - start];
+                    const poolIdx = idx - start;
+                    const node = this.pool[poolIdx];
                     if (!node) continue;
 
                     // 只在内容或类名变化时才更新节点
@@ -1603,40 +1778,40 @@
             initializeEventListeners();
             ensureSystemReadyOnLoad();
             loadConsoleOutput(currentApp);
-            updateTime();
-            setInterval(updateTime, 1000);
-            checkStatus();
-            setInterval(checkStatus, 5000);
-            startConnectionProbe();
-            
+
+            // 使用新的定时器管理系统
+            updateTime(); // 立即更新一次
+            checkStatus(); // 立即检查一次
+            checkReportLockStatus(); // 立即检查一次
+
+            // 启动所有定时器
+            startAllTimers();
+
+            // 立即更新一次所有Engine的进度,恢复刷新前的状态
+            updateAllEngineProgress();
+
+            // 监听页面可见性变化
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            // 监听页面卸载事件
+            window.addEventListener('beforeunload', cleanupOnUnload);
+            window.addEventListener('unload', cleanupOnUnload);
+
             // 初始化密码切换功能（事件委托，只需调用一次）
             attachConfigPasswordToggles();
-            
-            // 初始化Report Engine锁定状态检查
-            checkReportLockStatus();
-            reportLockCheckInterval = setInterval(checkReportLockStatus, 10000); // 每10秒检查一次
 
-            // 优化控制台刷新频率：从 1 秒改为 2 秒，减少不必要的 API 调用
-            setInterval(() => {
-                if (appStatus[currentApp] === 'running' || appStatus[currentApp] === 'starting') {
-                    refreshConsoleOutput();
-                }
-            }, 2000);
-
-            // 优化论坛对话刷新频率：从 2 秒改为 3 秒
-            setInterval(() => {
-                if (currentApp === 'forum' || appStatus.forum === 'running') {
-                    refreshForumMessages();
-                }
-            }, 3000);
-            
             // 初始化论坛相关功能
             initializeForum();
-            
-            // 延迟预加载iframe以确保应用启动完成
+
+            // 延迟预加载iframe以确保应用启动完成，并且只在页面可见时加载
             setTimeout(() => {
-                preloadIframes();
-            }, 3000);
+                if (isPageVisible) {
+                    preloadIframes();
+                }
+            }, 5000); // 延迟时间从3秒增加到5秒，减少初始加载压力
+
+            // 连接探测定时器（保持运行）
+            startConnectionProbe();
         });
 
         // Socket.IO连接
@@ -2228,45 +2403,48 @@
             if (reportPreview) {
                 reportPreview.innerHTML = '<div class="report-loading">等待新的搜索结果生成报告...</div>';
             }
-            
+
             // 清除任务进度显示
             const taskProgressArea = document.getElementById('taskProgressArea');
             if (taskProgressArea) {
                 taskProgressArea.innerHTML = '';
             }
-            
+
             // 重置自动生成相关标志
             autoGenerateTriggered = false;
             reportTaskId = null;
-            
+
             // 停止可能正在进行的轮询
             if (reportPollingInterval) {
                 clearInterval(reportPollingInterval);
                 reportPollingInterval = null;
             }
 
-            // 确保所有iframe已初始化
-            if (!iframesInitialized) {
-                preloadIframes();
-            }
-            
             // 向所有运行中的应用发送搜索请求（通过刷新iframe传递参数）
             let totalRunning = 0;
             const ports = { insight: 8501, media: 8502, query: 8503 };
-            
+
             Object.keys(appStatus).forEach(app => {
-                if (appStatus[app] === 'running' && preloadedIframes[app]) {
+                if (appStatus[app] === 'running' && ports[app]) {
                     totalRunning++;
-                    
-                    // 构建搜索URL
-                    const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
-                    console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
-                    
-                    // 直接更新主iframe的src来传递搜索参数
-                    preloadedIframes[app].src = searchUrl;
+
+                    // 懒加载iframe（如果还没有加载）
+                    let iframe = preloadedIframes[app];
+                    if (!iframe) {
+                        iframe = lazyLoadIframe(app);
+                    }
+
+                    if (iframe) {
+                        // 构建搜索URL
+                        const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
+                        console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
+
+                        // 直接更新iframe的src来传递搜索参数
+                        iframe.src = searchUrl;
+                    }
                 }
             });
-            
+
             if (totalRunning === 0) {
                 button.disabled = false;
                 button.innerHTML = '搜索';
@@ -2291,6 +2469,12 @@
                 }
             }
 
+            // 隐藏当前Engine的进度条
+            const engines = ['insight', 'media', 'query'];
+            if (engines.includes(currentApp)) {
+                hideEngineProgress(currentApp);
+            }
+
             // 更新按钮状态
             document.querySelectorAll('.app-button').forEach(btn => {
                 btn.classList.remove('active');
@@ -2304,49 +2488,56 @@
             if (app === 'forum') {
                 // 切换到论坛模式
                 document.getElementById('embeddedHeader').textContent = 'Forum Engine - 多智能体交流';
-                
+
                 // 显示论坛容器，隐藏其他内容
                 document.getElementById('forumContainer').classList.add('active');
                 document.getElementById('reportContainer').classList.remove('active');
-                
+
                 // 追加提示并加载forum日志
                 appendConsoleTextLine('forum', '[系统] 切换到论坛模式');
                 loadForumLog();
-                
+
             } else if (app === 'report') {
                 // 切换到报告模式
                 document.getElementById('embeddedHeader').textContent = 'Report Agent - 最终报告生成';
-                
+
                 // 显示报告容器，隐藏其他内容
                 document.getElementById('reportContainer').classList.add('active');
                 document.getElementById('forumContainer').classList.remove('active');
-                
+
                 // 追加提示并加载report日志
                 appendConsoleTextLine('report', '[系统] 切换到报告生成模式');
                 loadReportLog();
-                
+
                 // 只在报告界面未初始化时才重新加载
                 const reportContent = document.getElementById('reportContent');
                 if (!reportContent || reportContent.children.length === 0) {
                     loadReportInterface();
                 }
-                
+
                 // 切换到report页面时检查是否可以自动生成报告
                 setTimeout(() => {
                     checkReportLockStatus();
                 }, 500);
-                
+
             } else {
                 // 切换到普通Engine模式
                 document.getElementById('embeddedHeader').textContent = agentTitles[app] || appNames[app];
-                
+
                 // 隐藏论坛和报告容器
                 document.getElementById('forumContainer').classList.remove('active');
                 document.getElementById('reportContainer').classList.remove('active');
-                
+
                 // 追加提示并加载新的控制台输出
                 appendConsoleTextLine(app, '[系统] 切换到 ' + appNames[app]);
                 loadConsoleOutput(app);
+
+                // 显示该Engine的进度条(如果有)
+                if (engines.includes(app)) {
+                    showEngineProgress(app);
+                    // 立即更新一次进度,确保显示最新状态
+                    updateEngineProgress(app);
+                }
             }
 
             // 更新嵌入页面
@@ -2542,123 +2733,194 @@
         // 预加载的iframe存储
         let preloadedIframes = {};
         let iframesInitialized = false;
-        
-        // 预加载所有iframe（只执行一次）
-        function preloadIframes() {
-            if (iframesInitialized) return;
-            
-            const ports = { insight: 8501, media: 8502, query: 8503 };
-            const content = document.getElementById('embeddedContent');
-            
-            for (const [app, port] of Object.entries(ports)) {
-                const iframe = document.createElement('iframe');
-                iframe.src = `http://${window.location.hostname}:${port}`;
-                iframe.style.width = '100%';
-                iframe.style.height = '100%';
-                iframe.style.border = 'none';
-                iframe.style.position = 'absolute';
-                iframe.style.top = '0';
-                iframe.style.left = '0';
-                iframe.style.display = 'none';
-                iframe.id = `iframe-${app}`;
-                
-                // 直接添加到content区域
-                content.appendChild(iframe);
-                preloadedIframes[app] = iframe;
-                
-                console.log(`预加载 ${app} 应用完成`);
+        let currentVisibleIframe = null; // 跟踪当前可见的iframe
+
+        // 懒加载iframe - 只在真正需要时才创建
+        function lazyLoadIframe(app) {
+            // 如果iframe已存在，直接返回
+            if (preloadedIframes[app]) {
+                return preloadedIframes[app];
             }
-            
+
+            const ports = { insight: 8501, media: 8502, query: 8503 };
+            if (!ports[app]) {
+                console.warn(`未知的应用: ${app}`);
+                return null;
+            }
+
+            const content = document.getElementById('embeddedContent');
+            const iframe = document.createElement('iframe');
+            iframe.src = `http://${window.location.hostname}:${ports[app]}`;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.position = 'absolute';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.display = 'none';
+            iframe.id = `iframe-${app}`;
+
+            // 添加加载完成事件
+            iframe.addEventListener('load', () => {
+                console.log(`${app} iframe 加载完成`);
+            });
+
+            content.appendChild(iframe);
+            preloadedIframes[app] = iframe;
+
+            console.log(`懒加载 ${app} iframe`);
+            return iframe;
+        }
+
+        // 卸载不需要的iframe以释放内存
+        function unloadIframe(app) {
+            if (!preloadedIframes[app]) return;
+
+            const iframe = preloadedIframes[app];
+
+            // 先隐藏iframe
+            iframe.style.display = 'none';
+
+            // 清空iframe内容以释放内存
+            if (iframe.contentWindow) {
+                try {
+                    // 尝试清空iframe的DOM
+                    iframe.src = 'about:blank';
+                } catch (e) {
+                    console.warn(`无法清空 ${app} iframe:`, e);
+                }
+            }
+
+            // 从DOM中移除iframe
+            if (iframe.parentNode) {
+                iframe.parentNode.removeChild(iframe);
+            }
+
+            // 从缓存中删除
+            delete preloadedIframes[app];
+
+            console.log(`卸载 ${app} iframe，释放内存`);
+        }
+
+        // 卸载所有非当前应用的iframe
+        function unloadInactiveIframes(currentApp) {
+            const apps = ['insight', 'media', 'query'];
+            apps.forEach(app => {
+                if (app !== currentApp && preloadedIframes[app]) {
+                    // 延迟卸载，给一些缓冲时间
+                    setTimeout(() => {
+                        if (currentApp !== app) { // 再次确认没有切换回来
+                            unloadIframe(app);
+                        }
+                    }, 30000); // 30秒后卸载不活跃的iframe
+                }
+            });
+        }
+
+        // 预加载所有iframe（只执行一次）- 已废弃，改用懒加载
+        function preloadIframes() {
+            // 不再预加载所有iframe，改用懒加载机制
+            console.log('使用懒加载机制，不再预加载所有iframe');
             iframesInitialized = true;
-            console.log('所有iframe预加载完成，准备进行无缝切换');
         }
 
         // 更新嵌入页面
         function updateEmbeddedPage(app) {
             const header = document.getElementById('embeddedHeader');
             const content = document.getElementById('embeddedContent');
-            
+
             // 如果是Forum Engine，直接显示论坛界面
             if (app === 'forum') {
                 header.textContent = 'Forum Engine - 多智能体交流';
-                
+
                 // 隐藏所有iframe
-                if (typeof preloadedIframes !== 'undefined') {
-                    Object.values(preloadedIframes).forEach(iframe => {
-                        iframe.style.display = 'none';
-                    });
-                }
-                
+                Object.values(preloadedIframes).forEach(iframe => {
+                    iframe.style.display = 'none';
+                });
+
                 // 移除占位符
                 const placeholder = content.querySelector('.status-placeholder');
                 if (placeholder) {
                     placeholder.remove();
                 }
-                
+
                 // 显示论坛容器，隐藏报告容器
                 document.getElementById('forumContainer').classList.add('active');
                 document.getElementById('reportContainer').classList.remove('active');
+
+                // 卸载不活跃的iframe
+                unloadInactiveIframes(null);
+
+                currentVisibleIframe = null;
                 return;
             }
-            
+
             // 如果是Report Engine，显示报告界面
             if (app === 'report') {
                 header.textContent = 'Report Agent - 最终报告生成';
-                
+
                 // 隐藏所有iframe
-                if (typeof preloadedIframes !== 'undefined') {
-                    Object.values(preloadedIframes).forEach(iframe => {
-                        iframe.style.display = 'none';
-                    });
-                }
-                
+                Object.values(preloadedIframes).forEach(iframe => {
+                    iframe.style.display = 'none';
+                });
+
                 // 移除占位符
                 const placeholder = content.querySelector('.status-placeholder');
                 if (placeholder) {
                     placeholder.remove();
                 }
-                
+
                 // 显示报告容器，隐藏论坛容器
                 document.getElementById('reportContainer').classList.add('active');
                 document.getElementById('forumContainer').classList.remove('active');
+
+                // 卸载不活跃的iframe
+                unloadInactiveIframes(null);
+
+                currentVisibleIframe = null;
                 return;
             }
-            
+
             // 隐藏论坛和报告容器
             document.getElementById('forumContainer').classList.remove('active');
             document.getElementById('reportContainer').classList.remove('active');
 
             header.textContent = agentTitles[app] || appNames[app] || app;
 
-            // 如果应用正在运行，显示对应的iframe
+            // 如果应用正在运行，显示对应的iframe（使用懒加载）
             if (appStatus[app] === 'running') {
-                // 确保iframe已初始化
-                if (!iframesInitialized) {
-                    preloadIframes();
+                // 懒加载当前应用的iframe
+                const iframe = lazyLoadIframe(app);
+
+                if (!iframe) {
+                    console.error(`无法加载 ${app} iframe`);
+                    return;
                 }
-                
+
                 // 隐藏所有iframe
-                Object.values(preloadedIframes).forEach(iframe => {
-                    iframe.style.display = 'none';
+                Object.values(preloadedIframes).forEach(otherIframe => {
+                    otherIframe.style.display = 'none';
                 });
-                
+
                 // 移除占位符
                 const placeholder = content.querySelector('.status-placeholder');
                 if (placeholder) {
                     placeholder.remove();
                 }
-                
+
                 // 显示当前应用的iframe
-                if (preloadedIframes[app]) {
-                    preloadedIframes[app].style.display = 'block';
-                    console.log(`切换到 ${app} 应用 - 无刷新切换`);
-                }
+                iframe.style.display = 'block';
+                currentVisibleIframe = app;
+                console.log(`切换到 ${app} 应用 - 懒加载模式`);
+
+                // 卸载不活跃的iframe（30秒后）
+                unloadInactiveIframes(app);
             } else {
                 // 隐藏所有iframe
                 Object.values(preloadedIframes).forEach(iframe => {
                     iframe.style.display = 'none';
                 });
-                
+
                 // 显示状态信息
                 let placeholder = content.querySelector('.status-placeholder');
                 if (!placeholder) {
@@ -2667,11 +2929,13 @@
                     placeholder.style.cssText = 'display: flex; align-items: center; justify-content: center; height: 100%; color: #666; flex-direction: column; position: absolute; top: 0; left: 0; width: 100%;';
                     content.appendChild(placeholder);
                 }
-                
+
                 placeholder.innerHTML = `
                     <div style="margin-bottom: 10px;">${appNames[app]} 未运行</div>
                     <div style="font-size: 12px;">状态: ${appStatus[app]}</div>
                 `;
+
+                currentVisibleIframe = null;
             }
         }
 
@@ -2840,7 +3104,164 @@
 
         // Forum Engine 相关函数
         let forumLogLineCount = 0;
-        
+
+        // 更新所有Engine的进度条
+        function updateAllEngineProgress() {
+            // 通过现有的status API获取所有Engine的状态
+            fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                // 为每个需要进度显示的Engine更新状态
+                const engines = ['insight', 'media', 'query'];
+
+                engines.forEach(engine => {
+                    if (data[engine]) {
+                        const info = data[engine];
+                        const status = info.status === 'running' ? 'running' : 'stopped';
+
+                        // 如果Engine正在运行,显示进度条
+                        if (status === 'running') {
+                            // 尝试从API获取详细进度,如果失败则显示基本运行状态
+                            updateEngineProgress(engine);
+                        } else {
+                            // Engine未运行,清除进度信息
+                            engineProgress[engine] = null;
+                            const progressContainer = document.getElementById(`progress-${engine}`);
+                            if (progressContainer && progressContainer.parentNode) {
+                                progressContainer.parentNode.removeChild(progressContainer);
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.log('获取Engine状态失败:', error);
+            });
+        }
+
+        // 更新单个Engine的进度
+        function updateEngineProgress(engine) {
+            // 先尝试从专用进度API获取
+            fetch(`/api/${engine}/progress`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Progress API not available');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.progress) {
+                    // 存储进度信息
+                    engineProgress[engine] = {
+                        status: data.progress.status || 'running',
+                        progress: data.progress.progress || 0,
+                        message: data.progress.message || '正在处理...',
+                        updated_at: new Date().toISOString()
+                    };
+
+                    // 如果当前正在查看该Engine,更新显示
+                    if (currentApp === engine) {
+                        displayEngineProgress(engine);
+                    }
+                }
+            })
+            .catch(error => {
+                // 如果专用API不可用,使用基本的运行状态
+                if (appStatus[engine] === 'running') {
+                    // 使用基本的进度信息
+                    if (!engineProgress[engine]) {
+                        engineProgress[engine] = {
+                            status: 'running',
+                            progress: 50, // 默认显示50%表示运行中
+                            message: '正在分析中...',
+                            updated_at: new Date().toISOString()
+                        };
+                    }
+
+                    // 如果当前正在查看该Engine,更新显示
+                    if (currentApp === engine) {
+                        displayEngineProgress(engine);
+                    }
+                }
+            });
+        }
+
+        // 在嵌入页面区域显示Engine进度
+        function displayEngineProgress(engine) {
+            const progress = engineProgress[engine];
+            if (!progress) return;
+
+            // 查找或创建进度显示容器
+            let progressContainer = document.getElementById(`progress-${engine}`);
+            if (!progressContainer) {
+                // 在嵌入内容区域的顶部创建进度条容器
+                const embeddedContent = document.getElementById('embeddedContent');
+                if (!embeddedContent) return;
+
+                progressContainer = document.createElement('div');
+                progressContainer.id = `progress-${engine}`;
+                progressContainer.className = 'task-progress-container';
+                progressContainer.style.position = 'absolute';
+                progressContainer.style.top = '10px';
+                progressContainer.style.left = '10px';
+                progressContainer.style.right = '10px';
+                progressContainer.style.zIndex = '100';
+                progressContainer.style.backgroundColor = '#f5f5f0';
+                embeddedContent.insertBefore(progressContainer, embeddedContent.firstChild);
+            }
+
+            // 更新进度条内容
+            const loadingIndicator = progress.status !== 'completed' && progress.status !== 'error'
+                ? '<span class="report-loading-spinner"></span>'
+                : '';
+
+            progressContainer.innerHTML = `
+                <div class="task-progress-header">
+                    <div class="task-progress-title">
+                        ${loadingIndicator}${appNames[engine] || engine} - ${progress.message}
+                    </div>
+                    <div class="task-progress-bar">
+                        <div class="task-progress-fill" style="width: ${Math.min(Math.max(progress.progress || 0, 0), 100)}%"></div>
+                        <div class="task-progress-text">${progress.progress || 0}%</div>
+                    </div>
+                </div>
+            `;
+
+            // 如果任务已完成,5秒后淡出进度条
+            if (progress.status === 'completed') {
+                setTimeout(() => {
+                    if (progressContainer && progressContainer.parentNode) {
+                        progressContainer.style.transition = 'opacity 1s';
+                        progressContainer.style.opacity = '0';
+                        setTimeout(() => {
+                            if (progressContainer && progressContainer.parentNode) {
+                                progressContainer.parentNode.removeChild(progressContainer);
+                            }
+                        }, 1000);
+                    }
+                }, 5000);
+            }
+        }
+
+        // 隐藏指定Engine的进度条(切换时使用)
+        function hideEngineProgress(engine) {
+            const progressContainer = document.getElementById(`progress-${engine}`);
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+        }
+
+        // 显示指定Engine的进度条(切换时使用)
+        function showEngineProgress(engine) {
+            const progressContainer = document.getElementById(`progress-${engine}`);
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+            } else if (engineProgress[engine]) {
+                // 如果有缓存的进度信息但容器不存在,重新创建
+                displayEngineProgress(engine);
+            }
+        }
+
         // Report Engine 相关函数
         let reportLogLineCount = 0;
         let reportLockCheckInterval = null;
