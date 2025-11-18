@@ -102,7 +102,7 @@ class HTMLRenderer:
     @staticmethod
     def _get_font_path() -> Path:
         """返回PDF导出所需字体的路径（使用优化后的子集字体）"""
-        return Path(__file__).parent / "assets" / "fonts" / "SourceHanSerifSC-Medium-Subset.otf"
+        return Path(__file__).parent / "assets" / "fonts" / "SourceHanSerifSC-Medium-Subset.ttf"
 
     def _load_lib(self, filename: str) -> str:
         """
@@ -2881,8 +2881,8 @@ function exportPdf() {
   const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
   try {
     if (window.pdfFontData) {
-      pdf.addFileToVFS('SourceHanSerifSC-Medium.otf', window.pdfFontData);
-      pdf.addFont('SourceHanSerifSC-Medium.otf', 'SourceHanSerif', 'normal');
+      pdf.addFileToVFS('SourceHanSerifSC-Medium.ttf', window.pdfFontData);
+      pdf.addFont('SourceHanSerifSC-Medium.ttf', 'SourceHanSerif', 'normal');
       pdf.setFont('SourceHanSerif');
       console.log('PDF字体已成功加载');
     } else {

@@ -1008,3 +1008,140 @@ def clear_log():
             'success': False,
             'error': f'清空日志失败: {str(e)}'
         }), 500
+
+
+@report_bp.route('/export/pdf/<task_id>', methods=['GET'])
+def export_pdf(task_id: str):
+    """
+    导出报告为PDF格式。
+
+    从IR JSON文件生成优化的PDF，支持自动布局调整。
+
+    参数:
+        task_id: 任务ID
+
+    查询参数:
+        optimize: 是否启用布局优化（默认true）
+
+    返回:
+        Response: PDF文件流或错误信息
+    """
+    try:
+        # 获取任务信息
+        task = tasks_registry.get(task_id)
+        if not task:
+            return jsonify({
+                'success': False,
+                'error': '任务不存在'
+            }), 404
+
+        # 检查任务是否完成
+        if task.status != 'completed':
+            return jsonify({
+                'success': False,
+                'error': f'任务未完成，当前状态: {task.status}'
+            }), 400
+
+        # 获取IR文件路径
+        if not task.ir_file_path or not os.path.exists(task.ir_file_path):
+            return jsonify({
+                'success': False,
+                'error': 'IR文件不存在'
+            }), 404
+
+        # 读取IR数据
+        with open(task.ir_file_path, 'r', encoding='utf-8') as f:
+            document_ir = json.load(f)
+
+        # 检查是否启用布局优化
+        optimize = request.args.get('optimize', 'true').lower() == 'true'
+
+        # 创建PDF渲染器并生成PDF
+        from .renderers import PDFRenderer
+        renderer = PDFRenderer()
+
+        logger.info(f"开始导出PDF，任务ID: {task_id}，布局优化: {optimize}")
+
+        # 生成PDF字节流
+        pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
+
+        # 确定下载文件名
+        topic = document_ir.get('metadata', {}).get('topic', 'report')
+        pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+        # 返回PDF文件
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{pdf_filename}"',
+                'Content-Type': 'application/pdf'
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"导出PDF失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'导出PDF失败: {str(e)}'
+        }), 500
+
+
+@report_bp.route('/export/pdf-from-ir', methods=['POST'])
+def export_pdf_from_ir():
+    """
+    从IR JSON直接导出PDF（不需要任务ID）。
+
+    适用于前端直接传递IR数据的场景。
+
+    请求体:
+        {
+            "document_ir": {...},  // Document IR JSON
+            "optimize": true       // 是否启用布局优化（可选）
+        }
+
+    返回:
+        Response: PDF文件流或错误信息
+    """
+    try:
+        data = request.get_json()
+
+        if not data or 'document_ir' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少document_ir参数'
+            }), 400
+
+        document_ir = data['document_ir']
+        optimize = data.get('optimize', True)
+
+        # 创建PDF渲染器并生成PDF
+        from .renderers import PDFRenderer
+        renderer = PDFRenderer()
+
+        logger.info(f"从IR直接导出PDF，布局优化: {optimize}")
+
+        # 生成PDF字节流
+        pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
+
+        # 确定下载文件名
+        topic = document_ir.get('metadata', {}).get('topic', 'report')
+        pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+        # 返回PDF文件
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{pdf_filename}"',
+                'Content-Type': 'application/pdf'
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"从IR导出PDF失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'导出PDF失败: {str(e)}'
+        }), 500
+
