@@ -101,8 +101,8 @@ class HTMLRenderer:
 
     @staticmethod
     def _get_font_path() -> Path:
-        """返回PDF导出所需字体的路径"""
-        return Path(__file__).parent / "assets" / "fonts" / "SourceHanSerifSC-Medium.otf"
+        """返回PDF导出所需字体的路径（使用优化后的子集字体）"""
+        return Path(__file__).parent / "assets" / "fonts" / "SourceHanSerifSC-Medium-Subset.otf"
 
     def _load_lib(self, filename: str) -> str:
         """
