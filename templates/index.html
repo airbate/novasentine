@@ -1228,22 +1228,66 @@
         let activeConsoleLayer = currentApp;
         const logRenderers = {};
 
-        // 轻量日志虚拟渲染器：不限制总行数，使用可视窗口渲染 + 节流
+        // 轻量日志虚拟渲染器：可视窗口渲染 + 节流 + 包级别截断，降低内存占用
         class LogVirtualList {
             constructor(container) {
                 this.container = container;
+                this.scrollElement = document.getElementById('consoleOutput') || container;
                 this.lines = [];
                 this.pending = [];
                 this.pool = [];
                 this.lineHeight = 18;
                 this.maxVisible = 120;
+                this.maxLines = 2000; // 硬性保留的最大行数，超出时裁剪老旧数据
+                this.trimTarget = 1500; // 裁剪后保留的目标行数，避免频繁裁剪
                 this.rafId = null;
+                this.autoScrollEnabled = true;
+                this.resumeDelay = 10000; // 手动滚动后重新自动滚动的延迟
+                this.resumeTimer = null;
                 this.attachScroll();
             }
 
             attachScroll() {
-                if (!this.container) return;
-                this.container.addEventListener('scroll', () => this.scheduleRender());
+                if (!this.scrollElement) return;
+                this.scrollElement.addEventListener('scroll', () => {
+                    this.handleUserScroll();
+                    this.scheduleRender();
+                });
+            }
+
+            handleUserScroll() {
+                if (!this.scrollElement) return;
+                const atBottom = this.isNearBottom();
+                if (atBottom) {
+                    this.autoScrollEnabled = true;
+                    this.clearResumeTimer();
+                    return;
+                }
+
+                this.autoScrollEnabled = false;
+                this.clearResumeTimer();
+                this.resumeTimer = setTimeout(() => {
+                    this.autoScrollEnabled = true;
+                    this.scrollToBottom();
+                }, this.resumeDelay);
+            }
+
+            clearResumeTimer() {
+                if (this.resumeTimer) {
+                    clearTimeout(this.resumeTimer);
+                    this.resumeTimer = null;
+                }
+            }
+
+            isNearBottom() {
+                if (!this.scrollElement) return true;
+                const { scrollTop, clientHeight, scrollHeight } = this.scrollElement;
+                return (scrollTop + clientHeight) >= (scrollHeight - this.lineHeight * 2);
+            }
+
+            scrollToBottom() {
+                if (!this.scrollElement) return;
+                this.scrollElement.scrollTop = this.scrollElement.scrollHeight;
             }
 
             setLineHeight(px) {
@@ -1255,6 +1299,7 @@
                 if (this.pending.length > 200) {
                     this.flush();
                 }
+                this.maybeTrim();
                 this.scheduleRender();
             }
 
@@ -1272,6 +1317,21 @@
                 if (!this.pending.length) return;
                 this.lines.push(...this.pending);
                 this.pending = [];
+                this.maybeTrim();
+            }
+
+            maybeTrim() {
+                // 在 flush 之后调用：控制 lines 总量，减少内存
+                if (this.lines.length <= this.maxLines) return;
+
+                const toDrop = this.lines.length - this.trimTarget;
+                if (toDrop > 0) {
+                    this.lines.splice(0, toDrop);
+                    // 调整滚动位置使得视觉保持在底部附近
+                    if (this.scrollElement && !this.autoScrollEnabled) {
+                        this.scrollElement.scrollTop = Math.max(0, this.scrollElement.scrollTop - toDrop * this.lineHeight);
+                    }
+                }
             }
 
             scheduleRender(force = false) {
@@ -1292,25 +1352,34 @@
                 }
 
                 const lh = this.lineHeight;
-                const viewport = this.container.clientHeight || 1;
+                const viewport = (this.scrollElement && this.scrollElement.clientHeight) || 1;
                 const visible = Math.max(Math.ceil(viewport / lh) + 20, this.maxVisible);
 
-                const start = Math.max(0, Math.floor(this.container.scrollTop / lh) - Math.floor(visible / 2));
+                const scrollTop = (this.scrollElement && this.scrollElement.scrollTop) || 0;
+                const halfVisible = Math.floor(visible / 2);
+                const rawStart = Math.floor(scrollTop / lh) - halfVisible;
+                const start = Math.max(0, Math.min(total, rawStart));
                 const end = Math.min(total, start + visible);
                 const beforeHeight = start * lh;
                 const afterHeight = (total - end) * lh;
 
-                const needed = end - start;
+                const needed = Math.max(0, end - start);
                 while (this.pool.length < needed) {
                     const node = document.createElement('div');
                     node.className = 'console-line';
                     this.pool.push(node);
                 }
 
+                // 截断池中过期结点，减少 DOM 引用
+                if (needed && this.pool.length > needed * 2) {
+                    this.pool.length = needed * 2;
+                }
+
                 const fragment = document.createDocumentFragment();
                 for (let idx = start; idx < end; idx++) {
                     const line = this.lines[idx];
                     const node = this.pool[idx - start];
+                    if (!node) continue; // 防御性避免越界
                     node.className = line.className || 'console-line';
                     node.textContent = line.text;
                     fragment.appendChild(node);
@@ -1325,9 +1394,9 @@
                 this.container.appendChild(fragment);
                 this.container.appendChild(afterSpacer);
 
-                const shouldStick = (this.container.scrollTop + this.container.clientHeight) >= (this.container.scrollHeight - lh * 2);
+                const shouldStick = this.autoScrollEnabled || this.isNearBottom();
                 if (shouldStick) {
-                    this.container.scrollTop = this.container.scrollHeight;
+                    this.scrollToBottom();
                 }
             }
         }
@@ -2210,14 +2279,12 @@
                     layer.style.display = 'none';
                 }
 
-                const placeholder = document.createElement('div');
-                placeholder.className = 'console-line';
-                placeholder.textContent = `[系统] ${appNames[app] || app} 日志就绪`;
-                layer.appendChild(placeholder);
                 logRenderers[app] = new LogVirtualList(layer);
-
                 container.appendChild(layer);
                 consoleLayers[app] = layer;
+
+                // 初始提示仅在渲染器内部渲染，不保留在 DOM
+                logRenderers[app].clear(`[系统] ${appNames[app] || app} 日志就绪`);
             });
 
             container.scrollTop = container.scrollHeight;
