@@ -146,6 +146,78 @@ class HTMLRenderer:
         self._pdf_font_base64 = ""
         return self._pdf_font_base64
 
+    def _build_script_with_fallback(
+        self,
+        inline_code: str,
+        cdn_url: str,
+        check_expression: str,
+        lib_name: str,
+        is_defer: bool = False
+    ) -> str:
+        """
+        构建带有CDN fallback机制的script标签
+
+        策略：
+        1. 优先嵌入本地库代码
+        2. 添加检测脚本，验证库是否成功加载
+        3. 如果检测失败，动态加载CDN版本作为备用
+
+        参数:
+            inline_code: 本地库的JavaScript代码内容
+            cdn_url: CDN备用链接
+            check_expression: JavaScript表达式，用于检测库是否加载成功
+            lib_name: 库名称（用于日志输出）
+            is_defer: 是否使用defer属性
+
+        返回:
+            str: 完整的script标签HTML
+        """
+        defer_attr = ' defer' if is_defer else ''
+
+        if inline_code:
+            # 嵌入本地库代码，并添加fallback检测
+            return f"""
+  <script{defer_attr}>
+    // {lib_name} - 嵌入式版本
+    try {{
+      {inline_code}
+    }} catch (e) {{
+      console.error('{lib_name}嵌入式加载失败:', e);
+    }}
+  </script>
+  <script{defer_attr}>
+    // {lib_name} - CDN Fallback检测
+    (function() {{
+      var checkLib = function() {{
+        if (!({check_expression})) {{
+          console.warn('{lib_name}本地版本加载失败，正在从CDN加载备用版本...');
+          var script = document.createElement('script');
+          script.src = '{cdn_url}';
+          script.onerror = function() {{
+            console.error('{lib_name} CDN备用加载也失败了');
+          }};
+          script.onload = function() {{
+            console.log('{lib_name} CDN备用版本加载成功');
+          }};
+          document.head.appendChild(script);
+        }}
+      }};
+
+      // 延迟检测，确保嵌入代码有时间执行
+      if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', function() {{
+          setTimeout(checkLib, 100);
+        }});
+      }} else {{
+        setTimeout(checkLib, 100);
+      }}
+    }})();
+  </script>""".strip()
+        else:
+            # 本地文件读取失败，直接使用CDN
+            logger.warning(f"{lib_name}本地文件未找到或读取失败，将直接使用CDN")
+            return f'  <script{defer_attr} src="{cdn_url}"></script>'
+
     # ====== 公共入口 ======
 
     def render(self, document_ir: Dict[str, Any]) -> str:
@@ -252,12 +324,47 @@ class HTMLRenderer:
         jspdf = self._load_lib("jspdf.umd.min.js")
         mathjax = self._load_lib("mathjax.js")
 
-        # 如果库文件加载失败，使用CDN备用链接
-        chartjs_tag = f"<script>{chartjs}</script>" if chartjs else '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>'
-        sankey_tag = f"<script>{chartjs_sankey}</script>" if chartjs_sankey else '<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@4"></script>'
-        html2canvas_tag = f"<script>{html2canvas}</script>" if html2canvas else '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>'
-        jspdf_tag = f"<script>{jspdf}</script>" if jspdf else '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>'
-        mathjax_tag = f"<script defer>{mathjax}</script>" if mathjax else '<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>'
+        # 生成嵌入式script标签，并为每个库添加CDN fallback机制
+        # Chart.js - 主要图表库
+        chartjs_tag = self._build_script_with_fallback(
+            inline_code=chartjs,
+            cdn_url="https://cdn.jsdelivr.net/npm/chart.js",
+            check_expression="typeof Chart !== 'undefined'",
+            lib_name="Chart.js"
+        )
+
+        # Chart.js Sankey插件
+        sankey_tag = self._build_script_with_fallback(
+            inline_code=chartjs_sankey,
+            cdn_url="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@4",
+            check_expression="typeof Chart !== 'undefined' && Chart.controllers && Chart.controllers.sankey",
+            lib_name="chartjs-chart-sankey"
+        )
+
+        # html2canvas - 用于截图
+        html2canvas_tag = self._build_script_with_fallback(
+            inline_code=html2canvas,
+            cdn_url="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+            check_expression="typeof html2canvas !== 'undefined'",
+            lib_name="html2canvas"
+        )
+
+        # jsPDF - 用于PDF导出
+        jspdf_tag = self._build_script_with_fallback(
+            inline_code=jspdf,
+            cdn_url="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+            check_expression="typeof jspdf !== 'undefined'",
+            lib_name="jsPDF"
+        )
+
+        # MathJax - 数学公式渲染
+        mathjax_tag = self._build_script_with_fallback(
+            inline_code=mathjax,
+            cdn_url="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
+            check_expression="typeof MathJax !== 'undefined'",
+            lib_name="MathJax",
+            is_defer=True
+        )
 
         # PDF字体数据不再嵌入HTML，减小文件体积
         pdf_font_script = ""
