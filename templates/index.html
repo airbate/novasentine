@@ -3867,6 +3867,22 @@
                     throw new Error('PDF依赖未加载');
                 }
                 const pdf = new jsPDF('p', 'mm', 'a4');
+
+                // 添加中文字体支持
+                try {
+                    const fontData = iframe.contentWindow.pdfFontData || window.pdfFontData;
+                    if (fontData) {
+                        pdf.addFileToVFS('SourceHanSerifSC-Medium.otf', fontData);
+                        pdf.addFont('SourceHanSerifSC-Medium.otf', 'SourceHanSerif', 'normal');
+                        pdf.setFont('SourceHanSerif');
+                        console.log('PDF字体已加载：SourceHanSerif');
+                    } else {
+                        console.warn('PDF字体数据未找到，将使用默认字体');
+                    }
+                } catch (fontErr) {
+                    console.warn('PDF字体加载失败:', fontErr);
+                }
+
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pxWidth = Math.max(target.scrollWidth || 0, Math.round(pageWidth * 3.78));
                 const renderTask = pdf.html(target, {
@@ -3877,11 +3893,13 @@
                     margin: [10, 10, 16, 10],
                     autoPaging: 'text',
                     html2canvas: {
-                        scale: Math.min(1.2, Math.max(0.8, pageWidth / (target.clientWidth || pageWidth))),
+                        scale: Math.min(1.5, Math.max(1.0, pageWidth / (target.clientWidth || pageWidth))),
                         useCORS: true,
                         scrollX: 0,
                         scrollY: -iframe.contentWindow.scrollY,
-                        logging: false
+                        logging: false,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff'
                     },
                     pagebreak: {
                         mode: ['css', 'legacy'],

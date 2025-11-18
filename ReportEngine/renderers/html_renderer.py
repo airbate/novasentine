@@ -259,6 +259,10 @@ class HTMLRenderer:
         jspdf_tag = f"<script>{jspdf}</script>" if jspdf else '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>'
         mathjax_tag = f"<script defer>{mathjax}</script>" if mathjax else '<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>'
 
+        # 加载PDF字体数据
+        pdf_font_data = self._load_pdf_font_data()
+        pdf_font_script = f"<script>window.pdfFontData = '{pdf_font_data}';</script>" if pdf_font_data else ""
+
         return f"""
 <head>
   <meta charset="utf-8" />
@@ -282,6 +286,7 @@ class HTMLRenderer:
     }};
   </script>
   {mathjax_tag}
+  {pdf_font_script}
   <style>
 {css}
   </style>
@@ -2353,6 +2358,7 @@ pre.code-block {{
   main {{
     box-shadow: none;
     margin: 0;
+    max-width: 100%;
   }}
   .chapter > *,
   .hero-section,
@@ -2364,6 +2370,7 @@ figure,
 blockquote {{
   break-inside: avoid;
   page-break-inside: avoid;
+  max-width: 100%;
 }}
 .chapter h2,
 .chapter h3,
@@ -2375,18 +2382,37 @@ blockquote {{
 .chart-card,
 .table-wrap {{
   overflow: visible !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
 }}
 .chart-card canvas {{
   width: 100% !important;
   height: auto !important;
+  max-width: 100% !important;
+}}
+.table-wrap {{
+  overflow-x: auto;
+  max-width: 100%;
 }}
 .table-wrap table {{
   table-layout: fixed;
   width: 100%;
+  max-width: 100%;
 }}
 .table-wrap table th,
 .table-wrap table td {{
   word-break: break-word;
+  overflow-wrap: break-word;
+}}
+/* 防止图片和图表溢出 */
+img, canvas, svg {{
+  max-width: 100% !important;
+  height: auto !important;
+}}
+/* 确保所有容器不超出页面宽度 */
+* {{
+  box-sizing: border-box;
+  max-width: 100%;
 }}
 }}
 """
@@ -2858,6 +2884,9 @@ function exportPdf() {
       pdf.addFileToVFS('SourceHanSerifSC-Medium.otf', window.pdfFontData);
       pdf.addFont('SourceHanSerifSC-Medium.otf', 'SourceHanSerif', 'normal');
       pdf.setFont('SourceHanSerif');
+      console.log('PDF字体已成功加载');
+    } else {
+      console.warn('PDF字体数据未找到，将使用默认字体');
     }
   } catch (err) {
     console.warn('Custom PDF font setup failed, fallback to default', err);
@@ -2890,11 +2919,13 @@ function exportPdf() {
       autoPaging: 'text',
       windowWidth: pxWidth,
       html2canvas: {
-        scale: Math.min(1.2, Math.max(0.8, pageWidth / (target.clientWidth || pageWidth))),
+        scale: Math.min(1.5, Math.max(1.0, pageWidth / (target.clientWidth || pageWidth))),
         useCORS: true,
         scrollX: 0,
         scrollY: -window.scrollY,
-        logging: false
+        logging: false,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       },
       pagebreak: {
         mode: ['css', 'legacy'],
