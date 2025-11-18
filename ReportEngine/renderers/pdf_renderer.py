@@ -21,6 +21,7 @@ except ImportError:
 
 from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
+from .chart_to_svg import create_chart_converter
 
 
 class PDFRenderer:
@@ -51,6 +52,14 @@ class PDFRenderer:
         if not WEASYPRINT_AVAILABLE:
             raise RuntimeError("WeasyPrint未安装，请运行: pip install weasyprint")
 
+        # 初始化图表转换器
+        try:
+            font_path = self._get_font_path()
+            self.chart_converter = create_chart_converter(font_path=str(font_path))
+            logger.info("图表SVG转换器初始化成功")
+        except Exception as e:
+            logger.warning(f"图表SVG转换器初始化失败: {e}，将使用表格降级")
+
     @staticmethod
     def _get_font_path() -> Path:
         """获取字体文件路径"""
@@ -77,6 +86,139 @@ class PDFRenderer:
 
         raise FileNotFoundError(f"未找到字体文件，请检查 {fonts_dir} 目录")
 
+    def _convert_charts_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
+        """
+        将document_ir中的所有图表转换为SVG
+
+        参数:
+            document_ir: Document IR数据
+
+        返回:
+            Dict[str, str]: widgetId到SVG字符串的映射
+        """
+        svg_map = {}
+
+        if not hasattr(self, 'chart_converter') or not self.chart_converter:
+            logger.warning("图表转换器未初始化，跳过图表转换")
+            return svg_map
+
+        # 遍历所有章节
+        chapters = document_ir.get('chapters', [])
+        for chapter in chapters:
+            blocks = chapter.get('blocks', [])
+            self._extract_and_convert_widgets(blocks, svg_map)
+
+        logger.info(f"成功转换 {len(svg_map)} 个图表为SVG")
+        return svg_map
+
+    def _extract_and_convert_widgets(
+        self,
+        blocks: list,
+        svg_map: Dict[str, str]
+    ) -> None:
+        """
+        递归遍历blocks，找到所有widget并转换为SVG
+
+        参数:
+            blocks: block列表
+            svg_map: 用于存储转换结果的字典
+        """
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+
+            block_type = block.get('type')
+
+            # 处理widget类型
+            if block_type == 'widget':
+                widget_id = block.get('widgetId')
+                widget_type = block.get('widgetType', '')
+
+                # 只处理chart.js类型的widget
+                if widget_id and widget_type.startswith('chart.js'):
+                    try:
+                        svg_content = self.chart_converter.convert_widget_to_svg(
+                            block,
+                            width=800,
+                            height=500,
+                            dpi=100
+                        )
+                        if svg_content:
+                            svg_map[widget_id] = svg_content
+                            logger.debug(f"图表 {widget_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"图表 {widget_id} 转换为SVG失败")
+                    except Exception as e:
+                        logger.error(f"转换图表 {widget_id} 时出错: {e}")
+
+            # 递归处理嵌套的blocks
+            nested_blocks = block.get('blocks')
+            if isinstance(nested_blocks, list):
+                self._extract_and_convert_widgets(nested_blocks, svg_map)
+
+            # 处理列表项
+            if block_type == 'list':
+                items = block.get('items', [])
+                for item in items:
+                    if isinstance(item, list):
+                        self._extract_and_convert_widgets(item, svg_map)
+
+            # 处理表格单元格
+            if block_type == 'table':
+                rows = block.get('rows', [])
+                for row in rows:
+                    cells = row.get('cells', [])
+                    for cell in cells:
+                        cell_blocks = cell.get('blocks', [])
+                        if isinstance(cell_blocks, list):
+                            self._extract_and_convert_widgets(cell_blocks, svg_map)
+
+    def _inject_svg_into_html(self, html: str, svg_map: Dict[str, str]) -> str:
+        """
+        将SVG内容直接注入到HTML中（不使用JavaScript）
+
+        参数:
+            html: 原始HTML内容
+            svg_map: widgetId到SVG内容的映射
+
+        返回:
+            str: 注入SVG后的HTML
+        """
+        if not svg_map:
+            return html
+
+        import re
+
+        # 为每个widgetId查找对应的canvas并替换为SVG
+        for widget_id, svg_content in svg_map.items():
+            # 清理SVG内容（移除XML声明，因为SVG将嵌入HTML）
+            svg_content = re.sub(r'<\?xml[^>]+\?>', '', svg_content)
+            svg_content = re.sub(r'<!DOCTYPE[^>]+>', '', svg_content)
+            svg_content = svg_content.strip()
+
+            # 创建SVG容器HTML
+            svg_html = f'<div class="chart-svg-container">{svg_content}</div>'
+
+            # 查找包含此widgetId的配置脚本
+            # 格式: <script type="application/json" id="chart-config-N">{"widgetId":"widget_id",...}</script>
+            config_pattern = rf'<script[^>]+id="([^"]+)"[^>]*>\s*\{{[^}}]*"widgetId"\s*:\s*"{re.escape(widget_id)}"[^}}]*\}}'
+            match = re.search(config_pattern, html, re.DOTALL)
+
+            if match:
+                config_id = match.group(1)
+
+                # 查找对应的canvas元素
+                # 格式: <canvas id="chart-N" data-config-id="chart-config-N"></canvas>
+                canvas_pattern = rf'<canvas[^>]+data-config-id="{re.escape(config_id)}"[^>]*></canvas>'
+
+                # 替换canvas为SVG
+                html = re.sub(canvas_pattern, svg_html, html)
+                logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
+            else:
+                logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
+
+        return html
+
     def _get_pdf_html(
         self,
         document_ir: Dict[str, Any],
@@ -89,6 +231,7 @@ class PDFRenderer:
         - 添加PDF专用样式
         - 嵌入字体文件
         - 应用布局优化
+        - 将图表转换为SVG矢量图形
 
         参数:
             document_ir: Document IR数据
@@ -117,8 +260,17 @@ class PDFRenderer:
         else:
             layout_config = self.layout_optimizer.config
 
+        # 转换图表为SVG
+        logger.info("开始转换图表为SVG矢量图形...")
+        svg_map = self._convert_charts_to_svg(document_ir)
+
         # 使用HTML渲染器生成基础HTML
         html = self.html_renderer.render(document_ir)
+
+        # 注入SVG
+        if svg_map:
+            html = self._inject_svg_into_html(html, svg_map)
+            logger.info(f"已注入 {len(svg_map)} 个SVG图表")
 
         # 获取字体路径并转换为base64（用于嵌入）
         font_path = self._get_font_path()
@@ -160,13 +312,29 @@ body {{
     background: white !important;
 }}
 
-/* 隐藏图表canvas，显示fallback表格 */
-.chart-container {{
+/* SVG图表容器样式 */
+.chart-svg-container {{
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}}
+
+.chart-svg-container svg {{
+    max-width: 100%;
+    height: auto;
+}}
+
+/* 隐藏fallback表格（因为现在使用SVG） */
+.chart-fallback {{
     display: none !important;
 }}
 
-.chart-fallback {{
+/* 确保chart-container显示（用于放置SVG） */
+.chart-container {{
     display: block !important;
+    min-height: 400px;
 }}
 
 {optimized_css}
