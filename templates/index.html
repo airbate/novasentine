@@ -1212,13 +1212,6 @@
             forum: 'stopped',  // 前端启动后再标记为 running
             report: 'stopped'  // Report Engine
         };
-        // 为每个Engine存储进度条状态
-        let engineProgress = {
-            insight: null,
-            media: null,
-            query: null,
-            report: null
-        };
         let customTemplate = ''; // 存储用户上传的自定义模板内容
         let configValues = {};
         let configDirty = false;
@@ -1243,8 +1236,7 @@
             refreshConsole: null,
             refreshForum: null,
             reportLockCheck: null,
-            connectionProbe: null,
-            updateEngineProgress: null  // 新增：更新所有Engine进度的定时器
+            connectionProbe: null
         };
 
         // 页面可见性变化处理
@@ -1289,9 +1281,6 @@
 
             // 报告锁定检查定时器 - 从10秒增加到15秒
             allTimers.reportLockCheck = setInterval(checkReportLockStatus, 15000);
-
-            // 更新所有Engine进度的定时器 - 每5秒更新一次
-            allTimers.updateEngineProgress = setInterval(updateAllEngineProgress, 5000);
         }
 
         // 暂停所有定时器
@@ -1786,9 +1775,6 @@
 
             // 启动所有定时器
             startAllTimers();
-
-            // 立即更新一次所有Engine的进度,恢复刷新前的状态
-            updateAllEngineProgress();
 
             // 监听页面可见性变化
             document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -2428,7 +2414,7 @@
                 if (appStatus[app] === 'running' && ports[app]) {
                     totalRunning++;
 
-                    // 懒加载iframe（如果还没有加载）
+                    // 懒加载iframe(如果还没有加载)
                     let iframe = preloadedIframes[app];
                     if (!iframe) {
                         iframe = lazyLoadIframe(app);
@@ -2439,8 +2425,32 @@
                         const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
                         console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
 
-                        // 直接更新iframe的src来传递搜索参数
-                        iframe.src = searchUrl;
+                        // 检查iframe是否已经加载了相同的查询,避免不必要的重新加载
+                        const currentSrc = iframe.src || '';
+
+                        // 只在查询不同时才更新iframe
+                        // 提取当前URL的query参数
+                        let needsUpdate = true;
+                        try {
+                            const currentUrl = new URL(currentSrc);
+                            const newUrl = new URL(searchUrl);
+                            const currentQuery = currentUrl.searchParams.get('query');
+                            const newQuery = newUrl.searchParams.get('query');
+
+                            // 如果query参数相同,不需要重新加载
+                            if (currentQuery === newQuery) {
+                                needsUpdate = false;
+                                console.log(`${app} iframe已有相同查询,跳过重新加载`);
+                            }
+                        } catch (e) {
+                            // URL解析失败,执行更新
+                            needsUpdate = true;
+                        }
+
+                        if (needsUpdate) {
+                            // 直接更新iframe的src来传递搜索参数
+                            iframe.src = searchUrl;
+                        }
                     }
                 }
             });
@@ -2467,12 +2477,6 @@
                     showMessage('需等待其余三个Agent工作完毕', 'error');
                     return;
                 }
-            }
-
-            // 隐藏当前Engine的进度条
-            const engines = ['insight', 'media', 'query'];
-            if (engines.includes(currentApp)) {
-                hideEngineProgress(currentApp);
             }
 
             // 更新按钮状态
@@ -2531,13 +2535,6 @@
                 // 追加提示并加载新的控制台输出
                 appendConsoleTextLine(app, '[系统] 切换到 ' + appNames[app]);
                 loadConsoleOutput(app);
-
-                // 显示该Engine的进度条(如果有)
-                if (engines.includes(app)) {
-                    showEngineProgress(app);
-                    // 立即更新一次进度,确保显示最新状态
-                    updateEngineProgress(app);
-                }
             }
 
             // 更新嵌入页面
@@ -2807,10 +2804,14 @@
             const apps = ['insight', 'media', 'query'];
             apps.forEach(app => {
                 if (app !== currentApp && preloadedIframes[app]) {
-                    // 延迟卸载，给一些缓冲时间
+                    // 延迟卸载,给一些缓冲时间
                     setTimeout(() => {
-                        if (currentApp !== app) { // 再次确认没有切换回来
+                        // 再次确认没有切换回来,并且该应用已经停止运行
+                        // 重要:不要卸载正在运行的iframe,否则会丢失进度
+                        if (currentApp !== app && appStatus[app] !== 'running' && appStatus[app] !== 'starting') {
                             unloadIframe(app);
+                        } else {
+                            console.log(`保留 ${app} iframe - 应用正在运行或已切换回来`);
                         }
                     }, 30000); // 30秒后卸载不活跃的iframe
                 }
@@ -3104,163 +3105,6 @@
 
         // Forum Engine 相关函数
         let forumLogLineCount = 0;
-
-        // 更新所有Engine的进度条
-        function updateAllEngineProgress() {
-            // 通过现有的status API获取所有Engine的状态
-            fetch('/api/status')
-            .then(response => response.json())
-            .then(data => {
-                // 为每个需要进度显示的Engine更新状态
-                const engines = ['insight', 'media', 'query'];
-
-                engines.forEach(engine => {
-                    if (data[engine]) {
-                        const info = data[engine];
-                        const status = info.status === 'running' ? 'running' : 'stopped';
-
-                        // 如果Engine正在运行,显示进度条
-                        if (status === 'running') {
-                            // 尝试从API获取详细进度,如果失败则显示基本运行状态
-                            updateEngineProgress(engine);
-                        } else {
-                            // Engine未运行,清除进度信息
-                            engineProgress[engine] = null;
-                            const progressContainer = document.getElementById(`progress-${engine}`);
-                            if (progressContainer && progressContainer.parentNode) {
-                                progressContainer.parentNode.removeChild(progressContainer);
-                            }
-                        }
-                    }
-                });
-            })
-            .catch(error => {
-                console.log('获取Engine状态失败:', error);
-            });
-        }
-
-        // 更新单个Engine的进度
-        function updateEngineProgress(engine) {
-            // 先尝试从专用进度API获取
-            fetch(`/api/${engine}/progress`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Progress API not available');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success && data.progress) {
-                    // 存储进度信息
-                    engineProgress[engine] = {
-                        status: data.progress.status || 'running',
-                        progress: data.progress.progress || 0,
-                        message: data.progress.message || '正在处理...',
-                        updated_at: new Date().toISOString()
-                    };
-
-                    // 如果当前正在查看该Engine,更新显示
-                    if (currentApp === engine) {
-                        displayEngineProgress(engine);
-                    }
-                }
-            })
-            .catch(error => {
-                // 如果专用API不可用,使用基本的运行状态
-                if (appStatus[engine] === 'running') {
-                    // 使用基本的进度信息
-                    if (!engineProgress[engine]) {
-                        engineProgress[engine] = {
-                            status: 'running',
-                            progress: 50, // 默认显示50%表示运行中
-                            message: '正在分析中...',
-                            updated_at: new Date().toISOString()
-                        };
-                    }
-
-                    // 如果当前正在查看该Engine,更新显示
-                    if (currentApp === engine) {
-                        displayEngineProgress(engine);
-                    }
-                }
-            });
-        }
-
-        // 在嵌入页面区域显示Engine进度
-        function displayEngineProgress(engine) {
-            const progress = engineProgress[engine];
-            if (!progress) return;
-
-            // 查找或创建进度显示容器
-            let progressContainer = document.getElementById(`progress-${engine}`);
-            if (!progressContainer) {
-                // 在嵌入内容区域的顶部创建进度条容器
-                const embeddedContent = document.getElementById('embeddedContent');
-                if (!embeddedContent) return;
-
-                progressContainer = document.createElement('div');
-                progressContainer.id = `progress-${engine}`;
-                progressContainer.className = 'task-progress-container';
-                progressContainer.style.position = 'absolute';
-                progressContainer.style.top = '10px';
-                progressContainer.style.left = '10px';
-                progressContainer.style.right = '10px';
-                progressContainer.style.zIndex = '100';
-                progressContainer.style.backgroundColor = '#f5f5f0';
-                embeddedContent.insertBefore(progressContainer, embeddedContent.firstChild);
-            }
-
-            // 更新进度条内容
-            const loadingIndicator = progress.status !== 'completed' && progress.status !== 'error'
-                ? '<span class="report-loading-spinner"></span>'
-                : '';
-
-            progressContainer.innerHTML = `
-                <div class="task-progress-header">
-                    <div class="task-progress-title">
-                        ${loadingIndicator}${appNames[engine] || engine} - ${progress.message}
-                    </div>
-                    <div class="task-progress-bar">
-                        <div class="task-progress-fill" style="width: ${Math.min(Math.max(progress.progress || 0, 0), 100)}%"></div>
-                        <div class="task-progress-text">${progress.progress || 0}%</div>
-                    </div>
-                </div>
-            `;
-
-            // 如果任务已完成,5秒后淡出进度条
-            if (progress.status === 'completed') {
-                setTimeout(() => {
-                    if (progressContainer && progressContainer.parentNode) {
-                        progressContainer.style.transition = 'opacity 1s';
-                        progressContainer.style.opacity = '0';
-                        setTimeout(() => {
-                            if (progressContainer && progressContainer.parentNode) {
-                                progressContainer.parentNode.removeChild(progressContainer);
-                            }
-                        }, 1000);
-                    }
-                }, 5000);
-            }
-        }
-
-        // 隐藏指定Engine的进度条(切换时使用)
-        function hideEngineProgress(engine) {
-            const progressContainer = document.getElementById(`progress-${engine}`);
-            if (progressContainer) {
-                progressContainer.style.display = 'none';
-            }
-        }
-
-        // 显示指定Engine的进度条(切换时使用)
-        function showEngineProgress(engine) {
-            const progressContainer = document.getElementById(`progress-${engine}`);
-            if (progressContainer) {
-                progressContainer.style.display = 'block';
-            } else if (engineProgress[engine]) {
-                // 如果有缓存的进度信息但容器不存在,重新创建
-                displayEngineProgress(engine);
-            }
-        }
 
         // Report Engine 相关函数
         let reportLogLineCount = 0;
