@@ -372,49 +372,50 @@ def parse_forum_log_line(line):
     return None
 
 # Forum日志监听器
+# 存储每个客户端的历史日志发送位置
+forum_log_positions = {}
+
 def monitor_forum_log():
     """监听forum.log文件变化并推送到前端"""
     import time
     from pathlib import Path
-    
+
     forum_log_file = LOG_DIR / "forum.log"
     last_position = 0
     processed_lines = set()  # 用于跟踪已处理的行，避免重复
-    
-    # 如果文件存在，获取初始位置
+
+    # 如果文件存在，获取初始位置但不跳过内容
     if forum_log_file.exists():
         with open(forum_log_file, 'r', encoding='utf-8', errors='ignore') as f:
-            # 初始化时读取所有现有行，避免重复处理
-            existing_lines = f.readlines()
-            for line in existing_lines:
-                line_hash = hash(line.strip())
-                processed_lines.add(line_hash)
+            # 记录文件大小，但不添加到processed_lines
+            # 这样用户打开forum标签时可以获取历史
+            f.seek(0, 2)  # 移到文件末尾
             last_position = f.tell()
-    
+
     while True:
         try:
             if forum_log_file.exists():
                 with open(forum_log_file, 'r', encoding='utf-8', errors='ignore') as f:
                     f.seek(last_position)
                     new_lines = f.readlines()
-                    
+
                     if new_lines:
                         for line in new_lines:
                             line = line.rstrip('\n\r')
                             if line.strip():
                                 line_hash = hash(line.strip())
-                                
+
                                 # 避免重复处理同一行
                                 if line_hash in processed_lines:
                                     continue
-                                
+
                                 processed_lines.add(line_hash)
-                                
+
                                 # 解析日志行并发送forum消息
                                 parsed_message = parse_forum_log_line(line)
                                 if parsed_message:
                                     socketio.emit('forum_message', parsed_message)
-                                
+
                                 # 只有在控制台显示forum时才发送控制台消息
                                 timestamp = datetime.now().strftime('%H:%M:%S')
                                 formatted_line = f"[{timestamp}] {line}"
@@ -422,13 +423,15 @@ def monitor_forum_log():
                                     'app': 'forum',
                                     'line': formatted_line
                                 })
-                        
+
                         last_position = f.tell()
-                        
+
                         # 清理processed_lines集合，避免内存泄漏（保留最近1000行的哈希）
                         if len(processed_lines) > 1000:
-                            processed_lines.clear()
-            
+                            # 保留最近500行的哈希
+                            recent_hashes = list(processed_lines)[-500:]
+                            processed_lines = set(recent_hashes)
+
             time.sleep(1)  # 每秒检查一次
         except Exception as e:
             logger.error(f"Forum日志监听错误: {e}")
@@ -902,6 +905,57 @@ def get_forum_log():
         })
     except Exception as e:
         return jsonify({'success': False, 'message': f'读取forum.log失败: {str(e)}'})
+
+@app.route('/api/forum/log/history', methods=['POST'])
+def get_forum_log_history():
+    """获取Forum历史日志（支持从指定位置开始）"""
+    try:
+        data = request.get_json()
+        start_position = data.get('position', 0)  # 客户端上次接收的位置
+        max_lines = data.get('max_lines', 1000)   # 最多返回的行数
+
+        forum_log_file = LOG_DIR / "forum.log"
+        if not forum_log_file.exists():
+            return jsonify({
+                'success': True,
+                'log_lines': [],
+                'position': 0,
+                'has_more': False
+            })
+
+        with open(forum_log_file, 'r', encoding='utf-8', errors='ignore') as f:
+            # 从指定位置开始读取
+            f.seek(start_position)
+            lines = []
+            line_count = 0
+
+            for line in f:
+                if line_count >= max_lines:
+                    break
+                line = line.rstrip('\n\r')
+                if line.strip():
+                    # 添加时间戳
+                    timestamp = datetime.now().strftime('%H:%M:%S')
+                    formatted_line = f"[{timestamp}] {line}"
+                    lines.append(formatted_line)
+                    line_count += 1
+
+            # 记录当前位置
+            current_position = f.tell()
+
+            # 检查是否还有更多内容
+            f.seek(0, 2)  # 移到文件末尾
+            end_position = f.tell()
+            has_more = current_position < end_position
+
+        return jsonify({
+            'success': True,
+            'log_lines': lines,
+            'position': current_position,
+            'has_more': has_more
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'读取forum历史失败: {str(e)}'})
 
 @app.route('/api/search', methods=['POST'])
 def search():
