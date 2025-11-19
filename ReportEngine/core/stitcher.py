@@ -45,10 +45,20 @@ class DocumentComposer:
         返回:
             dict: 满足渲染器需求的Document IR。
         """
+        # 构建从chapterId到toc anchor的映射
+        toc_anchor_map = self._build_toc_anchor_map(metadata)
+
         ordered = sorted(chapters, key=lambda c: c.get("order", 0))
         for idx, chapter in enumerate(ordered, start=1):
             chapter.setdefault("chapterId", f"S{idx}")
-            anchor = chapter.get("anchor") or f"section-{idx}"
+
+            # 优先级：1. 目录配置的anchor 2. 章节自带的anchor 3. 默认anchor
+            chapter_id = chapter.get("chapterId")
+            anchor = (
+                toc_anchor_map.get(chapter_id) or
+                chapter.get("anchor") or
+                f"section-{idx}"
+            )
             chapter["anchor"] = self._ensure_unique_anchor(anchor)
             chapter.setdefault("order", idx * 10)
             if chapter.get("errorPlaceholder"):
@@ -77,6 +87,29 @@ class DocumentComposer:
             counter += 1
         self._seen_anchors.add(anchor)
         return anchor
+
+    def _build_toc_anchor_map(self, metadata: Dict[str, object]) -> Dict[str, str]:
+        """
+        从metadata.toc.customEntries构建chapterId到anchor的映射。
+
+        参数:
+            metadata: 文档元信息。
+
+        返回:
+            dict: chapterId -> anchor 的映射。
+        """
+        toc_config = metadata.get("toc") or {}
+        custom_entries = toc_config.get("customEntries") or []
+        anchor_map = {}
+
+        for entry in custom_entries:
+            if isinstance(entry, dict):
+                chapter_id = entry.get("chapterId")
+                anchor = entry.get("anchor")
+                if chapter_id and anchor:
+                    anchor_map[chapter_id] = anchor
+
+        return anchor_map
 
     def _ensure_heading_block(self, chapter: Dict[str, object]) -> None:
         """保证占位章节仍然拥有可用于目录的heading block。"""
