@@ -24,7 +24,7 @@ try:
     matplotlib.use('Agg')  # 使用非GUI后端
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
-    from matplotlib.patches import Wedge
+    from matplotlib.patches import Wedge, Rectangle
     import numpy as np
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -45,24 +45,29 @@ class ChartToSVGConverter:
     将Chart.js图表数据转换为SVG矢量图形
     """
 
-    # 默认颜色调色板（与Chart.js默认颜色接近）
+    # 默认颜色调色板（优化版：明亮且易区分）
     DEFAULT_COLORS = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+        '#4A90E2', '#E85D75', '#50C878', '#FFB347',  # 明亮蓝、珊瑚红、翠绿、橙黄
+        '#9B59B6', '#3498DB', '#E67E22', '#16A085',  # 紫色、天蓝、橙色、青色
+        '#F39C12', '#D35400', '#27AE60', '#8E44AD'   # 金色、深橙、绿色、紫罗兰
     ]
 
-    # CSS变量到颜色的映射表（支持常见的Chart.js主题变量）
+    # CSS变量到颜色的映射表（优化版：使用更明亮、更浅的颜色）
     CSS_VAR_COLOR_MAP = {
-        'var(--color-accent)': '#007AFF',        # 蓝色（强调色）
-        'var(--re-accent-color)': '#007AFF',     # 蓝色
-        'var(--color-kpi-down)': '#DC3545',      # 红色（下降/危险）
-        'var(--re-danger-color)': '#DC3545',     # 红色（危险）
-        'var(--color-warning)': '#FFC107',       # 黄色（警告）
-        'var(--re-warning-color)': '#FFC107',    # 黄色
-        'var(--color-success)': '#28A745',       # 绿色（成功）
-        'var(--re-success-color)': '#28A745',    # 绿色
-        'var(--color-primary)': '#007BFF',       # 主色
-        'var(--color-secondary)': '#6C757D',     # 次要色
+        'var(--color-accent)': '#4A90E2',        # 明亮蓝色（从#007AFF改为更浅）
+        'var(--re-accent-color)': '#4A90E2',     # 明亮蓝色
+        'var(--re-accent-color-translucent)': (0.29, 0.565, 0.886, 0.08),  # 蓝色极浅透明 rgba(74, 144, 226, 0.08)
+        'var(--color-kpi-down)': '#E85D75',      # 珊瑚红色（从#DC3545改为更柔和）
+        'var(--re-danger-color)': '#E85D75',     # 珊瑚红色
+        'var(--re-danger-color-translucent)': (0.91, 0.365, 0.459, 0.08),  # 红色极浅透明 rgba(232, 93, 117, 0.08)
+        'var(--color-warning)': '#FFB347',       # 柔和橙黄色（从#FFC107改为更浅）
+        'var(--re-warning-color)': '#FFB347',    # 柔和橙黄色
+        'var(--re-warning-color-translucent)': (1.0, 0.702, 0.278, 0.08),  # 黄色极浅透明 rgba(255, 179, 71, 0.08)
+        'var(--color-success)': '#50C878',       # 翠绿色（从#28A745改为更明亮）
+        'var(--re-success-color)': '#50C878',    # 翠绿色
+        'var(--re-success-color-translucent)': (0.314, 0.784, 0.471, 0.08),  # 绿色极浅透明 rgba(80, 200, 120, 0.08)
+        'var(--color-primary)': '#3498DB',       # 天蓝色
+        'var(--color-secondary)': '#95A5A6',     # 浅灰色
     }
 
     def __init__(self, font_path: Optional[str] = None):
@@ -277,7 +282,7 @@ class ChartToSVGConverter:
         渲染折线图（增强版）
 
         支持特性：
-        - 双y轴（yAxisID: 'y' 和 'y1'）
+        - 多y轴（yAxisID: 'y', 'y1', 'y2', 'y3'...）
         - 填充区域（fill: true）
         - 透明度（backgroundColor中的alpha通道）
         - 线条样式（tension曲线平滑）
@@ -289,30 +294,71 @@ class ChartToSVGConverter:
             if not labels or not datasets:
                 return None
 
-            # 检查是否有双y轴
-            has_dual_axis = any(
-                dataset.get('yAxisID') == 'y1' for dataset in datasets
-            )
+            # 收集所有唯一的yAxisID
+            y_axis_ids = []
+            for dataset in datasets:
+                y_axis_id = dataset.get('yAxisID', 'y')
+                if y_axis_id not in y_axis_ids:
+                    y_axis_ids.append(y_axis_id)
+
+            # 确保'y'是第一个轴
+            if 'y' in y_axis_ids:
+                y_axis_ids.remove('y')
+                y_axis_ids.insert(0, 'y')
+
+            # 检查是否有多个y轴
+            has_multiple_axes = len(y_axis_ids) > 1
 
             title = props.get('title')
             options = props.get('options', {})
+            scales = options.get('scales', {})
 
-            # 创建图表，如果有双y轴则创建双y轴布局
-            if has_dual_axis:
-                fig, ax1 = plt.subplots(figsize=(width/dpi, height/dpi), dpi=dpi)
-                ax2 = ax1.twinx()  # 创建共享x轴的第二个y轴
-            else:
-                fig, ax1 = self._create_figure(width, height, dpi, title)
-                ax2 = None
+            # 创建图表和多个y轴
+            fig, ax1 = plt.subplots(figsize=(width/dpi, height/dpi), dpi=dpi)
 
-            if title and has_dual_axis:
+            if title:
                 ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
+
+            # 创建y轴映射字典
+            axes = {'y': ax1}
+
+            if has_multiple_axes:
+                # 统计每个位置(left/right)的轴数量,用于计算偏移
+                left_axes_count = 0
+                right_axes_count = 0
+
+                # 为每个额外的yAxisID创建新的y轴
+                for y_axis_id in y_axis_ids[1:]:
+                    if y_axis_id == 'y':
+                        continue
+
+                    # 创建新的y轴
+                    new_ax = ax1.twinx()
+                    axes[y_axis_id] = new_ax
+
+                    # 从scales配置中获取轴的位置
+                    y_config = scales.get(y_axis_id, {})
+                    position = y_config.get('position', 'right')
+
+                    if position == 'left':
+                        # 左侧额外轴,向左偏移
+                        if left_axes_count > 0:
+                            new_ax.spines['left'].set_position(('outward', 60 * left_axes_count))
+                        new_ax.yaxis.set_label_position('left')
+                        new_ax.yaxis.set_ticks_position('left')
+                        left_axes_count += 1
+                    else:
+                        # 右侧额外轴,向右偏移
+                        if right_axes_count > 0:
+                            new_ax.spines['right'].set_position(('outward', 60 * right_axes_count))
+                        right_axes_count += 1
 
             colors = self._get_colors(datasets)
 
-            # 分别收集两个y轴的数据系列
-            y1_lines = []
-            y2_lines = []
+            # 收集每个y轴的线条和填充信息用于图例
+            axis_lines = {axis_id: [] for axis_id in y_axis_ids}
+            legend_handles = []  # 图例句柄
+            legend_labels = []   # 图例标签
 
             # 绘制每个数据系列
             for i, dataset in enumerate(datasets):
@@ -328,7 +374,7 @@ class ChartToSVGConverter:
                 background_color = self._parse_color(dataset.get('backgroundColor', color))
 
                 # 选择对应的坐标轴
-                ax = ax2 if (y_axis_id == 'y1' and ax2 is not None) else ax1
+                ax = axes.get(y_axis_id, ax1)
 
                 # 绘制折线
                 x_data = range(len(labels))
@@ -343,69 +389,79 @@ class ChartToSVGConverter:
                             y_smooth = spl(x_smooth)
                             line, = ax.plot(x_smooth, y_smooth, label=label, color=border_color, linewidth=2)
 
-                            # 如果需要填充
+                            # 如果需要填充（使用极低透明度避免遮挡）
                             if fill:
-                                ax.fill_between(x_smooth, y_smooth, alpha=0.3, color=background_color)
+                                ax.fill_between(x_smooth, y_smooth, alpha=0.08, color=background_color)
                         except:
                             # 如果平滑失败，使用普通折线
                             line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                           color=border_color, linewidth=2, markersize=6)
                             if fill:
-                                ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+                                ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
                     else:
                         line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                       color=border_color, linewidth=2, markersize=6)
                         if fill:
-                            ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+                            ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
                 else:
                     # 直线连接（tension=0或scipy不可用）
                     line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                   color=border_color, linewidth=2, markersize=6)
 
-                    # 如果需要填充
+                    # 如果需要填充（使用极低透明度避免遮挡）
                     if fill:
-                        ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+                        ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
 
-                # 记录哪个轴有哪些线
-                if ax == ax2:
-                    y2_lines.append(line)
+                # 记录这条线属于哪个轴
+                axis_lines[y_axis_id].append(line)
+
+                # 创建图例项：如果有填充，创建带填充背景的图例
+                if fill:
+                    # 创建一个矩形patch作为填充背景（使用稍高透明度以便在图例中可见）
+                    fill_patch = Rectangle((0, 0), 1, 1,
+                                          facecolor=background_color,
+                                          edgecolor='none',
+                                          alpha=0.15)
+                    # 组合线条和填充patch
+                    legend_handles.append((line, fill_patch))
+                    legend_labels.append(label)
                 else:
-                    y1_lines.append(line)
+                    legend_handles.append(line)
+                    legend_labels.append(label)
 
             # 设置x轴标签
             ax1.set_xticks(range(len(labels)))
             ax1.set_xticklabels(labels, rotation=45, ha='right')
 
             # 设置y轴标签和标题
-            if has_dual_axis and ax2:
-                # 从options中获取y轴配置
-                scales = options.get('scales', {})
-                y_config = scales.get('y', {})
-                y1_config = scales.get('y1', {})
-
-                # 设置左侧y轴
+            for y_axis_id, ax in axes.items():
+                y_config = scales.get(y_axis_id, {})
                 y_title = y_config.get('title', {}).get('text', '')
+
                 if y_title:
-                    ax1.set_ylabel(y_title, fontsize=11)
+                    ax.set_ylabel(y_title, fontsize=11)
 
-                # 设置右侧y轴
-                y1_title = y1_config.get('title', {}).get('text', '')
-                if y1_title:
-                    ax2.set_ylabel(y1_title, fontsize=11)
+                # 设置y轴标签颜色（如果该轴只有一条线，使用该线的颜色）
+                if len(axis_lines[y_axis_id]) == 1:
+                    line_color = axis_lines[y_axis_id][0].get_color()
+                    ax.tick_params(axis='y', labelcolor=line_color)
+                    ax.yaxis.label.set_color(line_color)
 
-                # 设置网格（只在主轴显示）
-                ax1.grid(True, alpha=0.3, linestyle='--')
-                ax2.grid(False)  # 右侧y轴不显示网格
+            # 设置网格（只在主轴显示）
+            ax1.grid(True, alpha=0.3, linestyle='--')
+            for y_axis_id in y_axis_ids[1:]:
+                if y_axis_id in axes:
+                    axes[y_axis_id].grid(False)
 
-                # 合并图例（显示所有数据系列）
-                lines = y1_lines + y2_lines
-                labels_list = [line.get_label() for line in lines]
-                ax1.legend(lines, labels_list, loc='best', framealpha=0.9)
-            else:
-                # 单y轴的情况
-                if len(datasets) > 1:
-                    ax1.legend(loc='best', framealpha=0.9)
-                ax1.grid(True, alpha=0.3, linestyle='--')
+            # 创建图例
+            if has_multiple_axes or len(datasets) > 1:
+                # 使用自定义的legend_handles和legend_labels
+                from matplotlib.legend_handler import HandlerTuple
+
+                ax1.legend(legend_handles, legend_labels,
+                          loc='best',
+                          framealpha=0.9,
+                          handler_map={tuple: HandlerTuple(ndivide=None)})
 
             return self._figure_to_svg(fig)
 
