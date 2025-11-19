@@ -422,8 +422,8 @@ class PDFRenderer:
                 # 格式: <canvas id="chart-N" data-config-id="chart-config-N"></canvas>
                 canvas_pattern = rf'<canvas[^>]+data-config-id="{re.escape(config_id)}"[^>]*></canvas>'
 
-                # 替换canvas为SVG
-                html = re.sub(canvas_pattern, svg_html, html)
+                # 【修复】替换canvas为SVG，使用lambda避免反斜杠转义问题
+                html = re.sub(canvas_pattern, lambda m: svg_html, html)
                 logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
             else:
                 logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
@@ -468,7 +468,10 @@ class PDFRenderer:
             # 暂时使用简单的替换方案
             # 找到第一个math-block div并替换
             math_block_pattern = r'<div class="math-block">\$\$[^$]*\$\$</div>'
-            html = re.sub(math_block_pattern, svg_html, html, count=1)
+            # 【修复】转义svg_html中的反斜杠，避免re.sub将其解释为转义序列
+            # 使用re.escape处理替换字符串中的特殊字符
+            escaped_svg_html = svg_html.replace('\\', r'\\')
+            html = re.sub(math_block_pattern, lambda m: svg_html, html, count=1)
             logger.debug(f"已替换公式 {math_id} 为SVG")
 
         return html
