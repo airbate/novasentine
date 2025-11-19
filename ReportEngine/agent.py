@@ -386,6 +386,7 @@ class ReportAgent:
                 'template': template_result.get('template_name'),
                 'reason': template_result.get('selection_reason')
             })
+            emit('progress', {'progress': 10, 'message': '模板选择完成'})
             sections = self._slice_template(template_result.get('template_content', ''))
             if not sections:
                 raise ValueError("模板无法解析出章节，请检查模板内容。")
@@ -407,6 +408,7 @@ class ReportAgent:
                 'title': layout_design.get('title'),
                 'toc': layout_design.get('tocTitle')
             })
+            emit('progress', {'progress': 15, 'message': '文档标题/目录设计完成'})
             # 使用刚生成的设计稿对全书进行篇幅规划，约束各章字数与重点
             word_plan = self.word_budget_node.run(
                 sections,
@@ -420,6 +422,7 @@ class ReportAgent:
                 'stage': 'word_plan_ready',
                 'chapter_targets': len(word_plan.get('chapters', []))
             })
+            emit('progress', {'progress': 20, 'message': '章节字数规划已生成'})
             # 记录每个章节的目标字数/强调点，后续传给章节LLM
             chapter_targets = {
                 entry.get("chapterId"): entry
@@ -472,6 +475,9 @@ class ReportAgent:
             chapter_max_attempts = max(
                 self._CONTENT_SPARSE_MIN_ATTEMPTS, self.config.CHAPTER_JSON_MAX_ATTEMPTS
             )
+            total_chapters = len(sections)  # 总章节数
+            completed_chapters = 0  # 已完成章节数
+
             for section in sections:
                 logger.info(f"生成章节: {section.title}")
                 emit('chapter_status', {
@@ -587,6 +593,13 @@ class ReportAgent:
                         f"{section.title} 章节JSON在 {chapter_max_attempts} 次尝试后仍无法解析"
                     )
                 chapters.append(chapter_payload)
+                completed_chapters += 1  # 更新已完成章节数
+                # 计算当前进度：20% + 80% * (已完成章节数 / 总章节数)，四舍五入
+                chapter_progress = 20 + round(80 * completed_chapters / total_chapters)
+                emit('progress', {
+                    'progress': chapter_progress,
+                    'message': f'章节 {completed_chapters}/{total_chapters} 已完成'
+                })
                 completion_status = {
                     'chapterId': section.chapter_id,
                     'title': section.title,

@@ -349,8 +349,11 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         def stream_handler(event_type: str, payload: Dict[str, Any]):
             """所有阶段事件都通过同一个接口分发，保证日志一致。"""
             task.publish_event(event_type, payload)
+            # 如果事件包含进度信息，同步更新任务进度
+            if event_type == 'progress' and 'progress' in payload:
+                task.update_status("running", payload['progress'])
 
-        task.update_status("running", 10)
+        task.update_status("running", 5)
         task.publish_event('stage', {'message': '任务已启动，正在检查输入文件', 'stage': 'prepare'})
 
         # 检查输入文件
@@ -365,13 +368,9 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             'files': check_result.get('latest_files', {})
         })
 
-        task.update_status("running", 30)
-
         # 加载输入文件
         content = report_agent.load_input_files(check_result['latest_files'])
         task.publish_event('stage', {'message': '源数据加载完成，启动生成流程', 'stage': 'data_loaded'})
-
-        task.update_status("running", 50)
 
         # 生成报告（附带兜底重试，缓解瞬时网络抖动）
         for attempt in range(1, 3):
@@ -432,7 +431,6 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         else:
             html_report = generation_result
 
-        task.update_status("running", 90)
         task.publish_event('stage', {'message': '报告生成完毕，准备持久化', 'stage': 'persist'})
 
         # 保存结果
