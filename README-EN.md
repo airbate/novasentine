@@ -306,6 +306,7 @@ BettaFish/
 ├── Dockerfile                              # Docker image build file
 ├── requirements.txt                        # Python dependency list
 ├── regenerate_latest_pdf.py                # PDF regeneration utility script
+├── report_engine_only.py                   # Report Engine CLI version (no Web interface required)
 ├── README.md                               # Chinese documentation
 ├── README-EN.md                            # English documentation
 ├── CONTRIBUTING.md                         # Chinese contribution guide
@@ -564,6 +565,44 @@ python main.py --broad-topic --date 2024-01-20
 # Run deep crawling only
 python main.py --deep-sentiment --platforms xhs dy wb
 ```
+
+#### 6.4 Command-line Report Generation Tool
+
+If you don't need the Web interface, you can use the command-line tool to generate reports directly. This tool automatically retrieves the latest report files from the three analysis engines, skips file addition verification, and directly generates comprehensive reports.
+
+```bash
+# Basic usage (automatically extract topic from filename)
+python report_engine_only.py
+
+# Specify report topic
+python report_engine_only.py --query "Civil Engineering Industry Analysis"
+
+# Skip PDF generation (even if system supports it)
+python report_engine_only.py --skip-pdf
+
+# Show verbose logging
+python report_engine_only.py --verbose
+
+# Show help information
+python report_engine_only.py --help
+```
+
+**Features:**
+
+1. **Automatic Dependency Check**: The program automatically checks system dependencies required for PDF generation and provides installation instructions if missing
+2. **Get Latest Files**: Automatically retrieves the latest analysis reports from three engine directories (`insight_engine_streamlit_reports`, `media_engine_streamlit_reports`, `query_engine_streamlit_reports`)
+3. **File Confirmation**: Displays all selected file names, paths, and modification times, waiting for user confirmation (default input `y` to continue, input `n` to exit)
+4. **Direct Report Generation**: Skips file addition verification and directly calls Report Engine to generate comprehensive reports
+5. **Automatic File Saving**:
+   - HTML reports saved to `final_reports/` directory
+   - PDF reports (if dependencies available) saved to `final_reports/pdf/` directory
+   - File naming format: `final_report_{topic}_{timestamp}.html/pdf`
+
+**Notes:**
+
+- Ensure at least one of the three engine directories contains `.md` report files
+- The command-line tool is independent of the Web interface and does not interfere with each other
+- PDF generation requires system dependencies, see "Install PDF Export System Dependencies" section above
 
 ## ⚙️ Advanced Configuration (Deprecated: Configuration has been unified to the `.env` file in the project root directory, and other sub-agents automatically inherit the root directory configuration)
 
