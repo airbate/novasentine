@@ -805,6 +805,13 @@ p {{
     line-height: {cfg.callout.line_height};
 }}
 
+/* 确保 callout 内部最后一个元素不会溢出底部 */
+.callout > *:last-child,
+.callout > *:last-child > *:last-child {{
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}}
+
 /* 表格优化 - 严格防止溢出 */
 table {{
     width: 100%;

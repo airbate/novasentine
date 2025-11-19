@@ -33,6 +33,7 @@ except Exception as e:
 from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
 from .chart_to_svg import create_chart_converter
+from .math_to_svg import MathToSVG
 
 
 class PDFRenderer:
@@ -70,6 +71,14 @@ class PDFRenderer:
             logger.info("图表SVG转换器初始化成功")
         except Exception as e:
             logger.warning(f"图表SVG转换器初始化失败: {e}，将使用表格降级")
+
+        # 初始化数学公式转换器
+        try:
+            self.math_converter = MathToSVG(font_size=16, color='black')
+            logger.info("数学公式SVG转换器初始化成功")
+        except Exception as e:
+            logger.warning(f"数学公式SVG转换器初始化失败: {e}，公式将显示为文本")
+            self.math_converter = None
 
     @staticmethod
     def _get_font_path() -> Path:
@@ -280,6 +289,101 @@ class PDFRenderer:
                         if isinstance(cell_blocks, list):
                             self._extract_and_convert_widgets(cell_blocks, svg_map)
 
+    def _convert_math_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
+        """
+        将document_ir中的所有数学公式转换为SVG
+
+        参数:
+            document_ir: Document IR数据
+
+        返回:
+            Dict[str, str]: 公式块ID到SVG字符串的映射
+        """
+        svg_map = {}
+
+        if not hasattr(self, 'math_converter') or not self.math_converter:
+            logger.warning("数学公式转换器未初始化，跳过公式转换")
+            return svg_map
+
+        # 遍历所有章节
+        chapters = document_ir.get('chapters', [])
+        for chapter in chapters:
+            blocks = chapter.get('blocks', [])
+            self._extract_and_convert_math_blocks(blocks, svg_map)
+
+        logger.info(f"成功转换 {len(svg_map)} 个数学公式为SVG")
+        return svg_map
+
+    def _extract_and_convert_math_blocks(
+        self,
+        blocks: list,
+        svg_map: Dict[str, str],
+        block_counter: list = None
+    ) -> None:
+        """
+        递归遍历blocks，找到所有math块并转换为SVG
+
+        参数:
+            blocks: block列表
+            svg_map: 用于存储转换结果的字典
+            block_counter: 用于生成唯一ID的计数器
+        """
+        if block_counter is None:
+            block_counter = [0]
+
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+
+            block_type = block.get('type')
+
+            # 处理math类型
+            if block_type == 'math':
+                latex = block.get('latex', '').strip()
+                if latex:
+                    block_counter[0] += 1
+                    math_id = f"math-block-{block_counter[0]}"
+
+                    try:
+                        svg_content = self.math_converter.convert_display_to_svg(latex)
+                        if svg_content:
+                            svg_map[math_id] = svg_content
+                            # 将ID添加到block中，以便后续注入时识别
+                            block['mathId'] = math_id
+                            logger.debug(f"公式 {math_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
+                    except Exception as e:
+                        logger.error(f"转换公式 {latex[:50]}... 时出错: {e}")
+
+            # 递归处理嵌套的blocks
+            nested_blocks = block.get('blocks')
+            if isinstance(nested_blocks, list):
+                self._extract_and_convert_math_blocks(nested_blocks, svg_map, block_counter)
+
+            # 处理列表项
+            if block_type == 'list':
+                items = block.get('items', [])
+                for item in items:
+                    if isinstance(item, list):
+                        self._extract_and_convert_math_blocks(item, svg_map, block_counter)
+
+            # 处理表格单元格
+            if block_type == 'table':
+                rows = block.get('rows', [])
+                for row in rows:
+                    cells = row.get('cells', [])
+                    for cell in cells:
+                        cell_blocks = cell.get('blocks', [])
+                        if isinstance(cell_blocks, list):
+                            self._extract_and_convert_math_blocks(cell_blocks, svg_map, block_counter)
+
+            # 处理callout内部的blocks
+            if block_type == 'callout':
+                callout_blocks = block.get('blocks', [])
+                if isinstance(callout_blocks, list):
+                    self._extract_and_convert_math_blocks(callout_blocks, svg_map, block_counter)
+
     def _inject_svg_into_html(self, html: str, svg_map: Dict[str, str]) -> str:
         """
         将SVG内容直接注入到HTML中（不使用JavaScript）
@@ -323,6 +427,49 @@ class PDFRenderer:
                 logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
             else:
                 logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
+
+        return html
+
+    def _inject_math_svg_into_html(self, html: str, svg_map: Dict[str, str]) -> str:
+        """
+        将数学公式SVG内容注入到HTML中
+
+        参数:
+            html: 原始HTML内容
+            svg_map: 公式ID到SVG内容的映射
+
+        返回:
+            str: 注入SVG后的HTML
+        """
+        if not svg_map:
+            return html
+
+        import re
+
+        # 为每个math block查找对应的div并替换为SVG
+        for math_id, svg_content in svg_map.items():
+            # 清理SVG内容（移除XML声明，因为SVG将嵌入HTML）
+            svg_content = re.sub(r'<\?xml[^>]+\?>', '', svg_content)
+            svg_content = re.sub(r'<!DOCTYPE[^>]+>', '', svg_content)
+            svg_content = svg_content.strip()
+
+            # 创建SVG容器HTML
+            svg_html = f'<div class="math-svg-container">{svg_content}</div>'
+
+            # 查找对应的math-block div
+            # 格式: <div class="math-block">$$ latex $$</div>
+            # 我们需要找到包含特定LaTeX内容的div
+            # 但由于我们在转换时已经给block添加了mathId，我们可以用另一种方式
+
+            # 方案：在HTML渲染器中为math-block添加data-math-id属性
+            # 但这需要修改HTMLRenderer，暂时我们使用更简单的方法：
+            # 按顺序替换所有math-block
+
+            # 暂时使用简单的替换方案
+            # 找到第一个math-block div并替换
+            math_block_pattern = r'<div class="math-block">\$\$[^$]*\$\$</div>'
+            html = re.sub(math_block_pattern, svg_html, html, count=1)
+            logger.debug(f"已替换公式 {math_id} 为SVG")
 
         return html
 
@@ -375,15 +522,24 @@ class PDFRenderer:
         logger.info("开始转换图表为SVG矢量图形...")
         svg_map = self._convert_charts_to_svg(preprocessed_ir)
 
+        # 转换数学公式为SVG
+        logger.info("开始转换数学公式为SVG矢量图形...")
+        math_svg_map = self._convert_math_to_svg(preprocessed_ir)
+
         # 使用HTML渲染器生成基础HTML（使用原始IR，因为HTMLRenderer会自己修复）
         # 注意：这里仍使用原始document_ir，因为HTMLRenderer内部会进行相同的修复
         # 这确保了HTML和SVG使用相同的修复逻辑
         html = self.html_renderer.render(document_ir)
 
-        # 注入SVG
+        # 注入图表SVG
         if svg_map:
             html = self._inject_svg_into_html(html, svg_map)
             logger.info(f"已注入 {len(svg_map)} 个SVG图表")
+
+        # 注入数学公式SVG
+        if math_svg_map:
+            html = self._inject_math_svg_into_html(html, math_svg_map)
+            logger.info(f"已注入 {len(math_svg_map)} 个SVG公式")
 
         # 获取字体路径并转换为base64（用于嵌入）
         font_path = self._get_font_path()
@@ -437,6 +593,26 @@ body {{
 .chart-svg-container svg {{
     max-width: 100%;
     height: auto;
+}}
+
+/* 数学公式SVG容器样式 */
+.math-svg-container {{
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+}}
+
+.math-svg-container svg {{
+    max-width: 100%;
+    height: auto;
+}}
+
+/* 隐藏原始的math-block（因为已被SVG替换） */
+.math-block {{
+    display: none !important;
 }}
 
 /* 隐藏fallback表格（因为现在使用SVG） */
