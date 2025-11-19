@@ -324,10 +324,7 @@ def save_pdf(document_ir_path: str, query: str) -> Optional[str]:
         from ReportEngine.renderers import PDFRenderer
         renderer = PDFRenderer()
 
-        # 生成PDF字节流
-        pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=True)
-
-        # 保存PDF文件
+        # 准备输出路径
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         query_safe = "".join(
             c for c in query if c.isalnum() or c in (" ", "-", "_")
@@ -340,13 +337,24 @@ def save_pdf(document_ir_path: str, query: str) -> Optional[str]:
         pdf_filename = f"final_report_{query_safe}_{timestamp}.pdf"
         pdf_path = pdf_dir / pdf_filename
 
-        pdf_path.write_bytes(pdf_bytes)
+        # 使用 render_to_pdf 方法直接生成PDF文件（与regenerate_latest_pdf.py一致）
+        logger.info(f"开始渲染PDF: {pdf_path}")
+        result_path = renderer.render_to_pdf(
+            document_ir,
+            pdf_path,
+            optimize_layout=True
+        )
 
+        # 显示文件大小
+        file_size = result_path.stat().st_size
+        size_mb = file_size / (1024 * 1024)
         logger.success(f"✓ PDF 已保存: {pdf_path}")
-        return str(pdf_path)
+        logger.info(f"  文件大小: {size_mb:.2f} MB")
+
+        return str(result_path)
 
     except Exception as e:
-        logger.error(f"❌ PDF 生成失败: {e}")
+        logger.exception(f"❌ PDF 生成失败: {e}")
         return None
 
 
