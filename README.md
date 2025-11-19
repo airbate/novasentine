@@ -392,22 +392,40 @@ uv pip install -r requirements.txt
 
 ### 3. 安装 PDF 导出所需系统依赖（可选）
 
-> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
+> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。在此部分操作之前，建议重新运行“2. 安装依赖包”的代码。
 
 <details>
 <summary><b>📦 macOS 系统安装步骤</b></summary>
 
+> 🔴 **重要提示**：macOS 用户必须完成以下**两个步骤**，缺一不可！仅安装系统依赖而不设置环境变量会导致 `cannot load library 'libgobject-2.0-0'` 错误。
+
 ```bash
-# 1. 安装系统依赖（在宿主机上执行）
+# 步骤 1: 安装系统依赖
 brew install pango gdk-pixbuf libffi
 
-# 2. 设置环境变量（必需）
+# 步骤 2: 设置环境变量（⚠️ 必须执行！）
+# 方法一：临时设置（仅当前终端会话有效）
 export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
 
-# 或永久添加到 ~/.zshrc
+# 方法二：永久设置（推荐）
 echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 source ~/.zshrc
 ```
+
+**验证安装**：
+
+```bash
+# 测试 PDF 依赖是否正确配置
+python -m ReportEngine.utils.dependency_check
+# 应该显示：✓ Pango 依赖检测通过，PDF 导出功能可用
+```
+
+**常见问题**：
+
+- 如果仍然提示找不到库，请确保：
+  1. 已执行 `source ~/.zshrc` 重新加载配置
+  2. 在新终端中运行应用（确保环境变量已生效）
+  3. 使用 `echo $DYLD_LIBRARY_PATH` 验证环境变量已设置
 
 </details>
 

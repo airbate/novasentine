@@ -16,9 +16,19 @@ try:
     from weasyprint import HTML, CSS
     from weasyprint.text.fonts import FontConfiguration
     WEASYPRINT_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError) as e:
     WEASYPRINT_AVAILABLE = False
-    logger.warning("WeasyPrint未安装，PDF导出功能将不可用")
+    # 判断错误类型以提供更友好的提示
+    if isinstance(e, OSError):
+        logger.warning(
+            "PDF 导出依赖缺失（系统库未安装或环境变量未设置），"
+            "PDF 导出功能将不可用。其他功能不受影响。"
+        )
+    else:
+        logger.warning("WeasyPrint未安装，PDF导出功能将不可用")
+except Exception as e:
+    WEASYPRINT_AVAILABLE = False
+    logger.warning(f"WeasyPrint 加载失败: {e}，PDF导出功能将不可用")
 
 from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
