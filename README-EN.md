@@ -124,123 +124,193 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 ```
 BettaFish/
 ├── QueryEngine/                            # Domestic and international news breadth search Agent
-│   ├── agent.py                            # Agent main logic
-│   ├── llms/                               # LLM interface wrapper
-│   ├── nodes/                              # Processing nodes
-│   ├── tools/                              # Search tools
-│   ├── utils/                              # Utility functions
-│   └── ...                                 # Other modules
-├── MediaEngine/                            # Powerful multimodal understanding Agent
-│   ├── agent.py                            # Agent main logic
-│   ├── nodes/                              # Processing nodes
-│   ├── llms/                               # LLM interfaces
-│   ├── tools/                              # Search tools
-│   ├── utils/                              # Utility functions
-│   └── ...                                 # Other modules
-├── InsightEngine/                          # Private database mining Agent
-│   ├── agent.py                            # Agent main logic
+│   ├── agent.py                            # Agent main logic, coordinates search and analysis workflow
 │   ├── llms/                               # LLM interface wrapper
 │   │   └── base.py                         # Unified OpenAI-compatible client
-│   ├── nodes/                              # Processing nodes
+│   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
 │   │   ├── base_node.py                    # Base node class
+│   │   ├── search_node.py                  # Search node
 │   │   ├── formatting_node.py              # Formatting node
 │   │   ├── report_structure_node.py        # Report structure node
+│   │   └── summary_node.py                 # Summary node
+│   ├── tools/                              # Search tools
+│   │   └── search.py                       # Web search toolkit
+│   ├── utils/                              # Utility functions
+│   │   ├── config.py                       # Configuration management
+│   │   └── text_processing.py              # Text processing utilities
+│   ├── state/                              # State management
+│   │   └── state.py                        # Agent state definition
+│   ├── prompts/                            # Prompt templates
+│   │   └── prompts.py                      # Various prompt templates
+│   └── __init__.py
+├── MediaEngine/                            # Powerful multimodal understanding Agent
+│   ├── agent.py                            # Agent main logic, handles video/image multimodal content
+│   ├── llms/                               # LLM interface wrapper
+│   │   └── base.py                         # Unified OpenAI-compatible client
+│   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
+│   │   ├── base_node.py                    # Base node class
 │   │   ├── search_node.py                  # Search node
+│   │   ├── formatting_node.py              # Formatting node
+│   │   ├── report_structure_node.py        # Report structure node
+│   │   └── summary_node.py                 # Summary node
+│   ├── tools/                              # Multimodal search tools
+│   │   └── search.py                       # Multimodal content search toolkit
+│   ├── utils/                              # Utility functions
+│   │   ├── config.py                       # Configuration management
+│   │   └── text_processing.py              # Text processing utilities
+│   ├── state/                              # State management
+│   │   └── state.py                        # Agent state definition
+│   ├── prompts/                            # Prompt templates
+│   │   └── prompts.py                      # Various prompt templates
+│   └── __init__.py
+├── InsightEngine/                          # Private database mining Agent
+│   ├── agent.py                            # Agent main logic, coordinates database queries and analysis
+│   ├── llms/                               # LLM interface wrapper
+│   │   └── base.py                         # Unified OpenAI-compatible client
+│   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
+│   │   ├── base_node.py                    # Base node class
+│   │   ├── search_node.py                  # Search node
+│   │   ├── formatting_node.py              # Formatting node
+│   │   ├── report_structure_node.py        # Report structure node
 │   │   └── summary_node.py                 # Summary node
 │   ├── tools/                              # Database query and analysis tools
 │   │   ├── keyword_optimizer.py            # Qwen keyword optimization middleware
-│   │   ├── search.py                       # Database operation toolkit
+│   │   ├── search.py                       # Database operation toolkit (topic search, comment retrieval, etc.)
 │   │   └── sentiment_analyzer.py           # Sentiment analysis integration tool
+│   ├── utils/                              # Utility functions
+│   │   ├── config.py                       # Configuration management
+│   │   ├── db.py                           # SQLAlchemy async engine + read-only query wrapper
+│   │   └── text_processing.py              # Text processing utilities
 │   ├── state/                              # State management
-│   │   ├── __init__.py
 │   │   └── state.py                        # Agent state definition
 │   ├── prompts/                            # Prompt templates
-│   │   ├── __init__.py
-│   │   └── prompts.py                      # Various prompts
-│   └── utils/                              # Utility functions
-│       ├── __init__.py
-│       ├── config.py                       # Configuration management
-│       ├── db.py                           # SQLAlchemy async engine + read-only query helpers
-│       └── text_processing.py              # Text processing tools
+│   │   └── prompts.py                      # Various prompt templates
+│   └── __init__.py
 ├── ReportEngine/                           # Multi-round report generation Agent
-│   ├── agent.py                            # Orchestrates template → layout → budget → chapter → render pipeline
-│   ├── flask_interface.py                  # Flask/SSE facade handling task queueing and streaming events
+│   ├── agent.py                            # Master orchestrator: template selection → layout → budget → chapter → render
+│   ├── flask_interface.py                  # Flask/SSE entry point, manages task queuing and streaming events
 │   ├── llms/                               # OpenAI-compatible LLM wrappers
 │   │   └── base.py                         # Unified streaming/retry client
-│   ├── core/                               # Template slicing, chapter storage, document stitching
-│   │   ├── template_parser.py              # Markdown slicer and slug generator
-│   │   ├── chapter_storage.py              # Run directory + manifest + raw streaming writer
-│   │   └── stitcher.py                     # Document IR composer injecting anchors/metadata
-│   ├── ir/                                 # Report IR contract & validator
-│   │   ├── schema.py                       # Block/mark schema constants
+│   ├── core/                               # Core functionalities: template parsing, chapter storage, document stitching
+│   │   ├── template_parser.py              # Markdown template slicer and slug generator
+│   │   ├── chapter_storage.py              # Chapter run directory, manifest, and raw stream writer
+│   │   └── stitcher.py                     # Document IR stitcher, adds anchors/metadata
+│   ├── ir/                                 # Report Intermediate Representation (IR) contract & validation
+│   │   ├── schema.py                       # Block/mark schema constant definitions
 │   │   └── validator.py                    # Chapter JSON structure validator
-│   ├── nodes/                              # Reasoning nodes for the whole pipeline
-│   │   ├── base_node.py                    # Base class with logging/state hooks
-│   │   ├── template_selection_node.py      # Gather candidates and ask LLM to pick
+│   ├── nodes/                              # Full workflow reasoning nodes
+│   │   ├── base_node.py                    # Node base class + logging/state hooks
+│   │   ├── template_selection_node.py      # Template candidate collection and LLM selection
 │   │   ├── document_layout_node.py         # Title/TOC/theme designer
-│   │   ├── word_budget_node.py             # Word plan & directives per chapter
+│   │   ├── word_budget_node.py             # Word budget planning and chapter directive generation
 │   │   └── chapter_generation_node.py      # Chapter-level JSON generation + validation
-│   ├── prompts/                            # Prompt library and schema notes
-│   │   └── prompts.py                      # Templates for selection/layout/budget/chapters
+│   ├── prompts/                            # Prompt library and schema descriptions
+│   │   └── prompts.py                      # Template selection/layout/budget/chapter prompts
 │   ├── renderers/                          # IR renderers
-│   │   └── html_renderer.py                # Document IR → interactive HTML
-│   ├── state/                              # Task and metadata state models
-│   │   └── state.py                        # ReportState plus serialization helpers
-│   ├── utils/                              # Config/log helpers
-│   │   └── config.py                       # Pydantic settings + printer
+│   │   ├── html_renderer.py                # Document IR → interactive HTML
+│   │   ├── pdf_renderer.py                 # HTML → PDF export (WeasyPrint)
+│   │   ├── pdf_layout_optimizer.py         # PDF layout optimizer
+│   │   └── chart_to_svg.py                 # Chart to SVG conversion tool
+│   ├── state/                              # Task/metadata state models
+│   │   └── state.py                        # ReportState and serialization utilities
+│   ├── utils/                              # Configuration and helper utilities
+│   │   ├── config.py                       # Pydantic settings + printer helper
+│   │   ├── dependency_check.py             # Dependency checking tool
+│   │   ├── json_parser.py                  # JSON parsing utilities
+│   │   ├── chart_validator.py              # Chart validation tool
+│   │   └── chart_repair_api.py             # Chart repair API
 │   ├── report_template/                    # Markdown template library
-│   └── ...                                 # Misc caches, __init__.py, etc.
-├── ForumEngine/                            # Forum engine simple implementation
-│   ├── monitor.py                          # Log monitoring and forum management
-│   └── llm_host.py                         # Forum host LLM module
-├── MindSpider/                             # Weibo crawler system
-│   ├── main.py                             # Crawler main program
+│   │   ├── 企业品牌声誉分析报告.md
+│   │   └── ...
+│   └── __init__.py
+├── ForumEngine/                            # Forum engine: Agent collaboration mechanism
+│   ├── monitor.py                          # Log monitoring and forum management core
+│   ├── llm_host.py                         # Forum moderator LLM module
+│   └── __init__.py
+├── MindSpider/                             # Social media crawler system
+│   ├── main.py                             # Crawler main program entry
 │   ├── config.py                           # Crawler configuration file
 │   ├── BroadTopicExtraction/               # Topic extraction module
-│   │   ├── database_manager.py             # Database manager
-│   │   ├── get_today_news.py               # Today's news fetching
 │   │   ├── main.py                         # Topic extraction main program
+│   │   ├── database_manager.py             # Database manager
+│   │   ├── get_today_news.py               # Today's news fetcher
 │   │   └── topic_extractor.py              # Topic extractor
-│   ├── DeepSentimentCrawling/              # Deep sentiment crawling
-│   │   ├── keyword_manager.py              # Keyword manager
+│   ├── DeepSentimentCrawling/              # Deep sentiment crawling module
 │   │   ├── main.py                         # Deep crawling main program
-│   │   ├── MediaCrawler/                   # Media crawler core
-│   │   └── platform_crawler.py             # Platform crawler management
-│   └── schema/                             # Database schema
+│   │   ├── keyword_manager.py              # Keyword manager
+│   │   ├── platform_crawler.py             # Platform crawler manager
+│   │   └── MediaCrawler/                   # Media crawler core (Weibo/TikTok/Xiaohongshu, etc.)
+│   │       ├── main.py
+│   │       ├── config/                     # Platform configurations
+│   │       ├── media_platform/             # Platform crawler implementations
+│   │       └── ...
+│   └── schema/                             # Database schema definitions
 │       ├── db_manager.py                   # Database manager
-│       ├── init_database.py                # Database initialization
-│       ├── mindspider_tables.sql           # Database table structure
-│       ├── models_bigdata.py               # SQLAlchemy models for large media crawling tables
-│       └── models_sa.py                    # ORM base and topic/task models
+│       ├── init_database.py                # Database initialization script
+│       ├── mindspider_tables.sql           # Database table structure SQL
+│       ├── models_bigdata.py               # SQLAlchemy mappings for large-scale media opinion tables
+│       └── models_sa.py                    # ORM models for DailyTopic/Task extension tables
 ├── SentimentAnalysisModel/                 # Sentiment analysis model collection
 │   ├── WeiboSentiment_Finetuned/           # Fine-tuned BERT/GPT-2 models
+│   │   ├── BertChinese-Lora/               # BERT Chinese LoRA fine-tuning
+│   │   │   ├── train.py
+│   │   │   ├── predict.py
+│   │   │   └── ...
+│   │   └── GPT2-Lora/                      # GPT-2 LoRA fine-tuning
+│   │       ├── train.py
+│   │       ├── predict.py
+│   │       └── ...
 │   ├── WeiboMultilingualSentiment/         # Multilingual sentiment analysis (recommended)
+│   │   ├── train.py
+│   │   ├── predict.py
+│   │   └── ...
 │   ├── WeiboSentiment_SmallQwen/           # Small parameter Qwen3 fine-tuning
+│   │   ├── train.py
+│   │   ├── predict_universal.py
+│   │   └── ...
 │   └── WeiboSentiment_MachineLearning/     # Traditional machine learning methods
+│       ├── train.py
+│       ├── predict.py
+│       └── ...
 ├── SingleEngineApp/                        # Individual Agent Streamlit applications
-│   ├── query_engine_streamlit_app.py
-│   ├── media_engine_streamlit_app.py
-│   └── insight_engine_streamlit_app.py
-├── query_engine_streamlit_reports/         # QueryEngine Streamlit outputs (Markdown + state)
-├── media_engine_streamlit_reports/         # MediaEngine Streamlit outputs (Markdown + state)
-├── insight_engine_streamlit_reports/       # InsightEngine Streamlit outputs (Markdown + state)
-├── templates/                              # Flask templates
-│   └── index.html                          # Main interface frontend
+│   ├── query_engine_streamlit_app.py       # QueryEngine standalone app
+│   ├── media_engine_streamlit_app.py       # MediaEngine standalone app
+│   └── insight_engine_streamlit_app.py     # InsightEngine standalone app
+├── query_engine_streamlit_reports/         # QueryEngine standalone app outputs
+├── media_engine_streamlit_reports/         # MediaEngine standalone app outputs
+├── insight_engine_streamlit_reports/       # InsightEngine standalone app outputs
+├── templates/                              # Flask frontend templates
+│   └── index.html                          # Main interface HTML
 ├── static/                                 # Static resources
+│   └── image/                              # Image resources
+│       ├── logo_compressed.png
+│       ├── framework.png
+│       └── ...
 ├── logs/                                   # Runtime log directory
-├── final_reports/                          # Final generated HTML report files
+├── final_reports/                          # Final generated report files
+│   ├── ir/                                 # Report IR JSON files
+│   └── *.html                              # Final HTML reports
 ├── utils/                                  # Common utility functions
-│   ├── forum_reader.py                     # Agent forum communication
-│   ├── github_issues.py                    # Helper to prefill GitHub issue links and errors
-│   └── retry_helper.py                     # Network request retry mechanism tool
-├── tests/                                  # Targeted pytest suites
-│   ├── run_tests.py                        # pytest entry helper
-│   ├── test_monitor.py                     # ForumEngine monitor tests
-│   └── test_report_engine_sanitization.py  # ReportEngine sanitization tests
-├── app.py                                  # Flask main application entry
-├── config.py                               # Global configuration file
-├── docker-compose.yml                      # Orchestrates multi-service deployment
-└── requirements.txt                        # Python dependency list
+│   ├── forum_reader.py                     # Agent inter-communication forum tool
+│   ├── github_issues.py                    # Unified GitHub issue link generator and error formatter
+│   └── retry_helper.py                     # Network request retry mechanism utility
+├── tests/                                  # Unit tests and integration tests
+│   ├── run_tests.py                        # pytest entry script
+│   ├── test_monitor.py                     # ForumEngine monitoring unit tests
+│   ├── test_report_engine_sanitization.py  # ReportEngine security tests
+│   └── ...
+├── app.py                                  # Flask main application entry point
+├── config.py                               # Global configuration file (unified LLM/DB config management)
+├── .env.example                            # Environment variable example file
+├── docker-compose.yml                      # Docker multi-service orchestration config
+├── Dockerfile                              # Docker image build file
+├── requirements.txt                        # Python dependency list
+├── regenerate_latest_pdf.py                # PDF regeneration utility script
+├── README.md                               # Chinese documentation
+├── README-EN.md                            # English documentation
+├── CONTRIBUTING.md                         # Chinese contribution guide
+├── CONTRIBUTING-EN.md                      # English contribution guide
+└── LICENSE                                 # GPL-2.0 open source license
 ```
 
 ## 🚀 Quick Start (Docker)
