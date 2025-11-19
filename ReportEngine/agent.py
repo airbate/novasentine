@@ -237,9 +237,10 @@ class ReportAgent:
         # 确保日志目录存在
         log_dir = os.path.dirname(self.config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
-        
+
         # 创建专用的logger，避免与其他模块冲突
-        logger.add(self.config.LOG_FILE, level="INFO")
+        # 修改日志级别为DEBUG，确保DEBUG、INFO、WARNING、ERROR级别的日志都能被记录
+        logger.add(self.config.LOG_FILE, level="DEBUG")
         
     def _initialize_file_baseline(self):
         """

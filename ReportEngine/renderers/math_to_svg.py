@@ -4,16 +4,14 @@ LaTeX 数学公式转 SVG 渲染器
 """
 
 import io
-import logging
 from typing import Optional
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import mathtext
+from loguru import logger
 
 # 使用非交互式后端
 matplotlib.use('Agg')
-
-logger = logging.getLogger(__name__)
 
 
 class MathToSVG:
@@ -184,12 +182,6 @@ def convert_math_inline_to_svg(
 if __name__ == "__main__":
     # 测试代码
     import sys
-
-    # 配置日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
 
     # 测试公式
     test_formulas = [
