@@ -155,7 +155,7 @@ class ChartToSVGConverter:
         解析颜色值，将CSS格式转换为matplotlib支持的格式
 
         参数:
-            color: 颜色值（可能是CSS格式如rgba()或十六进制）
+            color: 颜色值（可能是CSS格式如rgba()或十六进制或CSS变量）
 
         返回:
             str: matplotlib支持的颜色格式
@@ -164,6 +164,12 @@ class ChartToSVGConverter:
             return str(color)
 
         color = color.strip()
+
+        # 【修复】处理CSS变量，例如 var(--color-accent)
+        # 使用默认颜色替代CSS变量
+        if color.startswith('var('):
+            # 返回默认的蓝色
+            return '#36A2EB'
 
         # 处理rgba(r, g, b, a)格式
         rgba_pattern = r'rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)'
@@ -367,6 +373,9 @@ class ChartToSVGConverter:
             if not isinstance(colors, list):
                 colors = self.DEFAULT_COLORS[:len(labels)]
 
+            # 【修复】解析每个颜色，将CSS格式转换为matplotlib格式
+            colors = [self._parse_color(c) for c in colors]
+
             # 绘制饼图
             wedges, texts, autotexts = ax.pie(
                 dataset_data,
@@ -417,6 +426,9 @@ class ChartToSVGConverter:
             colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
             if not isinstance(colors, list):
                 colors = self.DEFAULT_COLORS[:len(labels)]
+
+            # 【修复】解析每个颜色，将CSS格式转换为matplotlib格式
+            colors = [self._parse_color(c) for c in colors]
 
             # 绘制圆环图（通过设置wedgeprops实现中空效果）
             wedges, texts, autotexts = ax.pie(
