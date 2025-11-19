@@ -306,6 +306,7 @@ BettaFish/
 ├── Dockerfile                              # Docker镜像构建文件
 ├── requirements.txt                        # Python依赖包清单
 ├── regenerate_latest_pdf.py                # PDF重新生成工具脚本
+├── report_engine_only.py                   # Report Engine命令行版本（无需Web界面）
 ├── README.md                               # 中文说明文档
 ├── README-EN.md                            # 英文说明文档
 ├── CONTRIBUTING.md                         # 中文贡献指南
@@ -587,6 +588,44 @@ python main.py --broad-topic --date 2024-01-20
 # 仅运行深度爬取
 python main.py --deep-sentiment --platforms xhs dy wb
 ```
+
+#### 6.4 命令行报告生成工具
+
+如果您不需要Web界面，可以使用命令行工具直接生成报告。该工具会自动获取三个分析引擎的最新报告文件，跳过文件增加审核，直接生成综合报告。
+
+```bash
+# 基本使用（自动从文件名提取主题）
+python report_engine_only.py
+
+# 指定报告主题
+python report_engine_only.py --query "土木工程行业分析"
+
+# 跳过PDF生成（即使系统支持）
+python report_engine_only.py --skip-pdf
+
+# 显示详细日志
+python report_engine_only.py --verbose
+
+# 查看帮助信息
+python report_engine_only.py --help
+```
+
+**功能说明：**
+
+1. **自动检查依赖**：程序会自动检查PDF生成所需的系统依赖，如果缺失会给出安装提示
+2. **获取最新文件**：自动从三个引擎目录（`insight_engine_streamlit_reports`、`media_engine_streamlit_reports`、`query_engine_streamlit_reports`）获取最新的分析报告
+3. **文件确认**：显示所有选择的文件名、路径和修改时间，等待用户确认（默认输入 `y` 继续，输入 `n` 退出）
+4. **直接生成报告**：跳过文件增加审核程序，直接调用Report Engine生成综合报告
+5. **自动保存文件**：
+   - HTML报告保存到 `final_reports/` 目录
+   - PDF报告（如果有依赖）保存到 `final_reports/pdf/` 目录
+   - 文件命名格式：`final_report_{主题}_{时间戳}.html/pdf`
+
+**注意事项：**
+
+- 确保三个引擎目录中至少有一个包含`.md`报告文件
+- 命令行工具与Web界面相互独立，不会相互影响
+- PDF生成需要安装系统依赖，详见上文"安装 PDF 导出所需系统依赖"部分
 
 ## ⚙️ 高级配置（已过时，已经统一为项目根目录.env文件管理，其他子agent自动继承根目录配置）
 
