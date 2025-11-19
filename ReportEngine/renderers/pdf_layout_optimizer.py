@@ -145,11 +145,13 @@ class PDFLayoutOptimizer:
     # 字符宽度估算系数（基于常见中文字体）
     # 中文字符通常是等宽的，约等于字号的像素值
     # 英文和数字约为字号的0.5-0.6倍
+    # 更新：使用更精确的系数以更好地预测溢出
     CHAR_WIDTH_FACTOR = {
-        'chinese': 1.0,      # 中文字符
-        'english': 0.55,     # 英文字母
-        'number': 0.6,       # 数字
-        'symbol': 0.4,       # 符号
+        'chinese': 1.05,     # 中文字符（略微增加以确保安全边界）
+        'english': 0.58,     # 英文字母
+        'number': 0.65,      # 数字（数字通常比字母稍宽）
+        'symbol': 0.45,      # 符号
+        'percent': 0.7,      # 百分号等特殊符号
     }
 
     def __init__(self, config: Optional[PDFLayoutConfig] = None):
@@ -208,6 +210,8 @@ class PDFLayoutOptimizer:
         - max_kpi_value_length: 最长KPI数值长度
         - max_table_columns: 最多表格列数
         - total_content_length: 总内容长度
+        - hero_kpi_count: Hero区域的KPI数量
+        - max_hero_kpi_value_length: Hero区域最长KPI数值长度
         """
         stats = {
             'kpi_count': 0,
@@ -219,7 +223,22 @@ class PDFLayoutOptimizer:
             'max_table_rows': 0,
             'total_content_length': 0,
             'has_long_text': False,
+            'hero_kpi_count': 0,
+            'max_hero_kpi_value_length': 0,
         }
+
+        # 分析hero区域的KPI
+        metadata = document_ir.get('metadata', {})
+        hero = metadata.get('hero', {})
+        if hero:
+            hero_kpis = hero.get('kpis', [])
+            stats['hero_kpi_count'] = len(hero_kpis)
+            for kpi in hero_kpis:
+                value = str(kpi.get('value', ''))
+                stats['max_hero_kpi_value_length'] = max(
+                    stats['max_hero_kpi_value_length'],
+                    len(value)
+                )
 
         # 优先使用chapters，fallback到sections
         chapters = document_ir.get('chapters', [])
@@ -353,6 +372,8 @@ class PDFLayoutOptimizer:
                 width += font_size * self.CHAR_WIDTH_FACTOR['english']
             elif char.isdigit():
                 width += font_size * self.CHAR_WIDTH_FACTOR['number']
+            elif char in '%％':  # 百分号
+                width += font_size * self.CHAR_WIDTH_FACTOR['percent']
             else:
                 width += font_size * self.CHAR_WIDTH_FACTOR['symbol']
 
@@ -460,52 +481,77 @@ class PDFLayoutOptimizer:
             for issue in overflow_issues:
                 logger.warning(f"检测到布局问题: {issue}")
 
-        # KPI卡片宽度（像素）
-        kpi_card_width = (800 - 20) // 2 - 40  # 2列布局
+        # KPI卡片宽度（像素）- 更保守的计算，留出更多安全边界
+        kpi_card_width = (800 - 20) // 2 - 60  # 2列布局，增加边距以防溢出
+
+        # 优先处理Hero区域的KPI（如果有的话）
+        if stats['hero_kpi_count'] > 0 and stats['max_hero_kpi_value_length'] > 0:
+            # Hero区域的KPI卡片宽度通常更窄
+            hero_kpi_width = 250  # Hero侧边栏的典型宽度
+            sample_text = '9' * stats['max_hero_kpi_value_length'] + '元'
+            safe_font_size, needs_adjustment = self._calculate_safe_font_size(
+                sample_text,
+                hero_kpi_width,
+                min_font_size=14,
+                max_font_size=24  # Hero KPI字号通常较小
+            )
+
+            if needs_adjustment or stats['max_hero_kpi_value_length'] > 6:
+                # Hero KPI需要更保守的字号
+                config.kpi_card.font_size_value = max(14, safe_font_size - 2)
+                self.optimization_log.append(
+                    f"Hero KPI数值较长({stats['max_hero_kpi_value_length']}字符)，"
+                    f"字号调整为{config.kpi_card.font_size_value}px"
+                )
 
         # 根据KPI数值长度智能调整字号
         if stats['max_kpi_value_length'] > 0:
-            # 创建示例文本进行测试
-            sample_text = '9' * stats['max_kpi_value_length']
+            # 创建示例文本进行测试 - 使用实际可能的字符组合
+            sample_text = '9' * stats['max_kpi_value_length'] + '亿'  # 加上可能的单位
             safe_font_size, needs_adjustment = self._calculate_safe_font_size(
                 sample_text,
                 kpi_card_width,
-                min_font_size=18,
-                max_font_size=32
+                min_font_size=16,  # 降低最小字号以确保不溢出
+                max_font_size=28   # 降低最大字号以更保守
             )
 
             if needs_adjustment:
                 config.kpi_card.font_size_value = safe_font_size
+                # 进一步降低以留出安全边界
+                config.kpi_card.font_size_value = max(16, safe_font_size - 2)
                 self.optimization_log.append(
                     f"KPI数值过长({stats['max_kpi_value_length']}字符)，"
-                    f"字号自动调整为{safe_font_size}px以防止溢出"
+                    f"字号自动调整为{config.kpi_card.font_size_value}px以防止溢出"
                 )
-            elif stats['max_kpi_value_length'] > 10:
-                # 即使不溢出，也适当缩小以留出更多空间
-                config.kpi_card.font_size_value = min(28, safe_font_size)
+            elif stats['max_kpi_value_length'] > 8:
+                # 对于较长文本，更保守地调整
+                config.kpi_card.font_size_value = min(24, safe_font_size)
                 self.optimization_log.append(
                     f"KPI数值较长({stats['max_kpi_value_length']}字符)，"
                     f"预防性调整字号为{config.kpi_card.font_size_value}px"
                 )
 
-        # 根据KPI数量调整网格布局
+        # 根据KPI数量调整网格布局和间距
         if stats['kpi_count'] > 6:
             config.grid.columns = 3
             config.kpi_card.min_height = 100
-            config.kpi_card.padding = 16  # 缩小padding以节省空间
+            config.kpi_card.padding = 14  # 缩小padding以节省空间
+            config.grid.gap = 16  # 减小间距
             self.optimization_log.append(
                 f"KPI卡片较多({stats['kpi_count']}个)，"
-                f"调整为3列布局并缩小内边距"
+                f"调整为3列布局并缩小内边距和间距"
             )
         elif stats['kpi_count'] > 4:
             config.grid.columns = 2
-            config.kpi_card.padding = 18
+            config.kpi_card.padding = 16
+            config.grid.gap = 18
             self.optimization_log.append(
                 f"KPI卡片适中({stats['kpi_count']}个)，使用2列布局"
             )
         elif stats['kpi_count'] <= 2:
             config.grid.columns = 1
-            config.kpi_card.padding = 24  # 较少卡片时增加padding
+            config.kpi_card.padding = 22  # 较少卡片时增加padding
+            config.grid.gap = 20
             self.optimization_log.append(
                 f"KPI卡片较少({stats['kpi_count']}个)，"
                 f"使用1列布局并增加内边距"
@@ -539,11 +585,19 @@ class PDFLayoutOptimizer:
 
         # 如果有长文本，增加行高和段落间距
         if stats['has_long_text']:
-            config.page.line_height = 1.8
-            config.callout.line_height = 1.8
-            config.page.paragraph_spacing = 18
+            config.page.line_height = 1.75  # 稍微降低以节省空间
+            config.callout.line_height = 1.75
+            config.page.paragraph_spacing = 16  # 适度间距
             self.optimization_log.append(
-                "检测到长文本，增加行高至1.8和段落间距以提高可读性"
+                "检测到长文本，增加行高至1.75和段落间距以提高可读性"
+            )
+        else:
+            # 没有长文本时使用更紧凑的间距
+            config.page.line_height = 1.5
+            config.callout.line_height = 1.6
+            config.page.paragraph_spacing = 14
+            self.optimization_log.append(
+                "文本长度适中，使用标准行高和段落间距"
             )
 
         # 如果内容较多，减小整体字号
@@ -643,6 +697,16 @@ class PDFLayoutOptimizer:
         css = f"""
 /* PDF布局优化样式 - 由PDFLayoutOptimizer自动生成 */
 
+/* 隐藏独立的封面section，已合并到hero */
+.cover {{
+    display: none !important;
+}}
+
+/* PDF中隐藏hero actions（深蓝色的三个按钮） */
+.hero-actions {{
+    display: none !important;
+}}
+
 /* 页面基础样式 */
 body {{
     font-size: {cfg.page.font_size_base}px;
@@ -731,12 +795,14 @@ p {{
     font-size: {cfg.callout.font_size_title}px !important;
     margin-bottom: 10px;
     word-break: break-word;
+    line-height: 1.4;
 }}
 
 .callout-content {{
     font-size: {cfg.callout.font_size_content}px !important;
     word-break: break-word;
     overflow-wrap: break-word;
+    line-height: {cfg.callout.line_height};
 }}
 
 /* 表格优化 - 严格防止溢出 */
@@ -790,24 +856,196 @@ td {{
     word-break: break-word;
 }}
 
-/* Hero区域的KPI卡片 */
-.hero-kpi {{
-    padding: {cfg.kpi_card.padding}px !important;
+/* Hero区域合并版本 - 包含标题和内容，保留蓝色椭圆背景 */
+.hero-section-combined {{
+    padding: 45px 55px !important;
+    margin: 0 auto 40px auto !important;
+    min-height: 500px;
+    /* 使用100%宽度，填满整个页面 */
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    overflow: visible;
+    border-radius: 40px !important;
+    background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f7 100%);
+    page-break-after: always !important;
+}}
+
+/* Hero标题区域 */
+.hero-header {{
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(100, 150, 200, 0.2);
+}}
+
+.hero-hint {{
+    font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
+    color: #d32f2f;
+    margin: 0 0 6px 0;
+    font-weight: 500;
+}}
+
+.hero-title {{
+    font-size: {max(cfg.page.font_size_base + 5, 19)}px !important;  /* 稍微减小标题字号 */
+    font-weight: 600;
+    margin: 6px 0;
+    color: #1a1a1a;
+    line-height: 1.3;
+}}
+
+.hero-subtitle {{
+    font-size: {max(cfg.page.font_size_base - 1, 12)}px !important;
+    color: #d32f2f;
+    margin: 6px 0 0 0;
+    font-weight: 400;
+}}
+
+/* Hero主体区域 - 左右分栏 */
+.hero-body {{
+    display: flex;
+    gap: 28px;  /* 左右间距 */
+    align-items: flex-start;
+}}
+
+/* Hero左侧内容区 - 占蓝色背景的70% */
+.hero-content {{
+    flex: 7;  /* 左侧占70% */
+    min-width: 0;
+    padding-right: 25px;
+    box-sizing: border-box;
+    overflow: hidden;
+}}
+
+/* Hero右侧KPI区域 - 占蓝色背景的30% */
+.hero-side {{
+    flex: 3;  /* 右侧占30% */
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: {max(cfg.grid.gap - 2, 10)}px;
     overflow: hidden;
     box-sizing: border-box;
 }}
 
+/* Hero区域的KPI卡片 - 横向拉长，每行显示一个内容 */
+.hero-kpi {{
+    padding: 12px 18px !important;  /* 增加横向padding */
+    overflow: hidden;
+    box-sizing: border-box;
+    max-width: 100%;
+    min-height: 85px;  /* 增加高度以容纳三行 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}}
+
 .hero-kpi .label {{
-    font-size: {cfg.kpi_card.font_size_label}px !important;
+    font-size: {max(cfg.kpi_card.font_size_label - 3, 9)}px !important;  /* 减小标签字号 */
     word-break: break-word;
     max-width: 100%;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;  /* 独占一行 */
 }}
 
 .hero-kpi .value {{
-    font-size: {cfg.kpi_card.font_size_value}px !important;
+    font-size: {max(cfg.kpi_card.font_size_value - 12, 14)}px !important;  /* 减小数值字号 */
     word-break: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
+    line-height: 1.1;
+    display: block;  /* 独占一行 */
+    hyphens: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+}}
+
+.hero-kpi .delta {{
+    font-size: {max(cfg.kpi_card.font_size_change - 3, 9)}px !important;  /* 减小变化值字号 */
+    word-break: break-word;
+    margin-top: 3px;
+    display: block;  /* 独占一行 */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}}
+
+/* Hero summary文本 */
+.hero-summary {{
+    font-size: {cfg.page.font_size_base}px !important;
+    line-height: 1.65;
+    margin-top: 0;
+    margin-bottom: 18px;  /* 增加底部边距，与badges保持一致 */
+    word-break: break-word;
+    max-width: 98%;  /* 与badges宽度一致 */
+    overflow: hidden;
+}}
+
+/* Hero highlights列表 - 横向排列，宽度与summary一致 */
+.hero-highlights {{
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;  /* 增加上下边距 */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;  /* 增加间距，让椭圆之间有更多空间 */
+    max-width: 100%;
+    overflow: hidden;
+}}
+
+.hero-highlights li {{
+    margin: 0;
+    max-width: 100%;
+    flex-shrink: 0;
+    flex-grow: 0;
+}}
+
+/* hero highlights中的badge - 拉长加宽的椭圆形背景，与上方文本对齐 */
+.hero-highlights .badge {{
+    font-size: {max(cfg.callout.font_size_content - 3, 10)}px !important;
+    padding: 10px 20px !important;  /* 增加padding，更好的视觉效果 */
+    max-width: 100%;
+    width: 98%;  /* 占满宽度，与summary文本对齐 */
+    display: flex;
+    align-items: center;  /* 垂直居中文字 */
+    justify-content: flex-start;  /* 文字左对齐 */
+    word-wrap: break-word;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-sizing: border-box;
+    line-height: 1.5;  /* 增加行高，更好的可读性 */
+    min-height: 40px;  /* 增加最小高度 */
+    /* 拉长的椭圆形背景 */
+    background: rgba(100, 120, 150, 0.15) !important;
+    border-radius: 22px !important;  /* 稍微增加圆角 */
+    border: 1px solid rgba(100, 120, 150, 0.25);
+}}
+
+/* Hero actions按钮 - 确保不溢出椭圆 */
+.hero-actions {{
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+    overflow: hidden;
+}}
+
+.hero-actions button {{
+    font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
+    padding: 5px 10px !important;
+    max-width: 200px;  /* 限制按钮最大宽度 */
+    word-break: break-word;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-sizing: border-box;
 }}
 
 /* 防止标题孤行 */
@@ -816,6 +1054,19 @@ h1, h2, h3, h4, h5, h6 {{
     page-break-after: avoid;
     word-break: break-word;
     overflow-wrap: break-word;
+}}
+
+/* ===== 强制页面分离规则 ===== */
+
+/* 目录section强制开始新页并在之后强制分页 */
+.toc-section {{
+    page-break-before: always !important;
+    page-break-after: always !important;
+}}
+
+/* 第一个章节强制开始新页（正文从第三页开始） */
+main > .chapter:first-of-type {{
+    page-break-before: always !important;
 }}
 
 /* 确保内容块不被分页且不溢出 */
@@ -838,13 +1089,29 @@ h1, h2, h3, h4, h5, h6 {{
     letter-spacing: -0.02em;  /* 稍微紧缩间距以节省空间 */
 }}
 
-/* 色块（badge）样式控制 */
-.badge, .callout {{
+/* 色块（badge）样式控制 - 防止过大 */
+.badge {{
     display: inline-block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: normal;
+    /* 限制badge的最大尺寸 */
+    padding: 4px 12px !important;
+    font-size: {max(cfg.page.font_size_base - 2, 12)}px !important;
+    line-height: 1.4 !important;
+    /* 防止badge异常过大 */
+    word-break: break-word;
+    hyphens: auto;
+}}
+
+/* 确保callout不会过大 */
+.callout {{
+    max-width: 100% !important;
+    margin: 16px 0 !important;
+    padding: {cfg.callout.padding}px !important;
+    box-sizing: border-box;
+    overflow: hidden;
 }}
 
 /* 响应式调整 */

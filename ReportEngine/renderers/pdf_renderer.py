@@ -6,6 +6,7 @@ PDF渲染器 - 使用WeasyPrint从HTML生成PDF
 from __future__ import annotations
 
 import base64
+import copy
 from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
@@ -85,6 +86,102 @@ class PDFRenderer:
             return subset_otf
 
         raise FileNotFoundError(f"未找到字体文件，请检查 {fonts_dir} 目录")
+
+    def _preprocess_charts(self, document_ir: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        预处理图表：验证和修复所有图表数据
+
+        这个方法确保在转换为SVG之前，所有图表数据都是有效的。
+        使用与HTMLRenderer相同的验证和修复逻辑，保证PDF和HTML的一致性。
+
+        参数:
+            document_ir: Document IR数据
+
+        返回:
+            Dict[str, Any]: 修复后的Document IR（深拷贝）
+        """
+        # 深拷贝以避免修改原始IR
+        ir_copy = copy.deepcopy(document_ir)
+
+        repair_stats = {
+            'total': 0,
+            'repaired': 0,
+            'failed': 0
+        }
+
+        def repair_widgets_in_blocks(blocks: list) -> None:
+            """递归修复blocks中的所有widget"""
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+
+                # 处理widget类型
+                if block.get('type') == 'widget':
+                    widget_type = block.get('widgetType', '')
+                    if widget_type.startswith('chart.js'):
+                        repair_stats['total'] += 1
+
+                        # 使用HTMLRenderer的验证器和修复器
+                        validation = self.html_renderer.chart_validator.validate(block)
+
+                        if not validation.is_valid:
+                            logger.debug(f"图表 {block.get('widgetId')} 需要修复: {validation.errors}")
+
+                            # 尝试修复
+                            repair_result = self.html_renderer.chart_repairer.repair(block, validation)
+
+                            if repair_result.success and repair_result.repaired_block:
+                                # 更新block内容（在副本中）
+                                block.update(repair_result.repaired_block)
+                                repair_stats['repaired'] += 1
+                                logger.debug(
+                                    f"图表 {block.get('widgetId')} 已修复 "
+                                    f"(方法: {repair_result.method})"
+                                )
+                            else:
+                                repair_stats['failed'] += 1
+                                logger.warning(
+                                    f"图表 {block.get('widgetId')} 修复失败，将使用原始数据"
+                                )
+
+                # 递归处理嵌套的blocks
+                nested_blocks = block.get('blocks')
+                if isinstance(nested_blocks, list):
+                    repair_widgets_in_blocks(nested_blocks)
+
+                # 处理列表项
+                if block.get('type') == 'list':
+                    items = block.get('items', [])
+                    for item in items:
+                        if isinstance(item, list):
+                            repair_widgets_in_blocks(item)
+
+                # 处理表格单元格
+                if block.get('type') == 'table':
+                    rows = block.get('rows', [])
+                    for row in rows:
+                        cells = row.get('cells', [])
+                        for cell in cells:
+                            cell_blocks = cell.get('blocks', [])
+                            if isinstance(cell_blocks, list):
+                                repair_widgets_in_blocks(cell_blocks)
+
+        # 处理所有章节
+        chapters = ir_copy.get('chapters', [])
+        for chapter in chapters:
+            blocks = chapter.get('blocks', [])
+            repair_widgets_in_blocks(blocks)
+
+        # 输出统计信息
+        if repair_stats['total'] > 0:
+            logger.info(
+                f"PDF图表预处理完成: "
+                f"总计 {repair_stats['total']} 个图表, "
+                f"修复 {repair_stats['repaired']} 个, "
+                f"失败 {repair_stats['failed']} 个"
+            )
+
+        return ir_copy
 
     def _convert_charts_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -260,11 +357,17 @@ class PDFRenderer:
         else:
             layout_config = self.layout_optimizer.config
 
-        # 转换图表为SVG
-        logger.info("开始转换图表为SVG矢量图形...")
-        svg_map = self._convert_charts_to_svg(document_ir)
+        # 关键修复：先预处理图表，确保数据有效
+        logger.info("预处理图表数据...")
+        preprocessed_ir = self._preprocess_charts(document_ir)
 
-        # 使用HTML渲染器生成基础HTML
+        # 转换图表为SVG（使用预处理后的IR）
+        logger.info("开始转换图表为SVG矢量图形...")
+        svg_map = self._convert_charts_to_svg(preprocessed_ir)
+
+        # 使用HTML渲染器生成基础HTML（使用原始IR，因为HTMLRenderer会自己修复）
+        # 注意：这里仍使用原始document_ir，因为HTMLRenderer内部会进行相同的修复
+        # 这确保了HTML和SVG使用相同的修复逻辑
         html = self.html_renderer.render(document_ir)
 
         # 注入SVG

@@ -405,12 +405,13 @@ class HTMLRenderer:
     def _render_body(self) -> str:
         """
         拼装<body>结构，包含头部、导航、章节和脚本。
+        新版本：移除独立的cover section，标题合并到hero section中。
 
         返回:
             str: body片段HTML。
         """
         header = self._render_header()
-        cover = self._render_cover()
+        # cover = self._render_cover()  # 不再单独渲染cover
         hero = self._render_hero()
         toc_section = self._render_toc_section()
         chapters = "".join(self._render_chapter(chapter) for chapter in self.chapters)
@@ -433,7 +434,6 @@ class HTMLRenderer:
 {header}
 {overlay}
 <main>
-{cover}
 {hero}
 {toc_section}
 {chapters}
@@ -502,6 +502,7 @@ class HTMLRenderer:
     def _render_hero(self) -> str:
         """
         根据layout中的hero字段输出摘要/KPI/亮点区。
+        新版本：将标题和总览合并在一起，去掉椭圆背景。
 
         返回:
             str: hero区HTML，若无数据则为空字符串。
@@ -509,6 +510,11 @@ class HTMLRenderer:
         hero = self.metadata.get("hero") or {}
         if not hero:
             return ""
+
+        # 获取标题和副标题
+        title = self.metadata.get("title") or "智能舆情报告"
+        subtitle = self.metadata.get("subtitle") or self.metadata.get("templateName") or ""
+
         summary = hero.get("summary")
         summary_html = f'<p class="hero-summary">{self._escape_html(summary)}</p>' if summary else ""
         highlights = hero.get("highlights") or []
@@ -535,14 +541,21 @@ class HTMLRenderer:
             """
 
         return f"""
-<section class="hero-section">
-  <div class="hero-content">
-    {summary_html}
-    <ul class="hero-highlights">{highlight_html}</ul>
-    <div class="hero-actions">{actions_html}</div>
+<section class="hero-section-combined">
+  <div class="hero-header">
+    <p class="hero-hint">文章总览</p>
+    <h1 class="hero-title">{self._escape_html(title)}</h1>
+    <p class="hero-subtitle">{self._escape_html(subtitle)}</p>
   </div>
-  <div class="hero-side">
-    {kpi_cards}
+  <div class="hero-body">
+    <div class="hero-content">
+      {summary_html}
+      <ul class="hero-highlights">{highlight_html}</ul>
+      <div class="hero-actions">{actions_html}</div>
+    </div>
+    <div class="hero-side">
+      {kpi_cards}
+    </div>
   </div>
 </section>
 """.strip()
