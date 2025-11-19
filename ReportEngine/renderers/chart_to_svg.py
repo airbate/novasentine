@@ -31,6 +31,14 @@ except ImportError:
     MATPLOTLIB_AVAILABLE = False
     logger.warning("Matplotlib未安装，PDF图表矢量渲染功能将不可用")
 
+# 可选依赖：scipy用于曲线平滑
+try:
+    from scipy.interpolate import make_interp_spline
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+    logger.info("Scipy未安装，折线图将不支持曲线平滑功能（不影响基本渲染）")
+
 
 class ChartToSVGConverter:
     """
@@ -42,6 +50,20 @@ class ChartToSVGConverter:
         '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
         '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
     ]
+
+    # CSS变量到颜色的映射表（支持常见的Chart.js主题变量）
+    CSS_VAR_COLOR_MAP = {
+        'var(--color-accent)': '#007AFF',        # 蓝色（强调色）
+        'var(--re-accent-color)': '#007AFF',     # 蓝色
+        'var(--color-kpi-down)': '#DC3545',      # 红色（下降/危险）
+        'var(--re-danger-color)': '#DC3545',     # 红色（危险）
+        'var(--color-warning)': '#FFC107',       # 黄色（警告）
+        'var(--re-warning-color)': '#FFC107',    # 黄色
+        'var(--color-success)': '#28A745',       # 绿色（成功）
+        'var(--re-success-color)': '#28A745',    # 绿色
+        'var(--color-primary)': '#007BFF',       # 主色
+        'var(--color-secondary)': '#6C757D',     # 次要色
+    }
 
     def __init__(self, font_path: Optional[str] = None):
         """
@@ -165,10 +187,23 @@ class ChartToSVGConverter:
 
         color = color.strip()
 
-        # 【修复】处理CSS变量，例如 var(--color-accent)
-        # 使用默认颜色替代CSS变量
+        # 【增强】处理CSS变量，例如 var(--color-accent)
+        # 使用预定义的颜色映射表替代CSS变量，确保不同变量有不同的颜色
         if color.startswith('var('):
-            # 返回默认的蓝色
+            # 尝试从映射表中查找对应的颜色
+            mapped_color = self.CSS_VAR_COLOR_MAP.get(color)
+            if mapped_color:
+                return mapped_color
+            # 如果映射表中没有，尝试从变量名推断颜色类型
+            if 'accent' in color or 'primary' in color:
+                return '#007AFF'  # 蓝色
+            elif 'danger' in color or 'down' in color or 'error' in color:
+                return '#DC3545'  # 红色
+            elif 'warning' in color:
+                return '#FFC107'  # 黄色
+            elif 'success' in color or 'up' in color:
+                return '#28A745'  # 绿色
+            # 默认返回蓝色
             return '#36A2EB'
 
         # 处理rgba(r, g, b, a)格式
@@ -238,7 +273,15 @@ class ChartToSVGConverter:
         height: int,
         dpi: int
     ) -> Optional[str]:
-        """渲染折线图"""
+        """
+        渲染折线图（增强版）
+
+        支持特性：
+        - 双y轴（yAxisID: 'y' 和 'y1'）
+        - 填充区域（fill: true）
+        - 透明度（backgroundColor中的alpha通道）
+        - 线条样式（tension曲线平滑）
+        """
         try:
             labels = data.get('labels', [])
             datasets = data.get('datasets', [])
@@ -246,10 +289,30 @@ class ChartToSVGConverter:
             if not labels or not datasets:
                 return None
 
+            # 检查是否有双y轴
+            has_dual_axis = any(
+                dataset.get('yAxisID') == 'y1' for dataset in datasets
+            )
+
             title = props.get('title')
-            fig, ax = self._create_figure(width, height, dpi, title)
+            options = props.get('options', {})
+
+            # 创建图表，如果有双y轴则创建双y轴布局
+            if has_dual_axis:
+                fig, ax1 = plt.subplots(figsize=(width/dpi, height/dpi), dpi=dpi)
+                ax2 = ax1.twinx()  # 创建共享x轴的第二个y轴
+            else:
+                fig, ax1 = self._create_figure(width, height, dpi, title)
+                ax2 = None
+
+            if title and has_dual_axis:
+                ax1.set_title(title, fontsize=14, fontweight='bold', pad=20)
 
             colors = self._get_colors(datasets)
+
+            # 分别收集两个y轴的数据系列
+            y1_lines = []
+            y2_lines = []
 
             # 绘制每个数据系列
             for i, dataset in enumerate(datasets):
@@ -257,32 +320,97 @@ class ChartToSVGConverter:
                 label = dataset.get('label', f'系列{i+1}')
                 color = colors[i]
 
+                # 获取配置
+                y_axis_id = dataset.get('yAxisID', 'y')
+                fill = dataset.get('fill', False)
+                tension = dataset.get('tension', 0)  # 0表示直线，0.4表示平滑曲线
+                border_color = self._parse_color(dataset.get('borderColor', color))
+                background_color = self._parse_color(dataset.get('backgroundColor', color))
+
+                # 选择对应的坐标轴
+                ax = ax2 if (y_axis_id == 'y1' and ax2 is not None) else ax1
+
                 # 绘制折线
-                ax.plot(
-                    range(len(labels)),
-                    dataset_data,
-                    marker='o',
-                    label=label,
-                    color=color,
-                    linewidth=2,
-                    markersize=6
-                )
+                x_data = range(len(labels))
+
+                # 根据tension值决定是否平滑
+                if tension > 0 and SCIPY_AVAILABLE:
+                    # 使用样条插值平滑曲线（需要scipy）
+                    if len(dataset_data) >= 4:  # 至少需要4个点才能平滑
+                        try:
+                            x_smooth = np.linspace(0, len(labels)-1, len(labels)*3)
+                            spl = make_interp_spline(x_data, dataset_data, k=min(3, len(dataset_data)-1))
+                            y_smooth = spl(x_smooth)
+                            line, = ax.plot(x_smooth, y_smooth, label=label, color=border_color, linewidth=2)
+
+                            # 如果需要填充
+                            if fill:
+                                ax.fill_between(x_smooth, y_smooth, alpha=0.3, color=background_color)
+                        except:
+                            # 如果平滑失败，使用普通折线
+                            line, = ax.plot(x_data, dataset_data, marker='o', label=label,
+                                          color=border_color, linewidth=2, markersize=6)
+                            if fill:
+                                ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+                    else:
+                        line, = ax.plot(x_data, dataset_data, marker='o', label=label,
+                                      color=border_color, linewidth=2, markersize=6)
+                        if fill:
+                            ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+                else:
+                    # 直线连接（tension=0或scipy不可用）
+                    line, = ax.plot(x_data, dataset_data, marker='o', label=label,
+                                  color=border_color, linewidth=2, markersize=6)
+
+                    # 如果需要填充
+                    if fill:
+                        ax.fill_between(x_data, dataset_data, alpha=0.3, color=background_color)
+
+                # 记录哪个轴有哪些线
+                if ax == ax2:
+                    y2_lines.append(line)
+                else:
+                    y1_lines.append(line)
 
             # 设置x轴标签
-            ax.set_xticks(range(len(labels)))
-            ax.set_xticklabels(labels, rotation=45, ha='right')
+            ax1.set_xticks(range(len(labels)))
+            ax1.set_xticklabels(labels, rotation=45, ha='right')
 
-            # 显示图例
-            if len(datasets) > 1:
-                ax.legend(loc='best', framealpha=0.9)
+            # 设置y轴标签和标题
+            if has_dual_axis and ax2:
+                # 从options中获取y轴配置
+                scales = options.get('scales', {})
+                y_config = scales.get('y', {})
+                y1_config = scales.get('y1', {})
 
-            # 网格
-            ax.grid(True, alpha=0.3, linestyle='--')
+                # 设置左侧y轴
+                y_title = y_config.get('title', {}).get('text', '')
+                if y_title:
+                    ax1.set_ylabel(y_title, fontsize=11)
+
+                # 设置右侧y轴
+                y1_title = y1_config.get('title', {}).get('text', '')
+                if y1_title:
+                    ax2.set_ylabel(y1_title, fontsize=11)
+
+                # 设置网格（只在主轴显示）
+                ax1.grid(True, alpha=0.3, linestyle='--')
+                ax2.grid(False)  # 右侧y轴不显示网格
+
+                # 合并图例（显示所有数据系列）
+                lines = y1_lines + y2_lines
+                labels_list = [line.get_label() for line in lines]
+                ax1.legend(lines, labels_list, loc='best', framealpha=0.9)
+            else:
+                # 单y轴的情况
+                if len(datasets) > 1:
+                    ax1.legend(loc='best', framealpha=0.9)
+                ax1.grid(True, alpha=0.3, linestyle='--')
 
             return self._figure_to_svg(fig)
 
         except Exception as e:
-            logger.error(f"渲染折线图失败: {e}")
+            logger.error(f"渲染折线图失败: {e}", exc_info=True)
             return None
 
     def _render_bar(

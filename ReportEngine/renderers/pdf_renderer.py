@@ -468,9 +468,8 @@ class PDFRenderer:
             # 暂时使用简单的替换方案
             # 找到第一个math-block div并替换
             math_block_pattern = r'<div class="math-block">\$\$[^$]*\$\$</div>'
-            # 【修复】转义svg_html中的反斜杠，避免re.sub将其解释为转义序列
-            # 使用re.escape处理替换字符串中的特殊字符
-            escaped_svg_html = svg_html.replace('\\', r'\\')
+            # 【修复】使用lambda函数避免re.sub将SVG内容中的反斜杠解释为转义序列
+            # lambda函数中的返回值会被当作字面字符串，不会进行转义处理
             html = re.sub(math_block_pattern, lambda m: svg_html, html, count=1)
             logger.debug(f"已替换公式 {math_id} 为SVG")
 
