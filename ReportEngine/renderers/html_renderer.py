@@ -79,6 +79,7 @@ class HTMLRenderer:
         self.secondary_heading_index = 0
         self.toc_rendered = False
         self.hero_kpi_signature: tuple | None = None
+        self._current_chapter: Dict[str, Any] | None = None
         self._lib_cache: Dict[str, str] = {}
         self._pdf_font_base64: str | None = None
 
@@ -967,7 +968,12 @@ class HTMLRenderer:
             str: section包裹的HTML。
         """
         section_id = self._escape_attr(chapter.get("anchor") or f"chapter-{chapter.get('chapterId', 'x')}")
-        blocks_html = self._render_blocks(chapter.get("blocks", []))
+        prev_chapter = self._current_chapter
+        self._current_chapter = chapter
+        try:
+            blocks_html = self._render_blocks(chapter.get("blocks", []))
+        finally:
+            self._current_chapter = prev_chapter
         return f'<section id="{section_id}" class="chapter">\n{blocks_html}\n</section>'
 
     def _render_blocks(self, blocks: List[Dict[str, Any]]) -> str:
@@ -1406,6 +1412,98 @@ class HTMLRenderer:
 
         return props, normalized_data
 
+    @staticmethod
+    def _is_chart_data_empty(data: Dict[str, Any] | None) -> bool:
+        """检查图表数据是否为空或缺少有效datasets"""
+        if not isinstance(data, dict):
+            return True
+
+        datasets = data.get("datasets")
+        if not isinstance(datasets, list) or len(datasets) == 0:
+            return True
+
+        for ds in datasets:
+            if not isinstance(ds, dict):
+                continue
+            series = ds.get("data")
+            if isinstance(series, list) and len(series) > 0:
+                return False
+
+        return True
+
+    def _normalize_chart_block(
+        self,
+        block: Dict[str, Any],
+        chapter_context: Dict[str, Any] | None = None,
+    ) -> None:
+        """
+        补全图表block中的缺失字段（如scales、datasets），提升容错性。
+
+        - 将错误挂在block顶层的scales合并进props.options。
+        - 当data缺失或datasets为空时，尝试使用章节级的data作为兜底。
+        """
+
+        if not isinstance(block, dict):
+            return
+
+        if block.get("type") != "widget":
+            return
+
+        widget_type = block.get("widgetType", "")
+        if not (isinstance(widget_type, str) and widget_type.startswith("chart.js")):
+            return
+
+        # 确保props存在
+        props = block.get("props")
+        if not isinstance(props, dict):
+            block["props"] = {}
+            props = block["props"]
+
+        # 将顶层scales合并进options，避免配置丢失
+        scales = block.get("scales")
+        if isinstance(scales, dict):
+            options = props.get("options") if isinstance(props.get("options"), dict) else {}
+            props["options"] = self._merge_dicts(options, {"scales": scales})
+
+        # 确保data存在
+        data = block.get("data")
+        if not isinstance(data, dict):
+            data = {}
+            block["data"] = data
+
+        # 如果datasets为空，尝试使用章节级data填充
+        if chapter_context and self._is_chart_data_empty(data):
+            chapter_data = chapter_context.get("data") if isinstance(chapter_context, dict) else None
+            if isinstance(chapter_data, dict):
+                fallback_ds = chapter_data.get("datasets")
+                if isinstance(fallback_ds, list) and len(fallback_ds) > 0:
+                    merged_data = copy.deepcopy(data)
+                    merged_data["datasets"] = copy.deepcopy(fallback_ds)
+
+                    if not merged_data.get("labels") and isinstance(chapter_data.get("labels"), list):
+                        merged_data["labels"] = copy.deepcopy(chapter_data["labels"])
+
+                    block["data"] = merged_data
+
+        # 若仍缺少labels且数据点包含x值，自动生成便于fallback和坐标刻度
+        data_ref = block.get("data")
+        if isinstance(data_ref, dict) and not data_ref.get("labels"):
+            datasets_ref = data_ref.get("datasets")
+            if isinstance(datasets_ref, list) and datasets_ref:
+                first_ds = datasets_ref[0]
+                ds_data = first_ds.get("data") if isinstance(first_ds, dict) else None
+                if isinstance(ds_data, list):
+                    labels_from_data = []
+                    for idx, point in enumerate(ds_data):
+                        if isinstance(point, dict):
+                            label_text = point.get("x") or point.get("label") or f"点{idx + 1}"
+                        else:
+                            label_text = f"点{idx + 1}"
+                        labels_from_data.append(str(label_text))
+
+                    if labels_from_data:
+                        data_ref["labels"] = labels_from_data
+
     def _render_widget(self, block: Dict[str, Any]) -> str:
         """
         渲染Chart.js等交互组件的占位容器，并记录配置JSON。
@@ -1422,6 +1520,9 @@ class HTMLRenderer:
         返回:
             str: 含canvas与配置脚本的HTML。
         """
+        # 先在block层面做一次容错补全（scales、章节级数据等）
+        self._normalize_chart_block(block, getattr(self, "_current_chapter", None))
+
         # 统计
         widget_type = block.get('widgetType', '')
         is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
@@ -1489,7 +1590,7 @@ class HTMLRenderer:
 
         title = props.get("title")
         title_html = f'<div class="chart-title">{self._escape_html(title)}</div>' if title else ""
-        fallback_html = self._render_widget_fallback(normalized_data)
+        fallback_html = self._render_widget_fallback(normalized_data, block.get("widgetId"))
         return f"""
         <div class="chart-card">
           {title_html}
@@ -1500,7 +1601,7 @@ class HTMLRenderer:
         </div>
         """
 
-    def _render_widget_fallback(self, data: Dict[str, Any]) -> str:
+    def _render_widget_fallback(self, data: Dict[str, Any], widget_id: str | None = None) -> str:
         """渲染图表数据的文本兜底视图，避免Chart.js加载失败时出现空白"""
         if not isinstance(data, dict):
             return ""
@@ -1508,6 +1609,8 @@ class HTMLRenderer:
         datasets = data.get("datasets") or []
         if not labels or not datasets:
             return ""
+
+        widget_attr = f' data-widget-id="{self._escape_attr(widget_id)}"' if widget_id else ""
         header_cells = "".join(
             f"<th>{self._escape_html(ds.get('label') or f'系列{idx + 1}')}</th>"
             for idx, ds in enumerate(datasets)
@@ -1521,7 +1624,7 @@ class HTMLRenderer:
                 row_cells.append(f"<td>{self._escape_html(value)}</td>")
             body_rows += f"<tr>{''.join(row_cells)}</tr>"
         table_html = f"""
-        <div class="chart-fallback" data-prebuilt="true">
+        <div class="chart-fallback" data-prebuilt="true"{widget_attr}>
           <table>
             <thead>
               <tr><th>类别</th>{header_cells}</tr>

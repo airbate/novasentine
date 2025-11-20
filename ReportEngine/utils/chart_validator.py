@@ -133,13 +133,28 @@ class ChartValidator:
             errors.append("data字段必须是字典类型")
             return ValidationResult(False, errors, warnings)
 
+        # 检测是否使用了{x, y}形式的数据点（通常用于时间轴/散点）
+        def contains_object_points(ds_list: List[Any] | None) -> bool:
+            if not isinstance(ds_list, list):
+                return False
+            for point in ds_list:
+                if isinstance(point, dict) and any(key in point for key in ('x', 'y', 't')):
+                    return True
+            return False
+
+        datasets_for_detection = data.get('datasets') or []
+        uses_object_points = any(
+            isinstance(ds, dict) and contains_object_points(ds.get('data'))
+            for ds in datasets_for_detection
+        )
+
         # 6. 根据图表类型验证数据
         if chart_type in self.SPECIAL_DATA_TYPES:
             # 特殊数据格式（scatter, bubble）
             self._validate_special_data(data, chart_type, errors, warnings)
         else:
             # 标准数据格式（labels + datasets）
-            self._validate_standard_data(data, chart_type, errors, warnings)
+            self._validate_standard_data(data, chart_type, errors, warnings, uses_object_points)
 
         # 7. 验证props
         props = widget_block.get('props')
@@ -186,7 +201,8 @@ class ChartValidator:
         data: Dict[str, Any],
         chart_type: str,
         errors: List[str],
-        warnings: List[str]
+        warnings: List[str],
+        uses_object_points: bool = False
     ):
         """验证标准数据格式（labels + datasets）"""
         labels = data.get('labels')
@@ -195,7 +211,12 @@ class ChartValidator:
         # 验证labels
         if chart_type in self.LABEL_REQUIRED_TYPES:
             if not labels:
-                errors.append(f"{chart_type}类型图表必须包含labels字段")
+                if uses_object_points:
+                    warnings.append(
+                        f"{chart_type}类型图表缺少labels，已根据数据点渲染（使用x值）"
+                    )
+                else:
+                    errors.append(f"{chart_type}类型图表必须包含labels字段")
             elif not isinstance(labels, list):
                 errors.append("labels必须是数组类型")
             elif len(labels) == 0:
@@ -234,15 +255,21 @@ class ChartValidator:
                 warnings.append(f"datasets[{idx}].data数组为空")
                 continue
 
+            # 如果是{x, y}对象形式的数据点，默认允许跳过labels长度和数值校验
+            object_points = any(
+                isinstance(value, dict) and any(key in value for key in ('x', 'y', 't'))
+                for value in ds_data
+            )
+
             # 验证数据长度一致性
-            if labels and isinstance(labels, list):
+            if labels and isinstance(labels, list) and not object_points:
                 if len(ds_data) != len(labels):
                     warnings.append(
                         f"datasets[{idx}].data长度({len(ds_data)})与labels长度({len(labels)})不匹配"
                     )
 
             # 验证数值类型
-            if chart_type in self.NUMERIC_DATA_TYPES:
+            if chart_type in self.NUMERIC_DATA_TYPES and not object_points:
                 for data_idx, value in enumerate(ds_data):
                     if value is not None and not isinstance(value, (int, float)):
                         errors.append(

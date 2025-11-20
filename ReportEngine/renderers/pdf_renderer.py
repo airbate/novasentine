@@ -7,10 +7,21 @@ from __future__ import annotations
 
 import base64
 import copy
+import os
+import sys
 from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
 from loguru import logger
+
+# 在导入WeasyPrint之前，尝试补充常见的macOS Homebrew动态库路径，
+# 避免因未设置DYLD_LIBRARY_PATH而找不到pango/cairo等依赖。
+if sys.platform == 'darwin':
+    brew_lib = Path('/opt/homebrew/lib')
+    if brew_lib.exists():
+        current = os.environ.get('DYLD_LIBRARY_PATH', '')
+        if str(brew_lib) not in current.split(':'):
+            os.environ['DYLD_LIBRARY_PATH'] = f"{brew_lib}{':' + current if current else ''}"
 
 try:
     from weasyprint import HTML, CSS
@@ -128,7 +139,7 @@ class PDFRenderer:
             'failed': 0
         }
 
-        def repair_widgets_in_blocks(blocks: list) -> None:
+        def repair_widgets_in_blocks(blocks: list, chapter_context: Dict[str, Any] | None = None) -> None:
             """递归修复blocks中的所有widget"""
             for block in blocks:
                 if not isinstance(block, dict):
@@ -136,6 +147,12 @@ class PDFRenderer:
 
                 # 处理widget类型
                 if block.get('type') == 'widget':
+                    # 先用HTML渲染器的容错逻辑补全字段
+                    try:
+                        self.html_renderer._normalize_chart_block(block, chapter_context)
+                    except Exception as exc:  # 防御性处理，避免单个图表阻断流程
+                        logger.debug(f"预处理图表 {block.get('widgetId')} 时出错: {exc}")
+
                     widget_type = block.get('widgetType', '')
                     if widget_type.startswith('chart.js'):
                         repair_stats['total'] += 1
@@ -164,32 +181,32 @@ class PDFRenderer:
                                 )
 
                 # 递归处理嵌套的blocks
-                nested_blocks = block.get('blocks')
-                if isinstance(nested_blocks, list):
-                    repair_widgets_in_blocks(nested_blocks)
+            nested_blocks = block.get('blocks')
+            if isinstance(nested_blocks, list):
+                repair_widgets_in_blocks(nested_blocks, chapter_context)
 
                 # 处理列表项
-                if block.get('type') == 'list':
-                    items = block.get('items', [])
-                    for item in items:
-                        if isinstance(item, list):
-                            repair_widgets_in_blocks(item)
+            if block.get('type') == 'list':
+                items = block.get('items', [])
+                for item in items:
+                    if isinstance(item, list):
+                        repair_widgets_in_blocks(item, chapter_context)
 
                 # 处理表格单元格
-                if block.get('type') == 'table':
-                    rows = block.get('rows', [])
-                    for row in rows:
-                        cells = row.get('cells', [])
-                        for cell in cells:
-                            cell_blocks = cell.get('blocks', [])
-                            if isinstance(cell_blocks, list):
-                                repair_widgets_in_blocks(cell_blocks)
+            if block.get('type') == 'table':
+                rows = block.get('rows', [])
+                for row in rows:
+                    cells = row.get('cells', [])
+                    for cell in cells:
+                        cell_blocks = cell.get('blocks', [])
+                        if isinstance(cell_blocks, list):
+                            repair_widgets_in_blocks(cell_blocks, chapter_context)
 
         # 处理所有章节
         chapters = ir_copy.get('chapters', [])
         for chapter in chapters:
             blocks = chapter.get('blocks', [])
-            repair_widgets_in_blocks(blocks)
+            repair_widgets_in_blocks(blocks, chapter)
 
         # 输出统计信息
         if repair_stats['total'] > 0:
@@ -425,6 +442,17 @@ class PDFRenderer:
                 # 【修复】替换canvas为SVG，使用lambda避免反斜杠转义问题
                 html = re.sub(canvas_pattern, lambda m: svg_html, html)
                 logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
+
+                # 将对应fallback标记为隐藏，避免PDF中出现重复表格
+                fallback_pattern = rf'<div class="chart-fallback"([^>]*data-widget-id="{re.escape(widget_id)}"[^>]*)>'
+
+                def _hide_fallback(m: re.Match) -> str:
+                    tag = m.group(0)
+                    if 'svg-hidden' in tag:
+                        return tag
+                    return tag.replace('chart-fallback"', 'chart-fallback svg-hidden"', 1)
+
+                html = re.sub(fallback_pattern, _hide_fallback, html, count=1)
             else:
                 logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
 
@@ -617,8 +645,8 @@ body {{
     display: none !important;
 }}
 
-/* 隐藏fallback表格（因为现在使用SVG） */
-.chart-fallback {{
+/* 当对应SVG成功注入时隐藏fallback表格，失败时继续显示兜底数据 */
+.chart-fallback.svg-hidden {{
     display: none !important;
 }}
 

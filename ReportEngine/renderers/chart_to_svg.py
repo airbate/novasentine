@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import io
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 
@@ -23,6 +24,7 @@ try:
     import matplotlib
     matplotlib.use('Agg')  # 使用非GUI后端
     import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
     import matplotlib.font_manager as fm
     from matplotlib.patches import Wedge, Rectangle
     import numpy as np
@@ -68,6 +70,15 @@ class ChartToSVGConverter:
         'var(--re-success-color-translucent)': (0.314, 0.784, 0.471, 0.08),  # 绿色极浅透明 rgba(80, 200, 120, 0.08)
         'var(--color-primary)': '#3498DB',       # 天蓝色
         'var(--color-secondary)': '#95A5A6',     # 浅灰色
+    }
+
+    # 支持解析 rgba(var(--color-primary-rgb), 0.5) 这类格式的兜底映射
+    CSS_VAR_RGB_MAP = {
+        'color-primary-rgb': (52, 152, 219),
+        'color-tone-up-rgb': (80, 200, 120),
+        'color-tone-down-rgb': (232, 93, 117),
+        'color-accent-positive-rgb': (80, 200, 120),
+        'color-accent-neutral-rgb': (149, 165, 166),
     }
 
     def __init__(self, font_path: Optional[str] = None):
@@ -192,6 +203,25 @@ class ChartToSVGConverter:
 
         color = color.strip()
 
+        # 处理 rgba(var(--color-primary-rgb), 0.5) / rgb(var(--color-primary-rgb))
+        var_rgba_pattern = r'rgba?\(var\(--([\w-]+)\)\s*(?:,\s*([\d.]+))?\)'
+        match = re.match(var_rgba_pattern, color)
+        if match:
+            var_name, alpha_str = match.groups()
+            rgb_tuple = self.CSS_VAR_RGB_MAP.get(var_name)
+
+            # 兼容缺少 -rgb 后缀的写法
+            if not rgb_tuple:
+                if var_name.endswith('-rgb'):
+                    rgb_tuple = self.CSS_VAR_RGB_MAP.get(var_name[:-4])
+                else:
+                    rgb_tuple = self.CSS_VAR_RGB_MAP.get(f"{var_name}-rgb")
+
+            if rgb_tuple:
+                r, g, b = rgb_tuple
+                alpha = float(alpha_str) if alpha_str is not None else 1.0
+                return (r / 255, g / 255, b / 255, alpha)
+
         # 【增强】处理CSS变量，例如 var(--color-accent)
         # 使用预定义的颜色映射表替代CSS变量，确保不同变量有不同的颜色
         if color.startswith('var('):
@@ -288,10 +318,17 @@ class ChartToSVGConverter:
         - 线条样式（tension曲线平滑）
         """
         try:
-            labels = data.get('labels', [])
-            datasets = data.get('datasets', [])
+            labels = data.get('labels') or []
+            datasets = data.get('datasets') or []
 
-            if not labels or not datasets:
+            has_object_points = any(
+                isinstance(ds, dict)
+                and isinstance(ds.get('data'), list)
+                and any(isinstance(pt, dict) and ('x' in pt or 'y' in pt) for pt in ds.get('data'))
+                for ds in datasets
+            )
+
+            if (not datasets) or ((not labels) and not has_object_points):
                 return None
 
             # 收集所有唯一的yAxisID
@@ -312,6 +349,7 @@ class ChartToSVGConverter:
             title = props.get('title')
             options = props.get('options', {})
             scales = options.get('scales', {})
+            x_tick_labels = list(labels) if isinstance(labels, list) else []
 
             # 创建图表和多个y轴
             fig, ax1 = plt.subplots(figsize=(width/dpi, height/dpi), dpi=dpi)
@@ -376,41 +414,90 @@ class ChartToSVGConverter:
                 # 选择对应的坐标轴
                 ax = axes.get(y_axis_id, ax1)
 
-                # 绘制折线
-                x_data = range(len(labels))
+                is_object_data = isinstance(dataset_data, list) and any(
+                    isinstance(point, dict) and ('x' in point or 'y' in point)
+                    for point in dataset_data
+                )
 
-                # 根据tension值决定是否平滑
-                if tension > 0 and SCIPY_AVAILABLE:
-                    # 使用样条插值平滑曲线（需要scipy）
-                    if len(dataset_data) >= 4:  # 至少需要4个点才能平滑
+                if is_object_data:
+                    x_data = []
+                    y_data = []
+                    annotations = []
+
+                    for idx, point in enumerate(dataset_data):
+                        if not isinstance(point, dict):
+                            continue
+
+                        label_text = str(point.get('x', f"点{idx + 1}"))
+                        if len(x_tick_labels) < len(dataset_data):
+                            x_tick_labels.append(label_text)
+
+                        x_data.append(len(x_data))
+
+                        y_val = point.get('y', 0)
                         try:
-                            x_smooth = np.linspace(0, len(labels)-1, len(labels)*3)
-                            spl = make_interp_spline(x_data, dataset_data, k=min(3, len(dataset_data)-1))
-                            y_smooth = spl(x_smooth)
-                            line, = ax.plot(x_smooth, y_smooth, label=label, color=border_color, linewidth=2)
+                            y_val = float(y_val)
+                        except (TypeError, ValueError):
+                            y_val = 0
+                        y_data.append(y_val)
+                        annotations.append(point.get('event'))
 
-                            # 如果需要填充（使用极低透明度避免遮挡）
-                            if fill:
-                                ax.fill_between(x_smooth, y_smooth, alpha=0.08, color=background_color)
-                        except:
-                            # 如果平滑失败，使用普通折线
+                    if not x_data:
+                        continue
+
+                    line, = ax.plot(x_data, y_data, marker='o', label=label,
+                                    color=border_color, linewidth=2, markersize=6)
+
+                    if fill:
+                        ax.fill_between(x_data, y_data, alpha=0.08, color=background_color)
+
+                    for pos, y_val, text in zip(x_data, y_data, annotations):
+                        if text:
+                            ax.annotate(
+                                text,
+                                (pos, y_val),
+                                textcoords='offset points',
+                                xytext=(0, 8),
+                                ha='center',
+                                fontsize=8,
+                                rotation=20
+                            )
+                else:
+                    # 绘制折线
+                    x_data = range(len(labels))
+
+                    # 根据tension值决定是否平滑
+                    if tension > 0 and SCIPY_AVAILABLE:
+                        # 使用样条插值平滑曲线（需要scipy）
+                        if len(dataset_data) >= 4:  # 至少需要4个点才能平滑
+                            try:
+                                x_smooth = np.linspace(0, len(labels)-1, len(labels)*3)
+                                spl = make_interp_spline(x_data, dataset_data, k=min(3, len(dataset_data)-1))
+                                y_smooth = spl(x_smooth)
+                                line, = ax.plot(x_smooth, y_smooth, label=label, color=border_color, linewidth=2)
+
+                                # 如果需要填充（使用极低透明度避免遮挡）
+                                if fill:
+                                    ax.fill_between(x_smooth, y_smooth, alpha=0.08, color=background_color)
+                            except:
+                                # 如果平滑失败，使用普通折线
+                                line, = ax.plot(x_data, dataset_data, marker='o', label=label,
+                                              color=border_color, linewidth=2, markersize=6)
+                                if fill:
+                                    ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                        else:
                             line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                           color=border_color, linewidth=2, markersize=6)
                             if fill:
                                 ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
                     else:
+                        # 直线连接（tension=0或scipy不可用）
                         line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                       color=border_color, linewidth=2, markersize=6)
+
+                        # 如果需要填充（使用极低透明度避免遮挡）
                         if fill:
                             ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
-                else:
-                    # 直线连接（tension=0或scipy不可用）
-                    line, = ax.plot(x_data, dataset_data, marker='o', label=label,
-                                  color=border_color, linewidth=2, markersize=6)
-
-                    # 如果需要填充（使用极低透明度避免遮挡）
-                    if fill:
-                        ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
 
                 # 记录这条线属于哪个轴
                 axis_lines[y_axis_id].append(line)
@@ -430,8 +517,9 @@ class ChartToSVGConverter:
                     legend_labels.append(label)
 
             # 设置x轴标签
-            ax1.set_xticks(range(len(labels)))
-            ax1.set_xticklabels(labels, rotation=45, ha='right')
+            if x_tick_labels:
+                ax1.set_xticks(range(len(x_tick_labels)))
+                ax1.set_xticklabels(x_tick_labels, rotation=45, ha='right')
 
             # 设置y轴标签和标题
             for y_axis_id, ax in axes.items():
