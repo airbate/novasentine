@@ -145,13 +145,12 @@ def create_llm_repair_functions() -> List:
         def repair_with_report_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用ReportEngine的LLM修复图表"""
             try:
-                from llm_client import LLMClient
+                from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
                     api_key=settings.REPORT_ENGINE_API_KEY,
                     base_url=settings.REPORT_ENGINE_BASE_URL,
                     model_name=settings.REPORT_ENGINE_MODEL_NAME or "gpt-4",
-                    provider="openai"
                 )
 
                 prompt = build_chart_repair_prompt(widget_block, errors)
@@ -180,13 +179,12 @@ def create_llm_repair_functions() -> List:
         def repair_with_forum_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用ForumEngine的LLM修复图表"""
             try:
-                from llm_client import LLMClient
+                from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
                     api_key=settings.FORUM_HOST_API_KEY,
                     base_url=settings.FORUM_HOST_BASE_URL,
                     model_name=settings.FORUM_HOST_MODEL_NAME or "gpt-4",
-                    provider="openai"
                 )
 
                 prompt = build_chart_repair_prompt(widget_block, errors)
@@ -214,13 +212,12 @@ def create_llm_repair_functions() -> List:
         def repair_with_insight_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用InsightEngine的LLM修复图表"""
             try:
-                from llm_client import LLMClient
+                from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
                     api_key=settings.INSIGHT_ENGINE_API_KEY,
                     base_url=settings.INSIGHT_ENGINE_BASE_URL,
                     model_name=settings.INSIGHT_ENGINE_MODEL_NAME or "gpt-4",
-                    provider="openai"
                 )
 
                 prompt = build_chart_repair_prompt(widget_block, errors)
@@ -248,13 +245,12 @@ def create_llm_repair_functions() -> List:
         def repair_with_media_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用MediaEngine的LLM修复图表"""
             try:
-                from llm_client import LLMClient
+                from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
                     api_key=settings.MEDIA_ENGINE_API_KEY,
                     base_url=settings.MEDIA_ENGINE_BASE_URL,
                     model_name=settings.MEDIA_ENGINE_MODEL_NAME or "gpt-4",
-                    provider="openai"
                 )
 
                 prompt = build_chart_repair_prompt(widget_block, errors)
