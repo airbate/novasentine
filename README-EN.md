@@ -119,6 +119,14 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 | N+1 | Result Integration | Report Agent collects all analysis results and forum content | Report Agent | - |
 | N+2 | Report Generation | Dynamically select templates and styles, generate final reports through multiple rounds | Report Agent + Template Engine | - |
 
+### 🆕 Report Engine Highlights
+
+- **IR → HTML/PDF rendering**: New `ReportEngine/renderers/html_renderer.py` and `pdf_renderer.py` ship with a Source Han Serif subset plus offline MathJax/Chart.js/html2canvas; `report_engine_only.py` lets you render reports from the CLI without the web UI.
+- **PDF export APIs**: Added `/api/report/export/pdf/<task_id>` and `/api/report/export/pdf-from-ir`, performing Pango dependency checks and returning vector PDFs that mirror the HTML preview.
+- **Chart.js safety guardrails**: `utils/chart_validator.py` with optional LLM repair ensures widget payloads are valid, avoiding crashes or XSS from malformed chart configs.
+- **Multi-source log console**: Frontend console now uses a double-buffered virtual list with SSE replay; backend exposes `/api/report/log` and `/api/report/log/clear` for quick inspect/reset.
+- **Sanitization regression tests**: `tests/test_report_engine_sanitization.py` covers table block auto-repair to keep rendering stable.
+
 ### Project Code Structure Tree
 
 ```
