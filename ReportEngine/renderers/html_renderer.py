@@ -1,5 +1,10 @@
 """
 基于章节IR的HTML/PDF渲染器，实现与示例报告一致的交互与视觉。
+
+新增要点：
+1. 内置Chart.js数据验证/修复（ChartValidator+LLM兜底），杜绝非法配置导致的注入或崩溃；
+2. 将MathJax/Chart.js/html2canvas/jspdf等依赖内联并带CDN fallback，适配离线或被墙环境；
+3. 预置思源宋体子集的Base64字体，用于PDF/HTML一体化导出，避免缺字或额外系统依赖。
 """
 
 from __future__ import annotations
@@ -2554,6 +2559,190 @@ const CHART_TYPE_LABELS = {
   polarArea: '极地区域图'
 };
 
+// 与PDF矢量渲染保持一致的颜色替换/提亮规则
+const DEFAULT_CHART_COLORS = [
+  '#4A90E2', '#E85D75', '#50C878', '#FFB347',
+  '#9B59B6', '#3498DB', '#E67E22', '#16A085',
+  '#F39C12', '#D35400', '#27AE60', '#8E44AD'
+];
+const CSS_VAR_COLOR_MAP = {
+  'var(--color-accent)': '#4A90E2',
+  'var(--re-accent-color)': '#4A90E2',
+  'var(--re-accent-color-translucent)': 'rgba(74, 144, 226, 0.08)',
+  'var(--color-kpi-down)': '#E85D75',
+  'var(--re-danger-color)': '#E85D75',
+  'var(--re-danger-color-translucent)': 'rgba(232, 93, 117, 0.08)',
+  'var(--color-warning)': '#FFB347',
+  'var(--re-warning-color)': '#FFB347',
+  'var(--re-warning-color-translucent)': 'rgba(255, 179, 71, 0.08)',
+  'var(--color-success)': '#50C878',
+  'var(--re-success-color)': '#50C878',
+  'var(--re-success-color-translucent)': 'rgba(80, 200, 120, 0.08)',
+  'var(--color-primary)': '#3498DB',
+  'var(--color-secondary)': '#95A5A6'
+};
+
+function normalizeColorToken(color) {
+  if (typeof color !== 'string') return color;
+  const trimmed = color.trim();
+  if (!trimmed) return null;
+  if (CSS_VAR_COLOR_MAP[trimmed]) {
+    return CSS_VAR_COLOR_MAP[trimmed];
+  }
+  if (trimmed.startsWith('var(')) {
+    if (/accent|primary/i.test(trimmed)) return '#4A90E2';
+    if (/danger|down|error/i.test(trimmed)) return '#E85D75';
+    if (/warning/i.test(trimmed)) return '#FFB347';
+    if (/success|up/i.test(trimmed)) return '#50C878';
+    return '#3498DB';
+  }
+  return trimmed;
+}
+
+function hexToRgb(color) {
+  if (typeof color !== 'string') return null;
+  const normalized = color.replace('#', '');
+  if (!(normalized.length === 3 || normalized.length === 6)) return null;
+  const hex = normalized.length === 3 ? normalized.split('').map(c => c + c).join('') : normalized;
+  const intVal = parseInt(hex, 16);
+  if (Number.isNaN(intVal)) return null;
+  return [(intVal >> 16) & 255, (intVal >> 8) & 255, intVal & 255];
+}
+
+function parseRgbString(color) {
+  if (typeof color !== 'string') return null;
+  const match = color.match(/rgba?\s*\(([^)]+)\)/i);
+  if (!match) return null;
+  const parts = match[1].split(',').map(p => parseFloat(p.trim())).filter(v => !Number.isNaN(v));
+  if (parts.length < 3) return null;
+  return [parts[0], parts[1], parts[2]].map(v => Math.max(0, Math.min(255, v)));
+}
+
+function rgbFromColor(color) {
+  const normalized = normalizeColorToken(color);
+  return hexToRgb(normalized) || parseRgbString(normalized);
+}
+
+function colorLuminance(color) {
+  const rgb = rgbFromColor(color);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function lightenColor(color, ratio) {
+  const rgb = rgbFromColor(color);
+  if (!rgb) return color;
+  const factor = Math.min(1, Math.max(0, ratio || 0.25));
+  const mixed = rgb.map(v => Math.round(v + (255 - v) * factor));
+  return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
+}
+
+function ensureAlpha(color, alpha) {
+  const rgb = rgbFromColor(color);
+  if (!rgb) return color;
+  const clamped = Math.min(1, Math.max(0, alpha));
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${clamped})`;
+}
+
+function liftDarkColor(color) {
+  const normalized = normalizeColorToken(color);
+  const lum = colorLuminance(normalized);
+  if (lum !== null && lum < 0.12) {
+    return lightenColor(normalized, 0.35);
+  }
+  return normalized;
+}
+
+function normalizeDatasetColors(payload, chartType) {
+  const changes = [];
+  const data = payload && payload.data;
+  if (!data || !Array.isArray(data.datasets)) {
+    return changes;
+  }
+  const type = chartType || 'bar';
+  const needsArrayColors = type === 'pie' || type === 'doughnut' || type === 'polarArea';
+
+  data.datasets.forEach((dataset, idx) => {
+    if (!isPlainObject(dataset)) return;
+    const paletteColor = normalizeColorToken(DEFAULT_CHART_COLORS[idx % DEFAULT_CHART_COLORS.length]);
+    const baseCandidate = Array.isArray(dataset.borderColor)
+      ? dataset.borderColor[0]
+      : dataset.borderColor || dataset.backgroundColor || dataset.color || paletteColor;
+    const liftedBase = liftDarkColor(baseCandidate || paletteColor);
+
+    if (needsArrayColors) {
+      const labelCount = Array.isArray(data.labels) ? data.labels.length : 0;
+      const rawColors = Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor : [];
+      const dataLength = Array.isArray(dataset.data) ? dataset.data.length : 0;
+      const total = Math.max(labelCount, rawColors.length, dataLength, 1);
+      const normalizedColors = [];
+      for (let i = 0; i < total; i++) {
+        const fallbackColor = DEFAULT_CHART_COLORS[(idx + i) % DEFAULT_CHART_COLORS.length];
+        const normalizedColor = liftDarkColor(rawColors[i] || fallbackColor);
+        normalizedColors.push(normalizedColor);
+      }
+      dataset.backgroundColor = normalizedColors;
+      changes.push(`dataset${idx}: 标准化扇区颜色(${normalizedColors.length})`);
+      return;
+    }
+
+    const borderIsArray = Array.isArray(dataset.borderColor);
+    if (!dataset.borderColor) {
+      dataset.borderColor = liftedBase;
+      changes.push(`dataset${idx}: 补全边框色`);
+    } else if (borderIsArray) {
+      dataset.borderColor = dataset.borderColor.map(col => liftDarkColor(col));
+    } else {
+      dataset.borderColor = liftDarkColor(dataset.borderColor);
+    }
+
+    const bgIsArray = Array.isArray(dataset.backgroundColor);
+    if (bgIsArray) {
+      dataset.backgroundColor = dataset.backgroundColor.map(col => liftDarkColor(col));
+    }
+
+    const typeAlpha = type === 'line'
+      ? (dataset.fill ? 0.08 : 0.12)
+      : type === 'radar'
+        ? 0.25
+        : type === 'scatter' || type === 'bubble'
+          ? 0.6
+          : type === 'bar'
+            ? 0.85
+            : null;
+
+    if (typeAlpha !== null) {
+      if (bgIsArray && dataset.backgroundColor.length) {
+        dataset.backgroundColor = dataset.backgroundColor.map(col => ensureAlpha(col, typeAlpha));
+      } else {
+        dataset.backgroundColor = ensureAlpha(liftedBase, typeAlpha);
+      }
+      if (dataset.fill || type !== 'line') {
+        changes.push(`dataset${idx}: 应用淡化填充以避免遮挡`);
+      }
+    } else if (!dataset.backgroundColor) {
+      dataset.backgroundColor = ensureAlpha(liftedBase, 0.85);
+    } else if (!bgIsArray) {
+      dataset.backgroundColor = liftDarkColor(dataset.backgroundColor);
+    }
+
+    if (type === 'line' && !dataset.pointBackgroundColor) {
+      dataset.pointBackgroundColor = Array.isArray(dataset.borderColor)
+        ? dataset.borderColor[0]
+        : dataset.borderColor;
+    }
+  });
+
+  if (changes.length) {
+    payload._colorAudit = changes;
+  }
+  return changes;
+}
+
 function getThemePalette() {
   const styles = getComputedStyle(document.body);
   return {
@@ -2901,13 +3090,17 @@ function hydrateCharts() {
 
     // 前端数据验证
     const desiredType = chartTypes[0];
+    const card = canvas.closest('.chart-card') || canvas.parentElement;
+    const colorAdjustments = normalizeDatasetColors(payload, desiredType);
+    if (colorAdjustments.length && card) {
+      card.setAttribute('data-chart-color-fixes', colorAdjustments.join(' | '));
+    }
     const validation = validateChartData(payload, desiredType);
     if (!validation.valid) {
       console.warn('图表数据验证失败:', validation.errors);
       // 验证失败但仍然尝试渲染，因为可能会降级成功
     }
 
-    const card = canvas.closest('.chart-card') || canvas.parentElement;
     const optionsTemplate = buildChartOptions(payload);
     let chartInstance = null;
     let selectedType = null;
