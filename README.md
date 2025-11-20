@@ -119,6 +119,15 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 | N+1 | 结果整合 | Report Agent收集所有分析结果和论坛内容 | Report Agent | - |
 | N+2 | 报告生成 | 动态选择模板和样式，多轮生成最终报告 | Report Agent + 模板引擎 | - |
 
+### 🆕 Report Engine 新增能力
+
+- **IR → HTML/PDF 渲染链路**：新增 `ReportEngine/renderers/html_renderer.py` 与 `pdf_renderer.py`，内置思源宋体子集和MathJax/Chart.js/html2canvas等离线依赖，`report_engine_only.py` 支持纯命令行生成报告。
+- **PDF 导出接口**：新增 `/api/report/export/pdf/<task_id>` 与 `/api/report/export/pdf-from-ir`，导出前自动检查 Pango 依赖并给出可读提示，前端一键触发即可获得矢量PDF。
+- **Chart.js 安全校验**：`utils/chart_validator.py` + LLM 修复链路确保图表数据合法，防止错误配置导致前端崩溃或XSS注入。
+- **多源日志控制台**：前端控制台双缓冲虚拟列表 + SSE 历史补偿，后端提供 `/api/report/log` 与 `/api/report/log/clear` 便捷查看/清空日志。
+- **数据清洗回归测试**：`tests/test_report_engine_sanitization.py` 覆盖章节表格的容错修复，保证渲染端稳定。
+
+
 ### 项目代码结构树
 
 ```
