@@ -4,6 +4,12 @@ Flask主应用 - 统一管理三个Streamlit应用
 
 import os
 import sys
+
+# 【修复】尽早设置环境变量，确保所有模块都使用无缓冲模式
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+os.environ['PYTHONUTF8'] = '1'
+os.environ['PYTHONUNBUFFERED'] = '1'  # 禁用Python输出缓冲，确保日志实时输出
+
 import subprocess
 import time
 import threading
@@ -36,10 +42,6 @@ if REPORT_ENGINE_AVAILABLE:
     logger.info("ReportEngine接口已注册")
 else:
     logger.info("ReportEngine不可用，跳过接口注册")
-
-# 设置UTF-8编码环境
-os.environ['PYTHONIOENCODING'] = 'utf-8'
-os.environ['PYTHONUTF8'] = '1'
 
 # 创建日志目录
 LOG_DIR = Path('logs')

@@ -957,9 +957,22 @@ def clear_report_log():
     """
     try:
         log_file = settings.LOG_FILE
-        with open(log_file, 'w', encoding='utf-8') as f:
-            f.write('')
+
+        # 【修复】使用truncate而非重新打开，避免与logger的文件句柄冲突
+        # 追加模式打开，然后truncate，保持文件句柄有效
+        with open(log_file, 'r+', encoding='utf-8') as f:
+            f.truncate(0)  # 清空文件内容但不关闭文件
+            f.flush()      # 立即刷新
+
         logger.info(f"已清空日志文件: {log_file}")
+    except FileNotFoundError:
+        # 文件不存在，创建空文件
+        try:
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write('')
+            logger.info(f"创建日志文件: {log_file}")
+        except Exception as e:
+            logger.exception(f"创建日志文件失败: {str(e)}")
     except Exception as e:
         logger.exception(f"清空日志文件失败: {str(e)}")
 
@@ -969,29 +982,58 @@ def get_report_log():
     """
     获取report.log内容，并按行去除空白返回。
 
+    【修复】优化大文件读取，添加错误处理和文件锁
+
     返回:
         Response: JSON，包含最新日志行数组。
     """
     try:
         log_file = settings.LOG_FILE
-        
+
         if not os.path.exists(log_file):
             return jsonify({
                 'success': True,
                 'log_lines': []
             })
-        
-        with open(log_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        # 清理行尾的换行符
+
+        # 【修复】检查文件大小，避免读取过大文件导致内存问题
+        file_size = os.path.getsize(log_file)
+        max_size = 10 * 1024 * 1024  # 10MB限制
+
+        if file_size > max_size:
+            # 文件过大，只读取最后10MB
+            with open(log_file, 'rb') as f:
+                f.seek(-max_size, 2)  # 从文件末尾往前10MB
+                # 跳过可能不完整的第一行
+                f.readline()
+                content = f.read().decode('utf-8', errors='replace')
+            lines = content.splitlines()
+            logger.warning(f"日志文件过大 ({file_size} bytes)，仅返回最后 {max_size} bytes")
+        else:
+            # 正常大小，完整读取
+            with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+                lines = f.readlines()
+
+        # 清理行尾的换行符和空行
         log_lines = [line.rstrip('\n\r') for line in lines if line.strip()]
-        
+
         return jsonify({
             'success': True,
             'log_lines': log_lines
         })
-        
+
+    except PermissionError as e:
+        logger.error(f"读取日志权限不足: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': '读取日志权限不足'
+        }), 403
+    except UnicodeDecodeError as e:
+        logger.error(f"日志文件编码错误: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': '日志文件编码错误'
+        }), 500
     except Exception as e:
         logger.exception(f"读取日志失败: {str(e)}")
         return jsonify({

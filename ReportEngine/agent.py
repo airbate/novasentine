@@ -233,14 +233,54 @@ class ReportAgent:
         - 确保日志目录存在；
         - 使用独立的 loguru sink 写入 Report Engine 专属 log 文件，
           避免与其他子系统混淆。
+        - 【修复】配置实时日志写入，禁用缓冲，确保前端实时看到日志
+        - 【修复】防止重复添加handler
         """
         # 确保日志目录存在
         log_dir = os.path.dirname(self.config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
 
-        # 创建专用的logger，避免与其他模块冲突
-        # 修改日志级别为DEBUG，确保DEBUG、INFO、WARNING、ERROR级别的日志都能被记录
-        logger.add(self.config.LOG_FILE, level="DEBUG")
+        # 【修复】检查是否已经添加过这个文件的handler，避免重复
+        # loguru会自动去重，但显式检查更安全
+        log_file_path = str(Path(self.config.LOG_FILE).resolve())
+
+        # 检查现有的handlers
+        handler_exists = False
+        for handler_id, handler_config in logger._core.handlers.items():
+            if hasattr(handler_config, 'sink'):
+                sink = handler_config.sink
+                # 检查是否是文件sink且路径相同
+                if hasattr(sink, '_name') and sink._name == log_file_path:
+                    handler_exists = True
+                    logger.debug(f"日志handler已存在，跳过添加: {log_file_path}")
+                    break
+
+        if not handler_exists:
+            # 【修复】创建专用的logger，配置实时写入
+            # - enqueue=False: 禁用异步队列，立即写入
+            # - buffering=1: 行缓冲，每条日志立即刷新到文件
+            # - level="DEBUG": 记录所有级别的日志
+            # - encoding="utf-8": 明确指定UTF-8编码
+            # - mode="a": 追加模式，保留历史日志
+            handler_id = logger.add(
+                self.config.LOG_FILE,
+                level="DEBUG",
+                enqueue=False,      # 禁用异步队列，同步写入
+                buffering=1,        # 行缓冲，每行立即写入
+                serialize=False,    # 普通文本格式，不序列化为JSON
+                encoding="utf-8",   # 明确UTF-8编码
+                mode="a"            # 追加模式
+            )
+            logger.debug(f"已添加日志handler (ID: {handler_id}): {self.config.LOG_FILE}")
+
+        # 【修复】验证日志文件可写
+        try:
+            with open(self.config.LOG_FILE, 'a', encoding='utf-8') as f:
+                f.write('')  # 尝试写入空字符串验证权限
+                f.flush()    # 立即刷新
+        except Exception as e:
+            logger.error(f"日志文件无法写入: {self.config.LOG_FILE}, 错误: {e}")
+            raise
         
     def _initialize_file_baseline(self):
         """
