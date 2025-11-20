@@ -37,6 +37,57 @@ STREAM_HEARTBEAT_INTERVAL = 15  # 心跳间隔秒
 stream_lock = threading.Lock()
 stream_subscribers = defaultdict(list)
 tasks_registry: Dict[str, 'ReportTask'] = {}
+LOG_STREAM_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+log_stream_handler_id: Optional[int] = None
+
+
+def _stream_log_to_task(message):
+    """
+    将loguru日志同步到当前任务的SSE事件，保证前端实时可见。
+
+    仅在存在运行中的任务时推送，避免无关日志刷屏。
+    """
+    try:
+        record = message.record
+        level_name = record["level"].name
+        if level_name not in LOG_STREAM_LEVELS:
+            return
+
+        with task_lock:
+            task = current_task
+
+        if not task or task.status not in ("running", "pending"):
+            return
+
+        timestamp = record["time"].strftime("%H:%M:%S.%f")[:-3]
+        formatted_line = f"[{timestamp}] [{level_name}] {record['message']}"
+        task.publish_event(
+            "log",
+            {
+                "line": formatted_line,
+                "level": level_name.lower(),
+                "timestamp": timestamp,
+                "message": record["message"],
+                "module": record.get("module", ""),
+                "function": record.get("function", ""),
+            },
+        )
+    except Exception:
+        # 避免在日志钩子里产生日志递归
+        pass
+
+
+def _setup_log_stream_forwarder():
+    """为当前进程挂载一次性的loguru钩子，用于SSE实时转发。"""
+    global log_stream_handler_id
+    if log_stream_handler_id is not None:
+        return
+    log_stream_handler_id = logger.add(
+        _stream_log_to_task,
+        level="DEBUG",
+        enqueue=False,
+        catch=True,
+    )
 
 
 def _register_stream(task_id: str) -> Queue:
@@ -160,6 +211,7 @@ def initialize_report_engine():
     try:
         report_agent = create_agent()
         logger.info("Report Engine初始化成功")
+        _setup_log_stream_forwarder()
 
         # 检测 PDF 生成依赖（Pango）
         try:
@@ -1222,4 +1274,3 @@ def export_pdf_from_ir():
             'success': False,
             'error': f'导出PDF失败: {str(e)}'
         }), 500
-
