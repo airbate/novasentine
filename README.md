@@ -389,20 +389,9 @@ conda activate your_conda_name
 uv venv --python 3.11 # 创建3.11环境
 ```
 
-### 2. 安装依赖包
-
-```bash
-# 基础依赖安装
-pip install -r requirements.txt
-
-# uv版本命令（更快速安装）
-uv pip install -r requirements.txt
-# 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的"机器学习"部分注释掉再执行指令
-```
-
 ### 3. 安装 PDF 导出所需系统依赖（可选）
 
-> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。在此部分操作之前，建议重新运行“2. 安装依赖包”的代码。
+> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
 
 <details>
 <summary><b>📦 macOS 系统安装步骤</b></summary>
@@ -479,6 +468,20 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 </details>
 
 > 💡 **提示**：如果使用 Docker 部署，无需手动安装这些依赖，Docker 镜像已包含所有必要的系统依赖。
+
+
+### 3. 安装依赖包
+
+> 如果跳过了步骤2，weasyprint库会无法安装，属正常情况。
+
+```bash
+# 基础依赖安装
+pip install -r requirements.txt
+
+# uv版本命令（更快速安装）
+uv pip install -r requirements.txt
+# 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的"机器学习"部分注释掉再执行指令
+```
 
 ### 4. 安装Playwright浏览器驱动
 
