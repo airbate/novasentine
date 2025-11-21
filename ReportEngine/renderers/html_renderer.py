@@ -2733,6 +2733,9 @@ const DEFAULT_CHART_COLORS = [
   '#F39C12', '#D35400', '#27AE60', '#8E44AD'
 ];
 const CSS_VAR_COLOR_MAP = {
+  'var(--chart-color-green)': '#4BC0C0',
+  'var(--chart-color-red)': '#FF6384',
+  'var(--chart-color-blue)': '#36A2EB',
   'var(--color-accent)': '#4A90E2',
   'var(--re-accent-color)': '#4A90E2',
   'var(--re-accent-color-translucent)': 'rgba(74, 144, 226, 0.08)',
@@ -2838,18 +2841,24 @@ function normalizeDatasetColors(payload, chartType) {
   }
   const type = chartType || 'bar';
   const needsArrayColors = type === 'pie' || type === 'doughnut' || type === 'polarArea';
+  const pickColor = (value, fallback) => {
+    if (Array.isArray(value) && value.length) return value[0];
+    return value || fallback;
+  };
 
   data.datasets.forEach((dataset, idx) => {
     if (!isPlainObject(dataset)) return;
     const paletteColor = normalizeColorToken(DEFAULT_CHART_COLORS[idx % DEFAULT_CHART_COLORS.length]);
-    const baseCandidate = Array.isArray(dataset.borderColor)
-      ? dataset.borderColor[0]
-      : dataset.borderColor || dataset.backgroundColor || dataset.color || paletteColor;
+    const borderInput = dataset.borderColor;
+    const backgroundInput = dataset.backgroundColor;
+    const borderIsArray = Array.isArray(borderInput);
+    const bgIsArray = Array.isArray(backgroundInput);
+    const baseCandidate = pickColor(borderInput, pickColor(backgroundInput, dataset.color || paletteColor));
     const liftedBase = liftDarkColor(baseCandidate || paletteColor);
 
     if (needsArrayColors) {
       const labelCount = Array.isArray(data.labels) ? data.labels.length : 0;
-      const rawColors = Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor : [];
+      const rawColors = bgIsArray ? backgroundInput : [];
       const dataLength = Array.isArray(dataset.data) ? dataset.data.length : 0;
       const total = Math.max(labelCount, rawColors.length, dataLength, 1);
       const normalizedColors = [];
@@ -2863,19 +2872,13 @@ function normalizeDatasetColors(payload, chartType) {
       return;
     }
 
-    const borderIsArray = Array.isArray(dataset.borderColor);
-    if (!dataset.borderColor) {
+    if (!borderInput) {
       dataset.borderColor = liftedBase;
       changes.push(`dataset${idx}: 补全边框色`);
     } else if (borderIsArray) {
-      dataset.borderColor = dataset.borderColor.map(col => liftDarkColor(col));
+      dataset.borderColor = borderInput.map(col => liftDarkColor(col));
     } else {
-      dataset.borderColor = liftDarkColor(dataset.borderColor);
-    }
-
-    const bgIsArray = Array.isArray(dataset.backgroundColor);
-    if (bgIsArray) {
-      dataset.backgroundColor = dataset.backgroundColor.map(col => liftDarkColor(col));
+      dataset.borderColor = liftDarkColor(borderInput);
     }
 
     const typeAlpha = type === 'line'
@@ -2890,15 +2893,18 @@ function normalizeDatasetColors(payload, chartType) {
 
     if (typeAlpha !== null) {
       if (bgIsArray && dataset.backgroundColor.length) {
-        dataset.backgroundColor = dataset.backgroundColor.map(col => ensureAlpha(col, typeAlpha));
+        dataset.backgroundColor = backgroundInput.map(col => ensureAlpha(liftDarkColor(col), typeAlpha));
       } else {
-        dataset.backgroundColor = ensureAlpha(liftedBase, typeAlpha);
+        const bgSeed = pickColor(backgroundInput, pickColor(dataset.borderColor, paletteColor));
+        dataset.backgroundColor = ensureAlpha(liftDarkColor(bgSeed), typeAlpha);
       }
       if (dataset.fill || type !== 'line') {
         changes.push(`dataset${idx}: 应用淡化填充以避免遮挡`);
       }
     } else if (!dataset.backgroundColor) {
       dataset.backgroundColor = ensureAlpha(liftedBase, 0.85);
+    } else if (bgIsArray) {
+      dataset.backgroundColor = backgroundInput.map(col => liftDarkColor(col));
     } else if (!bgIsArray) {
       dataset.backgroundColor = liftDarkColor(dataset.backgroundColor);
     }
