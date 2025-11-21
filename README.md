@@ -389,7 +389,7 @@ conda activate your_conda_name
 uv venv --python 3.11 # 创建3.11环境
 ```
 
-### 3. 安装 PDF 导出所需系统依赖（可选）
+### 2. 安装 PDF 导出所需系统依赖（可选）
 
 > ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
 
@@ -404,10 +404,15 @@ brew install pango gdk-pixbuf libffi
 
 # 步骤 2: 设置环境变量（⚠️ 必须执行！）
 # 方法一：临时设置（仅当前终端会话有效）
+# Apple Silicon
 export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+# Intel Mac
+export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 
 # 方法二：永久设置（推荐）
 echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
+# Intel 用户请改为:
+# echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -462,7 +467,18 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 # 访问：https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 # 下载最新版本的 .exe 文件并安装
 
-# 2. 重启命令行或 IDE
+# 2. 将 GTK 安装目录下的 bin 添加到 PATH（安装后请重新打开终端）
+# 默认路径示例（如果安装在其他目录，请替换成你的实际路径）
+set PATH=C:\Program Files\GTK3-Runtime Win64\bin;%PATH%
+
+# 可选：永久添加到 PATH
+setx PATH "C:\Program Files\GTK3-Runtime Win64\bin;%PATH%"
+
+# 如果安装在自定义目录，请替换为实际路径，或设置环境变量 GTK_BIN_PATH=你的bin路径，再重新打开终端
+
+# 3. 验证（新终端执行）
+python -m ReportEngine.utils.dependency_check
+# 输出包含 “✓ Pango 依赖检测通过” 表示配置正确
 ```
 
 </details>

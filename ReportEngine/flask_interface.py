@@ -1191,8 +1191,8 @@ def export_pdf(task_id: str):
             return jsonify({
                 'success': False,
                 'error': 'PDF 导出功能不可用：缺少系统依赖',
-                'details': '请查看根目录 README.md 第393行「PDF 导出依赖」部分了解如何安装依赖',
-                'help_url': 'https://github.com/666ghj/BettaFish#3-安装-pdf-导出所需系统依赖可选',
+                'details': '请查看根目录 README.md “源码启动”的第二步（PDF 导出依赖）了解安装方法',
+                'help_url': 'https://github.com/666ghj/BettaFish#2-安装-pdf-导出所需系统依赖可选',
                 'system_message': pango_message
             }), 503
 
@@ -1280,8 +1280,8 @@ def export_pdf_from_ir():
             return jsonify({
                 'success': False,
                 'error': 'PDF 导出功能不可用：缺少系统依赖',
-                'details': '请查看根目录 README.md 第393行「PDF 导出依赖」部分了解如何安装依赖',
-                'help_url': 'https://github.com/666ghj/BettaFish#3-安装-pdf-导出所需系统依赖可选',
+                'details': '请查看根目录 README.md “源码启动”的第二步（PDF 导出依赖）了解安装方法',
+                'help_url': 'https://github.com/666ghj/BettaFish#2-安装-pdf-导出所需系统依赖可选',
                 'system_message': pango_message
             }), 503
 

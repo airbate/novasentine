@@ -396,10 +396,14 @@ uv venv --python 3.11 # Create Python 3.11 environment
 brew install pango gdk-pixbuf libffi
 
 # 2. Set environment variable (required)
+# Apple Silicon
 export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+# Intel Mac
+export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 
 # Or permanently add to ~/.zshrc
 echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
+# Intel users: echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -439,7 +443,18 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 # Visit: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
 # Download the latest .exe file and install
 
-# 2. Restart command line or IDE
+# 2. Add the GTK installation bin directory to PATH (open a new terminal afterwards)
+# Default path example (replace with your custom install path if different)
+set PATH=C:\Program Files\GTK3-Runtime Win64\bin;%PATH%
+
+# Optional: persist the setting
+setx PATH "C:\Program Files\GTK3-Runtime Win64\bin;%PATH%"
+
+# If installed to a custom path, replace with your actual path, or set GTK_BIN_PATH=<your-bin-path>, then reopen the terminal
+
+# 3. Verify in a new terminal
+python -m ReportEngine.utils.dependency_check
+# You should see “✓ Pango dependency check passed”
 ```
 
 </details>

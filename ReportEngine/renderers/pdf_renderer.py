@@ -13,33 +13,57 @@ from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
 from loguru import logger
+from ReportEngine.utils.dependency_check import (
+    prepare_pango_environment,
+    check_pango_available,
+)
 
 # 在导入WeasyPrint之前，尝试补充常见的macOS Homebrew动态库路径，
 # 避免因未设置DYLD_LIBRARY_PATH而找不到pango/cairo等依赖。
 if sys.platform == 'darwin':
-    brew_lib = Path('/opt/homebrew/lib')
-    if brew_lib.exists():
-        current = os.environ.get('DYLD_LIBRARY_PATH', '')
-        if str(brew_lib) not in current.split(':'):
-            os.environ['DYLD_LIBRARY_PATH'] = f"{brew_lib}{':' + current if current else ''}"
+    mac_libs = [Path('/opt/homebrew/lib'), Path('/usr/local/lib')]
+    current = os.environ.get('DYLD_LIBRARY_PATH', '')
+    inserts = []
+    for lib in mac_libs:
+        if lib.exists() and str(lib) not in current.split(':'):
+            inserts.append(str(lib))
+    if inserts:
+        os.environ['DYLD_LIBRARY_PATH'] = ":".join(inserts + ([current] if current else []))
+
+# Windows: 自动补充常见 GTK/Pango 运行时路径，避免 DLL 加载失败
+if sys.platform.startswith('win'):
+    added = prepare_pango_environment()
+    if added:
+        logger.debug(f"已自动添加 GTK 运行时路径: {added}")
 
 try:
     from weasyprint import HTML, CSS
     from weasyprint.text.fonts import FontConfiguration
     WEASYPRINT_AVAILABLE = True
+    PDF_DEP_STATUS = "OK"
 except (ImportError, OSError) as e:
     WEASYPRINT_AVAILABLE = False
-    # 判断错误类型以提供更友好的提示
+    # 判断错误类型以提供更友好的提示，并尝试输出缺失依赖的详细信息
+    try:
+        _, dep_message = check_pango_available()
+    except Exception:
+        dep_message = None
+
     if isinstance(e, OSError):
-        logger.warning(
+        msg = dep_message or (
             "PDF 导出依赖缺失（系统库未安装或环境变量未设置），"
             "PDF 导出功能将不可用。其他功能不受影响。"
         )
+        logger.warning(msg)
+        PDF_DEP_STATUS = msg
     else:
-        logger.warning("WeasyPrint未安装，PDF导出功能将不可用")
+        msg = dep_message or "WeasyPrint未安装，PDF导出功能将不可用"
+        logger.warning(msg)
+        PDF_DEP_STATUS = msg
 except Exception as e:
     WEASYPRINT_AVAILABLE = False
-    logger.warning(f"WeasyPrint 加载失败: {e}，PDF导出功能将不可用")
+    PDF_DEP_STATUS = f"WeasyPrint 加载失败: {e}，PDF导出功能将不可用"
+    logger.warning(PDF_DEP_STATUS)
 
 from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
@@ -73,7 +97,11 @@ class PDFRenderer:
         self.layout_optimizer = layout_optimizer or PDFLayoutOptimizer()
 
         if not WEASYPRINT_AVAILABLE:
-            raise RuntimeError("WeasyPrint未安装，请运行: pip install weasyprint")
+            raise RuntimeError(
+                PDF_DEP_STATUS
+                if 'PDF_DEP_STATUS' in globals() else
+                "WeasyPrint未安装，请运行: pip install weasyprint"
+            )
 
         # 初始化图表转换器
         try:
