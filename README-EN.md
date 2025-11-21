@@ -384,18 +384,7 @@ conda activate your_conda_name
 uv venv --python 3.11 # Create Python 3.11 environment
 ```
 
-### 2. Install Dependencies
-
-```bash
-# Basic dependency installation
-pip install -r requirements.txt
-
-# uv version command (faster installation)
-uv pip install -r requirements.txt
-# If you do not want to use the local sentiment analysis model (which has low computational requirements and defaults to the CPU version), you can comment out the 'Machine Learning' section in this file before executing the command.
-```
-
-### 3. Install System Dependencies for PDF Export (Optional)
+### 2. Install System Dependencies for PDF Export (Optional)
 
 > ⚠️ **Note**: If you need to use the PDF export function, please install system dependencies following the steps below. If you don't need PDF export, you can skip this step, and other system functions will not be affected.
 
@@ -456,6 +445,19 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 </details>
 
 > 💡 **Tip**: If using Docker deployment, no need to manually install these dependencies, the Docker image already contains all necessary system dependencies.
+
+### 3. Install Dependencies
+
+> If you skip step 2, the weasyprint library will fail to install, which is expected.
+
+```bash
+# Basic dependency installation
+pip install -r requirements.txt
+
+# uv version command (faster installation)
+uv pip install -r requirements.txt
+# If you do not want to use the local sentiment analysis model (which has low computational requirements and defaults to the CPU version), you can comment out the 'Machine Learning' section in this file before executing the command.
+```
 
 ### 4. Install Playwright Browser Drivers
 
