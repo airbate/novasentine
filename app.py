@@ -36,6 +36,39 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'Dedicated-to-creating-a-concise-and-versatile-public-opinion-analysis-platform'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# eventlet 在客户端主动断开时偶尔会抛出 ConnectionAbortedError，这里做一次防御性包裹，
+# 避免无意义的堆栈污染日志（仅在 eventlet 可用时启用）。
+def _patch_eventlet_disconnect_logging():
+    try:
+        import eventlet.wsgi  # type: ignore
+    except Exception as exc:  # pragma: no cover - 仅在生产环境有效
+        logger.debug(f"eventlet 不可用，跳过断开补丁: {exc}")
+        return
+
+    try:
+        original_finish = eventlet.wsgi.HttpProtocol.finish  # type: ignore[attr-defined]
+    except Exception as exc:  # pragma: no cover
+        logger.debug(f"eventlet 缺少 HttpProtocol.finish，跳过断开补丁: {exc}")
+        return
+
+    def _safe_finish(self, *args, **kwargs):  # pragma: no cover - 运行时才会触发
+        try:
+            return original_finish(self, *args, **kwargs)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as exc:
+            try:
+                environ = getattr(self, 'environ', {}) or {}
+                method = environ.get('REQUEST_METHOD', '')
+                path = environ.get('PATH_INFO', '')
+                logger.warning(f"客户端已主动断开，忽略异常: {method} {path} ({exc})")
+            except Exception:
+                logger.warning(f"客户端已主动断开，忽略异常: {exc}")
+            return
+
+    eventlet.wsgi.HttpProtocol.finish = _safe_finish  # type: ignore[attr-defined]
+    logger.info("已对 eventlet 连接中断进行安全防护")
+
+_patch_eventlet_disconnect_logging()
+
 # 注册ReportEngine Blueprint
 if REPORT_ENGINE_AVAILABLE:
     app.register_blueprint(report_bp, url_prefix='/api/report')
