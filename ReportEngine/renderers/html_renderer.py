@@ -2154,26 +2154,60 @@ body {{
   color: var(--secondary-color);
   font-size: 0.95rem;
 }}
+.hero-section,
+.hero-section-combined {{
+  padding: 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.08));
+  border: 1px solid rgba(0,0,0,0.08);
+  margin-bottom: 32px;
+  box-shadow: 0 8px 20px var(--shadow-color);
+}}
 .hero-section {{
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
-  padding: 24px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.1));
-  border: 1px solid rgba(0,0,0,0.08);
-  margin-bottom: 32px;
+}}
+.hero-section-combined .hero-header {{
+  margin-bottom: 14px;
+}}
+.hero-section-combined .hero-hint {{
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  margin: 0;
+}}
+.hero-section-combined .hero-title {{
+  margin: 8px 0 4px;
+  font-size: 2.2rem;
+  line-height: 1.2;
+}}
+.hero-section-combined .hero-subtitle {{
+  margin: 0;
+  color: var(--secondary-color);
+  font-weight: 600;
+}}
+.hero-body {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
 }}
 .hero-content {{
   flex: 2;
-  min-width: 260px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }}
 .hero-side {{
   flex: 1;
-  min-width: 220px;
+  min-width: 240px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+  margin-top: 8px;
 }}
 .hero-kpi {{
   background: var(--card-bg);
@@ -2192,7 +2226,7 @@ body {{
 .hero-highlights {{
   list-style: none;
   padding: 0;
-  margin: 16px 0;
+  margin: 8px 0 0;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -2216,6 +2250,7 @@ body {{
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  margin-top: 4px;
 }}
 .ghost-btn {{
   border: 1px solid var(--primary-color);
@@ -2228,7 +2263,7 @@ body {{
 .hero-summary {{
   font-size: 1.05rem;
   font-weight: 500;
-  margin-top: 0;
+  margin: 0;
 }}
 .llm-error-block {{
   border: 1px dashed var(--secondary-color);
