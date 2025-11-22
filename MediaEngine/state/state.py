@@ -58,11 +58,17 @@ class Research:
     def add_search_results(self, query: str, results: List[Dict[str, Any]]):
         """批量添加搜索结果"""
         for result in results:
+            # 防御空值，避免下游展示时报错
+            url = result.get("url") or ""
+            title = result.get("title") or ""
+            content = result.get("content") or ""
+            if not isinstance(content, str):
+                content = str(content)
             search = Search(
-                query=query,
-                url=result.get("url", ""),
-                title=result.get("title", ""),
-                content=result.get("content", ""),
+                query=query or "",
+                url=url,
+                title=title,
+                content=content,
                 score=result.get("score")
             )
             self.add_search(search)

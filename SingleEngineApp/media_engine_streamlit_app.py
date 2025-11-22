@@ -220,11 +220,16 @@ def display_results(agent: DeepSearchAgent, final_report: str):
 
         if all_searches:
             for i, search in enumerate(all_searches):
-                with st.expander(f"搜索 {i + 1}: {search.query}"):
+                query_label = search.query if search.query else "未记录查询"
+                with st.expander(f"搜索 {i + 1}: {query_label}"):
+                    preview = search.content or ""
+                    if not isinstance(preview, str):
+                        preview = str(preview)
+                    if len(preview) > 200:
+                        preview = preview[:200] + "..."
                     st.write("**URL:**", search.url)
                     st.write("**标题:**", search.title)
-                    st.write("**内容预览:**",
-                             search.content[:200] + "..." if len(search.content) > 200 else search.content)
+                    st.write("**内容预览:**", preview if preview else "无可用内容")
                     if search.score:
                         st.write("**相关度评分:**", search.score)
 
