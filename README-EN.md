@@ -386,7 +386,7 @@ uv venv --python 3.11 # Create Python 3.11 environment
 
 ### 2. Install System Dependencies for PDF Export (Optional)
 
-This section contains detailed configuration instructions:[Configure the dependencies required for "Export to PDF"](./static/Partial%20README%20for%20PDF%20Exporting/README-EN.md)
+This section contains detailed configuration instructions:[Configure the dependencies](./static/Partial%20README%20for%20PDF%20Exporting/README-EN.md)
 
 ### 3. Install Dependencies
 

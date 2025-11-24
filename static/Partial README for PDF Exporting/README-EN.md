@@ -1,7 +1,7 @@
-> ⚠️ **Note**: If you need to use the PDF export function, please install system dependencies following the steps below. If you don't need PDF export, you can skip this step, and other system functions will not be affected.
+>  **Note**: If you need to use the PDF export function, please install system dependencies following the steps below. If you don't need PDF export, you can skip this step, and other system functions will not be affected.
 
 <details>
-<summary><b>🪟 Windows Installation Steps</b></summary>
+<summary><b> Windows Installation Steps</b></summary>
 
 ```powershell
 # 1. Download and install GTK3 Runtime (execute on host machine)
@@ -26,7 +26,7 @@ python -m ReportEngine.utils.dependency_check
 </details>
 
 <details>
-<summary><b>📦 macOS Installation Steps</b></summary>
+<summary><b> macOS Installation Steps</b></summary>
 
 ```bash
 # 1. Install system dependencies (execute on host machine)
@@ -47,7 +47,7 @@ source ~/.zshrc
 </details>
 
 <details>
-<summary><b>🐧 Ubuntu/Debian Installation Steps</b></summary>
+<summary><b> Ubuntu/Debian Installation Steps</b></summary>
 
 ```bash
 # 1. Install system dependencies (execute on host machine)
@@ -63,7 +63,7 @@ sudo apt-get install -y \
 </details>
 
 <details>
-<summary><b>🎩 CentOS/RHEL Installation Steps</b></summary>
+<summary><b> CentOS/RHEL Installation Steps</b></summary>
 
 ```bash
 # 1. Install system dependencies (execute on host machine)
@@ -73,4 +73,4 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 </details>
 
 
-> 💡 **Tip**: If using Docker deployment, no need to manually install these dependencies, the Docker image already contains all necessary system dependencies.
+>  **Tip**: If using Docker deployment, no need to manually install these dependencies, the Docker image already contains all necessary system dependencies.
