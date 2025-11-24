@@ -832,91 +832,69 @@ p {{
     margin-bottom: {cfg.page.section_spacing}px;
 }}
 
-/* KPI卡片优化 - WeasyPrint不支持CSS Grid，使用Flex实现等宽排布 */
+/* KPI卡片优化 - 防止溢出 */
 .kpi-grid {{
-    display: flex !important;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: minmax(auto, 1fr);
+    grid-auto-flow: row dense;
     gap: {cfg.grid.gap}px;
     margin: 20px 0;
     align-items: stretch;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
-    break-before: avoid !important;
-    break-after: avoid !important;
 }}
 
 .kpi-grid .kpi-card {{
-    box-sizing: border-box;
-    flex: 0 1 calc(33.333% - {cfg.grid.gap}px) !important;
-    max-width: calc(33.333% - {cfg.grid.gap}px) !important;
+    grid-column: span 2;
 }}
 
 /* 单条/双条/三条的特殊列数 */
+.chapter .kpi-grid[data-kpi-count="1"] {{
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    grid-auto-flow: row;
+}}
 .chapter .kpi-grid[data-kpi-count="1"] .kpi-card {{
-    flex-basis: 100% !important;
-    max-width: 100% !important;
+    grid-column: span 1;
+}}
+.chapter .kpi-grid[data-kpi-count="2"] {{
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }}
 .chapter .kpi-grid[data-kpi-count="2"] .kpi-card {{
-    flex-basis: calc(50% - {cfg.grid.gap}px) !important;
-    max-width: calc(50% - {cfg.grid.gap}px) !important;
+    grid-column: span 2;
 }}
-.chapter .kpi-grid[data-kpi-count="3"] .kpi-card {{
-    flex-basis: calc(33.333% - {cfg.grid.gap}px) !important;
-    max-width: calc(33.333% - {cfg.grid.gap}px) !important;
+.chapter .kpi-grid[data-kpi-count="3"] {{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }}
 
 /* 四条时采用2x2排布 */
-.chapter .kpi-grid[data-kpi-count="4"] .kpi-card {{
-    flex-basis: calc(50% - {cfg.grid.gap}px) !important;
-    max-width: calc(50% - {cfg.grid.gap}px) !important;
-}}
 .chapter .kpi-grid[data-kpi-count="4"] {{
-    page-break-before: auto !important;
-    break-before: auto !important;
-    page-break-inside: avoid !important;
-    margin-top: 8px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}}
+.chapter .kpi-grid[data-kpi-count="4"] .kpi-card {{
+    grid-column: span 2;
 }}
 
-/* hr 与紧随的KPI/正文保持同页，减少多余空白 */
-hr {{
-    page-break-before: avoid !important;
-    page-break-after: avoid !important;
-    break-before: avoid !important;
-    break-after: avoid !important;
-    margin: 12px 0 !important;
-}}
-
-/* 五条及以上默认三列（6个自动两行3+3） */
-.chapter .kpi-grid[data-kpi-count="5"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="6"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="7"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="8"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="9"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="10"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="11"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="12"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="13"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="14"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="15"] .kpi-card,
-.chapter .kpi-grid[data-kpi-count="16"] .kpi-card {{
-    flex-basis: calc(33.333% - {cfg.grid.gap}px) !important;
-    max-width: calc(33.333% - {cfg.grid.gap}px) !important;
-}}
-
-/* 5个时最后两张拉宽为两列 */
-.chapter .kpi-grid[data-kpi-count="5"] .kpi-card:nth-last-child(-n+2) {{
-    flex-basis: calc(50% - {cfg.grid.gap}px) !important;
-    max-width: calc(50% - {cfg.grid.gap}px) !important;
+/* 五条及以上默认三列（6栅格，每卡占2） */
+.chapter .kpi-grid[data-kpi-count="5"],
+.chapter .kpi-grid[data-kpi-count="6"],
+.chapter .kpi-grid[data-kpi-count="7"],
+.chapter .kpi-grid[data-kpi-count="8"],
+.chapter .kpi-grid[data-kpi-count="9"],
+.chapter .kpi-grid[data-kpi-count="10"],
+.chapter .kpi-grid[data-kpi-count="11"],
+.chapter .kpi-grid[data-kpi-count="12"],
+.chapter .kpi-grid[data-kpi-count="13"],
+.chapter .kpi-grid[data-kpi-count="14"],
+.chapter .kpi-grid[data-kpi-count="15"],
+.chapter .kpi-grid[data-kpi-count="16"] {{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
 }}
 
 /* 余数为2时，最后两张平分全宽 */
+.chapter .kpi-grid[data-kpi-count="5"] .kpi-card:nth-last-child(-n+2),
 .chapter .kpi-grid[data-kpi-count="8"] .kpi-card:nth-last-child(-n+2),
 .chapter .kpi-grid[data-kpi-count="11"] .kpi-card:nth-last-child(-n+2),
 .chapter .kpi-grid[data-kpi-count="14"] .kpi-card:nth-last-child(-n+2) {{
-    flex-basis: calc(50% - {cfg.grid.gap}px) !important;
-    max-width: calc(50% - {cfg.grid.gap}px) !important;
+    grid-column: span 3;
 }}
 
 /* 余数为1时，最后一张占满全宽 */
@@ -924,8 +902,7 @@ hr {{
 .chapter .kpi-grid[data-kpi-count="10"] .kpi-card:last-child,
 .chapter .kpi-grid[data-kpi-count="13"] .kpi-card:last-child,
 .chapter .kpi-grid[data-kpi-count="16"] .kpi-card:last-child {{
-    flex-basis: 100% !important;
-    max-width: 100% !important;
+    grid-column: 1 / -1;
 }}
 
 .kpi-card {{
