@@ -391,104 +391,11 @@ uv venv --python 3.11 # 创建3.11环境
 
 ### 2. 安装 PDF 导出所需系统依赖（可选）
 
-> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
-
-<details>
-<summary><b>📦 macOS 系统安装步骤</b></summary>
-
-> 🔴 **重要提示**：macOS 用户必须完成以下**两个步骤**，缺一不可！仅安装系统依赖而不设置环境变量会导致 `cannot load library 'libgobject-2.0-0'` 错误。
-
-```bash
-# 步骤 1: 安装系统依赖
-brew install pango gdk-pixbuf libffi
-
-# 步骤 2: 设置环境变量（⚠️ 必须执行！）
-# 方法一：临时设置（仅当前终端会话有效）
-# Apple Silicon
-export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
-# Intel Mac
-export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
-
-# 方法二：永久设置（推荐）
-echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
-# Intel 用户请改为:
-# echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**验证安装**：
-
-```bash
-# 测试 PDF 依赖是否正确配置
-python -m ReportEngine.utils.dependency_check
-# 应该显示：✓ Pango 依赖检测通过，PDF 导出功能可用
-```
-
-**常见问题**：
-
-- 如果仍然提示找不到库，请确保：
-  1. 已执行 `source ~/.zshrc` 重新加载配置
-  2. 在新终端中运行应用（确保环境变量已生效）
-  3. 使用 `echo $DYLD_LIBRARY_PATH` 验证环境变量已设置
-
-</details>
-
-<details>
-<summary><b>🐧 Ubuntu/Debian 系统安装步骤</b></summary>
-
-```bash
-# 1. 安装系统依赖（在宿主机上执行）
-sudo apt-get update
-sudo apt-get install -y \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    libcairo2
-```
-
-</details>
-
-<details>
-<summary><b>🎩 CentOS/RHEL 系统安装步骤</b></summary>
-
-```bash
-# 1. 安装系统依赖（在宿主机上执行）
-sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
-```
-
-</details>
-
-<details>
-<summary><b>🪟 Windows 系统安装步骤</b></summary>
-
-```powershell
-# 1. 下载并安装 GTK3 Runtime（在宿主机上执行）
-# 访问：https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-# 下载最新版本的 .exe 文件并安装
-
-# 2. 将 GTK 安装目录下的 bin 添加到 PATH（安装后请重新打开终端）
-# 默认路径示例（如果安装在其他目录，请替换成你的实际路径）
-set PATH=C:\Program Files\GTK3-Runtime Win64\bin;%PATH%
-
-# 可选：永久添加到 PATH
-setx PATH "C:\Program Files\GTK3-Runtime Win64\bin;%PATH%"
-
-# 如果安装在自定义目录，请替换为实际路径，或设置环境变量 GTK_BIN_PATH=你的bin路径，再重新打开终端
-
-# 3. 验证（新终端执行）
-python -m ReportEngine.utils.dependency_check
-# 输出包含 “✓ Pango 依赖检测通过” 表示配置正确
-```
-
-</details>
-
-> 💡 **提示**：如果使用 Docker 部署，无需手动安装这些依赖，Docker 镜像已包含所有必要的系统依赖。
-
+这部分有详细的配置说明：[配置“导出为PDF“所需的依赖](./static/Partial%20README%20for%20PDF%20Exporting/README.md)
 
 ### 3. 安装依赖包
 
-> 如果跳过了步骤2，weasyprint库会无法安装，属正常情况。
+> 如果跳过了步骤2，weasyprint库可能无法安装，PDF功能可能无法正常使用。
 
 ```bash
 # 基础依赖安装
