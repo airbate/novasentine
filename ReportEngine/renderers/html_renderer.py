@@ -1345,7 +1345,8 @@ class HTMLRenderer:
         if self._should_skip_overview_kpi(block):
             return ""
         cards = ""
-        for item in block.get("items", []):
+        items = block.get("items", [])
+        for item in items:
             delta = item.get("delta")
             delta_tone = item.get("deltaTone") or "neutral"
             delta_html = f'<span class="delta {delta_tone}">{self._escape_html(delta)}</span>' if delta else ""
@@ -1356,7 +1357,8 @@ class HTMLRenderer:
               {delta_html}
             </div>
             """
-        return f'<div class="kpi-grid">{cards}</div>'
+        count_attr = f' data-kpi-count="{len(items)}"' if items else ""
+        return f'<div class="kpi-grid"{count_attr}>{cards}</div>'
 
     def _merge_dicts(
         self, base: Dict[str, Any] | None, override: Dict[str, Any] | None
@@ -2632,21 +2634,41 @@ table th {{
   margin: 20px 0;
 }}
 .kpi-card {{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px;
   border-radius: 12px;
   background: rgba(0,0,0,0.02);
   border: 1px solid var(--border-color);
+  align-items: flex-start;
 }}
 .kpi-value {{
   font-size: 2rem;
   font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  line-height: 1.25;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }}
 .kpi-label {{
   color: var(--secondary-color);
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }}
 .delta.up {{ color: #27ae60; }}
 .delta.down {{ color: #e74c3c; }}
 .delta.neutral {{ color: var(--secondary-color); }}
+.delta {{
+  display: block;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}}
 .chart-card {{
   margin: 30px 0;
   padding: 20px;
@@ -2879,6 +2901,17 @@ const CSS_VAR_COLOR_MAP = {
   'var(--color-success)': '#50C878',
   'var(--re-success-color)': '#50C878',
   'var(--re-success-color-translucent)': 'rgba(80, 200, 120, 0.08)',
+  'var(--color-accent-positive)': '#50C878',
+  'var(--color-accent-negative)': '#E85D75',
+  'var(--color-text-secondary)': '#6B7280',
+  'var(--accentPositive)': '#50C878',
+  'var(--accentNegative)': '#E85D75',
+  'var(--sentiment-positive, #28A745)': '#28A745',
+  'var(--sentiment-negative, #E53E3E)': '#E53E3E',
+  'var(--sentiment-neutral, #FFC107)': '#FFC107',
+  'var(--sentiment-positive)': '#28A745',
+  'var(--sentiment-negative)': '#E53E3E',
+  'var(--sentiment-neutral)': '#FFC107',
   'var(--color-primary)': '#3498DB',
   'var(--color-secondary)': '#95A5A6'
 };
@@ -2893,6 +2926,13 @@ function normalizeColorToken(color) {
   if (typeof color !== 'string') return color;
   const trimmed = color.trim();
   if (!trimmed) return null;
+  // 支持 var(--token, fallback) 形式，优先解析fallback
+  const varWithFallback = trimmed.match(/^var\(\s*--[^,)+]+,\s*([^)]+)\)/i);
+  if (varWithFallback && varWithFallback[1]) {
+    const fallback = varWithFallback[1].trim();
+    const normalizedFallback = normalizeColorToken(fallback);
+    if (normalizedFallback) return normalizedFallback;
+  }
   if (CSS_VAR_COLOR_MAP[trimmed]) {
     return CSS_VAR_COLOR_MAP[trimmed];
   }
@@ -2979,6 +3019,9 @@ function normalizeDatasetColors(payload, chartType) {
 
   data.datasets.forEach((dataset, idx) => {
     if (!isPlainObject(dataset)) return;
+    if (type === 'line') {
+      dataset.fill = true;  // 对折线图强制开启填充，便于区域对比
+    }
     const paletteColor = normalizeColorToken(DEFAULT_CHART_COLORS[idx % DEFAULT_CHART_COLORS.length]);
     const borderInput = dataset.borderColor;
     const backgroundInput = dataset.backgroundColor;
@@ -3013,7 +3056,7 @@ function normalizeDatasetColors(payload, chartType) {
     }
 
     const typeAlpha = type === 'line'
-      ? (dataset.fill ? 0.08 : 0.12)
+      ? (dataset.fill ? 0.25 : 0.18)
       : type === 'radar'
         ? 0.25
         : type === 'scatter' || type === 'bubble'

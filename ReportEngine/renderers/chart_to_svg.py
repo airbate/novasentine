@@ -68,6 +68,17 @@ class ChartToSVGConverter:
         'var(--color-success)': '#50C878',       # 翠绿色（从#28A745改为更明亮）
         'var(--re-success-color)': '#50C878',    # 翠绿色
         'var(--re-success-color-translucent)': (0.314, 0.784, 0.471, 0.08),  # 绿色极浅透明 rgba(80, 200, 120, 0.08)
+        'var(--color-accent-positive)': '#50C878',
+        'var(--color-accent-negative)': '#E85D75',
+        'var(--color-text-secondary)': '#6B7280',
+        'var(--accentPositive)': '#50C878',
+        'var(--accentNegative)': '#E85D75',
+        'var(--sentiment-positive, #28A745)': '#28A745',
+        'var(--sentiment-negative, #E53E3E)': '#E53E3E',
+        'var(--sentiment-neutral, #FFC107)': '#FFC107',
+        'var(--sentiment-positive)': '#28A745',
+        'var(--sentiment-negative)': '#E53E3E',
+        'var(--sentiment-neutral)': '#FFC107',
         'var(--color-primary)': '#3498DB',       # 天蓝色
         'var(--color-secondary)': '#95A5A6',     # 浅灰色
     }
@@ -225,6 +236,13 @@ class ChartToSVGConverter:
         # 【增强】处理CSS变量，例如 var(--color-accent)
         # 使用预定义的颜色映射表替代CSS变量，确保不同变量有不同的颜色
         if color.startswith('var('):
+            # 解析 var(--token, fallback) 形式
+            fb_match = re.match(r'^var\(\s*--[^,)+]+,\s*([^)]+)\)', color)
+            if fb_match:
+                fb_raw = fb_match.group(1).strip()
+                fb_color = self._parse_color(fb_raw)
+                if fb_color:
+                    return fb_color
             # 尝试从映射表中查找对应的颜色
             mapped_color = self.CSS_VAR_COLOR_MAP.get(color)
             if mapped_color:
@@ -406,7 +424,7 @@ class ChartToSVGConverter:
 
                 # 获取配置
                 y_axis_id = dataset.get('yAxisID', 'y')
-                fill = dataset.get('fill', False)
+                fill = True  # 强制开启填充，便于对比
                 tension = dataset.get('tension', 0)  # 0表示直线，0.4表示平滑曲线
                 border_color = self._parse_color(dataset.get('borderColor', color))
                 background_color = self._parse_color(dataset.get('backgroundColor', color))
@@ -449,7 +467,7 @@ class ChartToSVGConverter:
                                     color=border_color, linewidth=2, markersize=6)
 
                     if fill:
-                        ax.fill_between(x_data, y_data, alpha=0.08, color=background_color)
+                        ax.fill_between(x_data, y_data, alpha=0.2, color=background_color)
 
                     for pos, y_val, text in zip(x_data, y_data, annotations):
                         if text:
@@ -478,18 +496,18 @@ class ChartToSVGConverter:
 
                                 # 如果需要填充（使用极低透明度避免遮挡）
                                 if fill:
-                                    ax.fill_between(x_smooth, y_smooth, alpha=0.08, color=background_color)
+                                    ax.fill_between(x_smooth, y_smooth, alpha=0.2, color=background_color)
                             except:
                                 # 如果平滑失败，使用普通折线
                                 line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                               color=border_color, linewidth=2, markersize=6)
                                 if fill:
-                                    ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                                    ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
                         else:
                             line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                           color=border_color, linewidth=2, markersize=6)
                             if fill:
-                                ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                                ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
                     else:
                         # 直线连接（tension=0或scipy不可用）
                         line, = ax.plot(x_data, dataset_data, marker='o', label=label,
@@ -497,7 +515,7 @@ class ChartToSVGConverter:
 
                         # 如果需要填充（使用极低透明度避免遮挡）
                         if fill:
-                            ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                            ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
 
                 # 记录这条线属于哪个轴
                 axis_lines[y_axis_id].append(line)
