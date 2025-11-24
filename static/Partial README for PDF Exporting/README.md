@@ -1,8 +1,7 @@
-
-> ⚠️ **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
+>  **注意**：如果您需要使用 PDF 导出功能，请按照以下步骤安装系统依赖。如果不需要 PDF 导出功能，可以跳过此步骤，系统其他功能不受影响。
 
 <details>
-<summary><b>🪟 Windows 系统安装步骤</b></summary>
+<summary><b> Windows 系统安装步骤</b></summary>
 
 ```powershell
 # 1. 下载并安装 GTK3 Runtime（在宿主机上执行）
@@ -27,9 +26,9 @@ python -m ReportEngine.utils.dependency_check
 </details>
 
 <details>
-<summary><b>📦 macOS 系统安装步骤</b></summary>
+<summary><b> macOS 系统安装步骤</b></summary>
 
-> 🔴 **重要提示**：macOS 用户必须完成以下**两个步骤**，缺一不可！仅安装系统依赖而不设置环境变量会导致 `cannot load library 'libgobject-2.0-0'` 错误。
+>  **重要提示**：macOS 用户必须完成以下**两个步骤**，缺一不可！仅安装系统依赖而不设置环境变量会导致 `cannot load library 'libgobject-2.0-0'` 错误。
 
 ```bash
 # 步骤 1: 安装系统依赖
@@ -67,7 +66,7 @@ python -m ReportEngine.utils.dependency_check
 </details>
 
 <details>
-<summary><b>🐧 Ubuntu/Debian 系统安装步骤</b></summary>
+<summary><b> Ubuntu/Debian 系统安装步骤</b></summary>
 
 ```bash
 # 1. 安装系统依赖（在宿主机上执行）
@@ -83,7 +82,7 @@ sudo apt-get install -y \
 </details>
 
 <details>
-<summary><b>🎩 CentOS/RHEL 系统安装步骤</b></summary>
+<summary><b> CentOS/RHEL 系统安装步骤</b></summary>
 
 ```bash
 # 1. 安装系统依赖（在宿主机上执行）
@@ -92,5 +91,5 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 
 </details>
 
-> 💡 **提示**：如果使用 Docker 部署，无需手动安装这些依赖，Docker 镜像已包含所有必要的系统依赖。
+>  **提示**：如果使用 Docker 部署，无需手动安装这些依赖，Docker 镜像已包含所有必要的系统依赖。
 

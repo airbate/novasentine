@@ -391,7 +391,7 @@ uv venv --python 3.11 # 创建3.11环境
 
 ### 2. 安装 PDF 导出所需系统依赖（可选）
 
-这部分有详细的配置说明：[配置“导出为PDF“所需的依赖](./static/Partial%20README%20for%20PDF%20Exporting/README.md)
+这部分有详细的配置说明：[配置所需依赖](./static/Partial%20README%20for%20PDF%20Exporting/README.md)
 
 ### 3. 安装依赖包
 
