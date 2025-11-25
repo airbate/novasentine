@@ -199,7 +199,7 @@ class ChartToSVGConverter:
 
         return fig, ax
 
-    def _parse_color(self, color: Any) -> str:
+    def _parse_color(self, color: Any) -> Any:
         """
         解析颜色值，将CSS格式转换为matplotlib支持的格式
 
@@ -207,8 +207,39 @@ class ChartToSVGConverter:
             color: 颜色值（可能是CSS格式如rgba()或十六进制或CSS变量）
 
         返回:
-            str: matplotlib支持的颜色格式
+            matplotlib支持的颜色格式（hex字符串或RGB(A)元组）
         """
+        if color is None:
+            return None
+
+        # 处理numpy数组，统一转为原生列表
+        _np = globals().get("np")
+        if _np is not None and hasattr(_np, "ndarray") and isinstance(color, _np.ndarray):
+            color = color.tolist()
+
+        # 直接透传已经是序列的颜色（如 (r,g,b,a)），避免被转成字符串后失效
+        if isinstance(color, (list, tuple)):
+            if len(color) in (3, 4) and all(isinstance(c, (int, float)) for c in color):
+                normalized = []
+                for idx, channel in enumerate(color):
+                    # Matplotlib接受0-1之间的浮点数，若值>1则按0-255来源归一化
+                    value = float(channel)
+                    if value > 1:
+                        value = value / 255.0
+                    # 只对RGB通道做强制裁剪，alpha按0-1裁剪
+                    if idx < 3:
+                        value = max(0.0, min(value, 1.0))
+                    else:
+                        value = max(0.0, min(value, 1.0))
+                    normalized.append(value)
+                return tuple(normalized)
+
+            try:
+                return tuple(color)
+            except Exception:
+                return color
+
+        # 其余非字符串类型保持原有字符串回退策略
         if not isinstance(color, str):
             return str(color)
 
