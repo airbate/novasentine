@@ -2965,6 +2965,41 @@ function parseRgbString(color) {
   return [parts[0], parts[1], parts[2]].map(v => Math.max(0, Math.min(255, v)));
 }
 
+function alphaFromColor(color) {
+  if (typeof color !== 'string') return null;
+  const raw = color.trim();
+  if (!raw) return null;
+  if (raw.toLowerCase() === 'transparent') return 0;
+
+  const extractAlpha = (source) => {
+    const match = source.match(/rgba?\s*\(([^)]+)\)/i);
+    if (!match) return null;
+    const parts = match[1].split(',').map(p => p.trim());
+    if (source.toLowerCase().startsWith('rgba') && parts.length >= 2) {
+      const alphaToken = parts[parts.length - 1];
+      const isPercent = /%$/.test(alphaToken);
+      const alphaVal = parseFloat(alphaToken.replace('%', ''));
+      if (!Number.isNaN(alphaVal)) {
+        const normalizedAlpha = isPercent ? alphaVal / 100 : alphaVal;
+        return Math.max(0, Math.min(1, normalizedAlpha));
+      }
+    }
+    if (parts.length >= 3) return 1;
+    return null;
+  };
+
+  const rawAlpha = extractAlpha(raw);
+  if (rawAlpha !== null) return rawAlpha;
+
+  const normalized = normalizeColorToken(raw);
+  if (typeof normalized === 'string' && normalized !== raw) {
+    const normalizedAlpha = extractAlpha(normalized);
+    if (normalizedAlpha !== null) return normalizedAlpha;
+  }
+
+  return null;
+}
+
 function rgbFromColor(color) {
   const normalized = normalizeColorToken(color);
   return hexToRgb(normalized) || parseRgbString(normalized);
@@ -3012,6 +3047,7 @@ function normalizeDatasetColors(payload, chartType) {
   }
   const type = chartType || 'bar';
   const needsArrayColors = type === 'pie' || type === 'doughnut' || type === 'polarArea';
+  const MIN_PIE_ALPHA = 0.6;
   const pickColor = (value, fallback) => {
     if (Array.isArray(value) && value.length) return value[0];
     return value || fallback;
@@ -3036,13 +3072,29 @@ function normalizeDatasetColors(payload, chartType) {
       const dataLength = Array.isArray(dataset.data) ? dataset.data.length : 0;
       const total = Math.max(labelCount, rawColors.length, dataLength, 1);
       const normalizedColors = [];
+      let fixedTransparentCount = 0;
       for (let i = 0; i < total; i++) {
         const fallbackColor = DEFAULT_CHART_COLORS[(idx + i) % DEFAULT_CHART_COLORS.length];
-        const normalizedColor = liftDarkColor(rawColors[i] || fallbackColor);
+        const normalizedRaw = normalizeColorToken(rawColors[i]);
+        const alpha = alphaFromColor(normalizedRaw);
+        const isInvisible = typeof normalizedRaw === 'string' && normalizedRaw.toLowerCase() === 'transparent';
+        if (alpha === 0 || isInvisible) {
+          fixedTransparentCount += 1;
+        }
+        const baseColor = (!normalizedRaw || isInvisible) ? fallbackColor : normalizedRaw;
+        const targetAlpha = alpha === null ? 1 : alpha;
+        const normalizedColor = ensureAlpha(
+          liftDarkColor(baseColor),
+          Math.max(MIN_PIE_ALPHA, targetAlpha)
+        );
         normalizedColors.push(normalizedColor);
       }
       dataset.backgroundColor = normalizedColors;
-      changes.push(`dataset${idx}: 标准化扇区颜色(${normalizedColors.length})`);
+      dataset.borderColor = normalizedColors.map(col => ensureAlpha(liftDarkColor(col), 1));
+      const changeLabel = fixedTransparentCount
+        ? `dataset${idx}: 修正${fixedTransparentCount}个透明扇区`
+        : `dataset${idx}: 标准化扇区颜色(${normalizedColors.length})`;
+      changes.push(changeLabel);
       return;
     }
 
