@@ -28,8 +28,6 @@ python -m ReportEngine.utils.dependency_check
 <details>
 <summary><b> macOS 系统安装步骤</b></summary>
 
->  **重要提示**：macOS 用户必须完成以下**两个步骤**，缺一不可！仅安装系统依赖而不设置环境变量会导致 `cannot load library 'libgobject-2.0-0'` 错误。
-
 ```bash
 # 步骤 1: 安装系统依赖
 brew install pango gdk-pixbuf libffi
@@ -46,14 +44,10 @@ echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 # Intel 用户请改为:
 # echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 source ~/.zshrc
-```
 
-**验证安装**：
-
-```bash
-# 测试 PDF 依赖是否正确配置
+# 步骤 3: 验证（请在新终端执行）
 python -m ReportEngine.utils.dependency_check
-# 应该显示：✓ Pango 依赖检测通过，PDF 导出功能可用
+# 输出包含 “✓ Pango 依赖检测通过” 表示配置正确
 ```
 
 **常见问题**：
@@ -72,11 +66,17 @@ python -m ReportEngine.utils.dependency_check
 # 1. 安装系统依赖（在宿主机上执行）
 sudo apt-get update
 sudo apt-get install -y \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    libcairo2
+  libpango-1.0-0 \
+  libpangoft2-1.0-0 \
+  libffi-dev \
+  libcairo2
+
+# 优先使用新包名，若仓库缺失则回退
+if sudo apt-cache show libgdk-pixbuf-2.0-0 >/dev/null 2>&1; then
+  sudo apt-get install -y libgdk-pixbuf-2.0-0
+else
+  sudo apt-get install -y libgdk-pixbuf2.0-0
+fi
 ```
 
 </details>
@@ -92,4 +92,3 @@ sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
 </details>
 
 >  **提示**：如果使用 Docker 部署，无需手动安装这些依赖，Docker 镜像已包含所有必要的系统依赖。
-

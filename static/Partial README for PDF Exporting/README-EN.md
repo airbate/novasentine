@@ -42,6 +42,10 @@ export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 # Intel users: echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
 source ~/.zshrc
+
+# 3. Verify in a new terminal
+python -m ReportEngine.utils.dependency_check
+# You should see “✓ Pango dependency check passed”
 ```
 
 </details>
@@ -53,11 +57,17 @@ source ~/.zshrc
 # 1. Install system dependencies (execute on host machine)
 sudo apt-get update
 sudo apt-get install -y \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    libcairo2
+  libpango-1.0-0 \
+  libpangoft2-1.0-0 \
+  libffi-dev \
+  libcairo2
+
+# Prefer the newer package name; fall back if your repo doesn't provide it
+if sudo apt-cache show libgdk-pixbuf-2.0-0 >/dev/null 2>&1; then
+  sudo apt-get install -y libgdk-pixbuf-2.0-0
+else
+  sudo apt-get install -y libgdk-pixbuf2.0-0
+fi
 ```
 
 </details>
