@@ -167,6 +167,11 @@ class ChartToSVGConverter:
                 return None
 
             # 根据图表类型调用相应的渲染方法
+            if 'wordcloud' in str(chart_type).lower():
+                # 词云由专用渲染逻辑处理，这里跳过SVG转换以避免告警
+                logger.debug("检测到词云图表，跳过chart_to_svg转换")
+                return None
+
             render_method = getattr(self, f'_render_{chart_type}', None)
             if not render_method:
                 logger.warning(f"不支持的图表类型: {chart_type}")

@@ -331,6 +331,13 @@ class PDFRenderer:
 
                 # 只处理chart.js类型的widget
                 if widget_id and widget_type.startswith('chart.js'):
+                    widget_type_lower = widget_type.lower()
+                    props = block.get('props')
+                    props_type = str(props.get('type') or '').lower() if isinstance(props, dict) else ''
+                    if 'wordcloud' in widget_type_lower or 'wordcloud' in props_type:
+                        logger.debug(f"检测到词云 {widget_id}，跳过SVG转换并使用图片注入流程")
+                        continue
+
                     failed, fail_reason = self.html_renderer._has_chart_failure(block)
                     if block.get("_chart_renderable") is False or failed:
                         logger.debug(
@@ -392,7 +399,13 @@ class PDFRenderer:
                 widget_id = block.get('widgetId')
                 widget_type = block.get('widgetType', '')
 
-                if widget_id and isinstance(widget_type, str) and 'wordcloud' in widget_type.lower():
+                props = block.get('props')
+                props_type = str(props.get('type') or '') if isinstance(props, dict) else ''
+                is_wordcloud = (
+                    isinstance(widget_type, str) and 'wordcloud' in widget_type.lower()
+                ) or ('wordcloud' in props_type.lower())
+
+                if widget_id and is_wordcloud:
                     try:
                         data_uri = self._generate_wordcloud_image(block)
                         if data_uri:
@@ -464,12 +477,14 @@ class PDFRenderer:
 
         font_path = str(self._get_font_path())
         wc = WordCloud(
-            width=900,
-            height=520,
+            width=1000,
+            height=360,
             background_color="white",
             font_path=font_path,
-            prefer_horizontal=0.9,
+            prefer_horizontal=0.98,
             random_state=42,
+            max_words=180,
+            collocations=False,
         )
         wc.generate_from_frequencies(frequencies)
 
