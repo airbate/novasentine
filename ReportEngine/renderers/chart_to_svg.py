@@ -355,6 +355,57 @@ class ChartToSVGConverter:
 
         return colors
 
+    def _align_labels_and_data(
+        self,
+        labels: Any,
+        dataset_data: Any,
+        chart_type: str,
+        require_positive_sum: bool = False
+    ) -> Tuple[List[str], List[float]]:
+        """
+        对齐类别型图表的标签与数据长度，并清理非数值值。
+
+        Matplotlib的饼图/圆环图要求labels与数据长度一致，否则会抛出错误。
+        """
+        original_label_len = len(labels) if isinstance(labels, list) else 0
+        original_data_len = len(dataset_data) if isinstance(dataset_data, list) else 0
+
+        aligned_labels = [str(label) for label in labels] if isinstance(labels, list) else []
+        raw_data = dataset_data if isinstance(dataset_data, list) else []
+
+        cleaned_data: List[float] = []
+        for value in raw_data:
+            try:
+                numeric = float(value) if value is not None else 0.0
+            except (TypeError, ValueError):
+                numeric = 0.0
+            if numeric < 0:
+                numeric = 0.0
+            cleaned_data.append(numeric)
+
+        target_len = max(len(aligned_labels), len(cleaned_data))
+        if target_len == 0:
+            return [], []
+
+        if len(aligned_labels) < target_len:
+            start = len(aligned_labels)
+            aligned_labels.extend([f"未命名{start + idx + 1}" for idx in range(target_len - start)])
+
+        if len(cleaned_data) < target_len:
+            cleaned_data.extend([0.0] * (target_len - len(cleaned_data)))
+
+        if original_label_len != original_data_len:
+            logger.warning(
+                f"{chart_type}图labels长度({original_label_len})与data长度({original_data_len})不一致，"
+                f"已对齐为{target_len}"
+            )
+
+        if require_positive_sum and not any(value > 0 for value in cleaned_data):
+            logger.warning(f"{chart_type}图数据为空，跳过渲染")
+            return [], []
+
+        return aligned_labels[:target_len], cleaned_data[:target_len]
+
     def _figure_to_svg(self, fig: Any) -> str:
         """
         将matplotlib图表转换为SVG字符串
@@ -705,6 +756,16 @@ class ChartToSVGConverter:
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
 
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="饼",
+                require_positive_sum=True
+            )
+
+            if not labels or not dataset_data:
+                return None
+
             title = props.get('title')
             fig, ax = self._create_figure(width, height, dpi, title)
 
@@ -763,6 +824,16 @@ class ChartToSVGConverter:
             # 圆环图只使用第一个数据集
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
+
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="圆环",
+                require_positive_sum=True
+            )
+
+            if not labels or not dataset_data:
+                return None
 
             title = props.get('title')
             fig, ax = self._create_figure(width, height, dpi, title)
@@ -940,6 +1011,16 @@ class ChartToSVGConverter:
             # 只使用第一个数据集
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
+
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="极地区域",
+                require_positive_sum=False
+            )
+
+            if not labels or not dataset_data:
+                return None
 
             title = props.get('title')
             fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)
