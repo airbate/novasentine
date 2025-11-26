@@ -1263,7 +1263,9 @@ class HTMLRenderer:
     def _render_math(self, block: Dict[str, Any]) -> str:
         """渲染数学公式，占位符交给外部MathJax或后处理"""
         latex = self._escape_html(block.get("latex", ""))
-        return f'<div class="math-block">$$ {latex} $$</div>'
+        math_id = self._escape_attr(block.get("mathId", "")) if block.get("mathId") else ""
+        id_attr = f' data-math-id="{math_id}"' if math_id else ""
+        return f'<div class="math-block"{id_attr}>$$ {latex} $$</div>'
 
     def _render_figure(self, block: Dict[str, Any]) -> str:
         """根据新规范默认不渲染外部图片，改为友好提示"""
@@ -2012,7 +2014,9 @@ class HTMLRenderer:
             latex = math_mark.get("value")
             if not isinstance(latex, str) or not latex.strip():
                 latex = text_value
-            return f'<span class="math-inline">\\( {self._escape_html(latex)} \\)</span>'
+            math_id = self._escape_attr(run.get("mathId", "")) if run.get("mathId") else ""
+            id_attr = f' data-math-id="{math_id}"' if math_id else ""
+            return f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>'
         text = self._escape_html(text_value)
         styles: List[str] = []
         prefix: List[str] = []
