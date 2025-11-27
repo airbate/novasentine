@@ -1767,6 +1767,7 @@ class HTMLRenderer:
         def _collect_items(raw: Any) -> list[dict]:
             """将多种词云输入格式（数组/对象/元组/纯文本）规整为统一的词条列表"""
             collected: list[dict] = []
+            skip_keys = {"items", "data", "words", "labels", "datasets", "sourceData"}
             if isinstance(raw, list):
                 for item in raw:
                     if isinstance(item, dict):
@@ -1775,6 +1776,11 @@ class HTMLRenderer:
                         category = item.get("category") or ""
                         if text:
                             collected.append({"word": str(text), "weight": weight, "category": str(category)})
+                        # 若嵌套了 items/words/data 列表，递归提取
+                        for nested_key in ("items", "words", "data"):
+                            nested = item.get(nested_key)
+                            if isinstance(nested, list):
+                                collected.extend(_collect_items(nested))
                     elif isinstance(item, (list, tuple)) and item:
                         text = item[0]
                         weight = item[1] if len(item) > 1 else None
@@ -1784,8 +1790,21 @@ class HTMLRenderer:
                     elif isinstance(item, str):
                         collected.append({"word": item, "weight": 1.0, "category": ""})
             elif isinstance(raw, dict):
+                # 若包含 items/words/data 列表，优先递归提取，不把键名当词
+                handled = False
+                for nested_key in ("items", "words", "data"):
+                    nested = raw.get(nested_key)
+                    if isinstance(nested, list):
+                        collected.extend(_collect_items(nested))
+                        handled = True
+                if handled:
+                    return collected
+
+                # 非Chart结构且不包含skip_keys时，把key/value当作词云条目
                 if not {"labels", "datasets"}.intersection(raw.keys()):
                     for text, weight in raw.items():
+                        if text in skip_keys:
+                            continue
                         collected.append({"word": str(text), "weight": weight, "category": ""})
             return collected
 
@@ -1793,14 +1812,21 @@ class HTMLRenderer:
         seen: set[str] = set()
         candidates = []
         if isinstance(props, dict):
-            for key in ("data", "items", "words"):
-                if key in props:
-                    candidates.append(props[key])
+            # 仅接受明确的词条数组字段，避免将嵌套items误当作词条
+            if "data" in props and isinstance(props.get("data"), list):
+                candidates.append(props["data"])
+            if "words" in props and isinstance(props.get("words"), list):
+                candidates.append(props["words"])
+            if "items" in props and isinstance(props.get("items"), list):
+                candidates.append(props["items"])
         candidates.append((props or {}).get("sourceData"))
 
         # 允许使用block.data兜底，避免缺失props时出现空白
         if block_data is not None:
-            candidates.append(block_data)
+            if isinstance(block_data, dict) and "items" in block_data and isinstance(block_data.get("items"), list):
+                candidates.append(block_data["items"])
+            else:
+                candidates.append(block_data)
 
         for raw in candidates:
             for item in _collect_items(raw):
