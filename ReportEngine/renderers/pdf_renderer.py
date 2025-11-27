@@ -510,11 +510,12 @@ class PDFRenderer:
             logger.warning("数学公式转换器未初始化，跳过公式转换")
             return svg_map
 
-        # 遍历所有章节
+        # 遍历所有章节，保持全局计数器避免ID重复
+        block_counter = [0]
         chapters = document_ir.get('chapters', [])
         for chapter in chapters:
             blocks = chapter.get('blocks', [])
-            self._extract_and_convert_math_blocks(blocks, svg_map)
+            self._extract_and_convert_math_blocks(blocks, svg_map, block_counter)
 
         logger.info(f"成功转换 {len(svg_map)} 个数学公式为SVG")
         return svg_map
