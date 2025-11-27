@@ -10,6 +10,7 @@ import copy
 import os
 import sys
 import io
+import re
 from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
@@ -544,23 +545,62 @@ class PDFRenderer:
                     continue
                 marks = run.get('marks') or []
                 math_mark = next((m for m in marks if m.get('type') == 'math'), None)
-                if not math_mark:
+
+                if math_mark:
+                    # 仅单个math mark
+                    raw = math_mark.get('value') or run.get('text') or ''
+                    latex = self._normalize_latex(raw)
+                    is_display = bool(re.match(r'^\s*(\$\$|\\\[)', str(raw)))
+                    if not latex:
+                        continue
+                    block_counter[0] += 1
+                    math_id = run.get('mathId') or f"math-inline-{block_counter[0]}"
+                    run['mathId'] = math_id
+                    try:
+                        svg_content = (
+                            self.math_converter.convert_display_to_svg(latex)
+                            if is_display else
+                            self.math_converter.convert_inline_to_svg(latex)
+                        )
+                        if svg_content:
+                            svg_map[math_id] = svg_content
+                            logger.debug(f"公式 {math_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
+                    except Exception as exc:
+                        logger.error(f"转换内联公式 {latex[:50]}... 时出错: {exc}")
                     continue
-                latex = (math_mark.get('value') or run.get('text') or '').strip()
-                if not latex:
+
+                # 无math mark，尝试解析文本中的多个公式
+                text_val = run.get('text')
+                if not isinstance(text_val, str):
                     continue
-                block_counter[0] += 1
-                math_id = f"math-inline-{block_counter[0]}"
-                try:
-                    svg_content = self.math_converter.convert_inline_to_svg(latex)
-                    if svg_content:
-                        svg_map[math_id] = svg_content
-                        run['mathId'] = math_id
-                        logger.debug(f"公式 {math_id} 转换为SVG成功")
-                    else:
-                        logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
-                except Exception as exc:
-                    logger.error(f"转换内联公式 {latex[:50]}... 时出错: {exc}")
+                segments = self._find_all_math_in_text(text_val)
+                if not segments:
+                    continue
+                ids_for_html: list[str] = []
+                for idx, (latex, is_display) in enumerate(segments, start=1):
+                    if not latex:
+                        continue
+                    block_counter[0] += 1
+                    math_id = f"auto-math-{block_counter[0]}"
+                    ids_for_html.append(math_id)
+                    try:
+                        svg_content = (
+                            self.math_converter.convert_display_to_svg(latex)
+                            if is_display else
+                            self.math_converter.convert_inline_to_svg(latex)
+                        )
+                        if svg_content:
+                            svg_map[math_id] = svg_content
+                            logger.debug(f"公式 {math_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
+                    except Exception as exc:
+                        logger.error(f"转换内联公式 {latex[:50]}... 时出错: {exc}")
+                if ids_for_html:
+                    # 将ID列表写回run，便于HTML渲染时使用相同ID（顺序对应segments）
+                    run['mathIds'] = ids_for_html
 
         for block in blocks:
             if not isinstance(block, dict):
@@ -570,7 +610,7 @@ class PDFRenderer:
 
             # 处理math类型
             if block_type == 'math':
-                latex = block.get('latex', '').strip()
+                latex = self._normalize_latex(block.get('latex', ''))
                 if latex:
                     block_counter[0] += 1
                     math_id = f"math-block-{block_counter[0]}"
@@ -678,6 +718,57 @@ class PDFRenderer:
                 logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
 
         return html
+
+    @staticmethod
+    def _normalize_latex(raw: Any) -> str:
+        """去除外层数学定界符，兼容 $...$、$$...$$、\\(\\)、\\[\\] 等格式"""
+        if not isinstance(raw, str):
+            return ""
+        latex = raw.strip()
+        patterns = [
+            r'^\$\$(.*)\$\$$',
+            r'^\$(.*)\$$',
+            r'^\\\[(.*)\\\]$',
+            r'^\\\((.*)\\\)$',
+        ]
+        for pat in patterns:
+            m = re.match(pat, latex, re.DOTALL)
+            if m:
+                latex = m.group(1).strip()
+                break
+        # 清理控制字符、防止mathtext解析失败
+        latex = re.sub(r'[\x00-\x1f\x7f]', '', latex)
+        # 常见兼容：\tfrac/\dfrac -> \frac
+        latex = latex.replace(r'\tfrac', r'\frac').replace(r'\dfrac', r'\frac')
+        return latex
+
+    @staticmethod
+    def _find_first_math_in_text(text: Any) -> tuple[str, bool] | None:
+        """从纯文本中提取首个数学片段，返回(内容, 是否display)"""
+        if not isinstance(text, str):
+            return None
+        pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
+        m = pattern.search(text)
+        if not m:
+            return None
+        raw = next(g for g in m.groups() if g is not None)
+        latex = raw.strip()
+        is_display = bool(m.group(1) or m.group(4))  # $$ or \[ \]
+        return latex, is_display
+
+    @staticmethod
+    def _find_all_math_in_text(text: Any) -> list[tuple[str, bool]]:
+        """从纯文本中提取所有数学片段，返回[(内容, 是否display)]"""
+        if not isinstance(text, str):
+            return []
+        pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
+        results = []
+        for m in pattern.finditer(text):
+            raw = next(g for g in m.groups() if g is not None)
+            latex = raw.strip()
+            is_display = bool(m.group(1) or m.group(4))
+            results.append((latex, is_display))
+        return results
 
     def _inject_wordcloud_images(self, html: str, img_map: Dict[str, str]) -> str:
         """

@@ -1262,7 +1262,8 @@ class HTMLRenderer:
 
     def _render_math(self, block: Dict[str, Any]) -> str:
         """渲染数学公式，占位符交给外部MathJax或后处理"""
-        latex = self._escape_html(block.get("latex", ""))
+        latex_raw = block.get("latex", "")
+        latex = self._escape_html(self._normalize_latex_string(latex_raw))
         math_id = self._escape_attr(block.get("mathId", "")) if block.get("mathId") else ""
         id_attr = f' data-math-id="{math_id}"' if math_id else ""
         return f'<div class="math-block"{id_attr}>$$ {latex} $$</div>'
@@ -1989,6 +1990,66 @@ class HTMLRenderer:
         return text_value, marks
 
     @staticmethod
+    def _normalize_latex_string(raw: Any) -> str:
+        """去除外层数学定界符，兼容 $...$、$$...$$、\\(\\)、\\[\\] 等格式"""
+        if not isinstance(raw, str):
+            return ""
+        latex = raw.strip()
+        patterns = [
+            r'^\$\$(.*)\$\$$',
+            r'^\$(.*)\$$',
+            r'^\\\[(.*)\\\]$',
+            r'^\\\((.*)\\\)$',
+        ]
+        for pat in patterns:
+            m = re.match(pat, latex, re.DOTALL)
+            if m:
+                latex = m.group(1).strip()
+                break
+        return latex
+
+    def _render_text_with_inline_math(self, text: Any, math_id: str | list | None = None) -> str | None:
+        """
+        识别纯文本中的数学定界符并渲染为math-inline/math-block，提升兼容性。
+
+        - 支持 $...$、$$...$$、\\(\\)、\\[\\]。
+        - 若未检测到公式，返回None。
+        """
+        if not isinstance(text, str) or not text:
+            return None
+
+        pattern = re.compile(r'(\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\])', re.S)
+        cursor = 0
+        parts: List[str] = []
+        idx = 0
+        id_iter = iter(math_id) if isinstance(math_id, list) else None
+        for m in pattern.finditer(text):
+            start, end = m.span()
+            if start > cursor:
+                parts.append(self._escape_html(text[cursor:start]))
+            raw = next(g for g in m.groups()[1:] if g is not None)
+            latex = self._normalize_latex_string(raw)
+            idx += 1
+            # 若已有math_id，直接使用，避免与SVG注入ID不一致；否则按局部序号生成
+            if id_iter:
+                mid = next(id_iter, f"auto-math-{idx}")
+            else:
+                mid = math_id or f"auto-math-{idx}"
+            id_attr = f' data-math-id="{self._escape_attr(mid)}"'
+            is_display = m.group(1).startswith('$$') or m.group(1).startswith('\\[')
+            if is_display:
+                parts.append(f'<div class="math-block"{id_attr}>$$ {self._escape_html(latex)} $$</div>')
+            else:
+                parts.append(f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>')
+            cursor = end
+
+        if cursor == 0:
+            return None
+        if cursor < len(text):
+            parts.append(self._escape_html(text[cursor:]))
+        return "".join(parts)
+
+    @staticmethod
     def _coerce_inline_payload(payload: Dict[str, Any]) -> Dict[str, Any] | None:
         """尽力将字符串里的内联节点恢复为dict，修复渲染遗漏"""
         if not isinstance(payload, dict):
@@ -2013,12 +2074,19 @@ class HTMLRenderer:
         text_value, marks = self._normalize_inline_payload(run)
         math_mark = next((mark for mark in marks if mark.get("type") == "math"), None)
         if math_mark:
-            latex = math_mark.get("value")
+            latex = self._normalize_latex_string(math_mark.get("value"))
             if not isinstance(latex, str) or not latex.strip():
-                latex = text_value
+                latex = self._normalize_latex_string(text_value)
             math_id = self._escape_attr(run.get("mathId", "")) if run.get("mathId") else ""
             id_attr = f' data-math-id="{math_id}"' if math_id else ""
             return f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>'
+
+        # 尝试从纯文本中提取数学公式（即便没有math mark）
+        math_id_hint = run.get("mathIds") or run.get("mathId")
+        mathified = self._render_text_with_inline_math(text_value, math_id_hint)
+        if mathified is not None:
+            return mathified
+
         text = self._escape_html(text_value)
         styles: List[str] = []
         prefix: List[str] = []
