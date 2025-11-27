@@ -1094,8 +1094,36 @@ class HTMLRenderer:
 
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
         """渲染段落，内部通过inline run保持混排样式"""
-        inlines = "".join(self._render_inline(run) for run in block.get("inlines", []))
+        inlines_data = block.get("inlines", [])
+        # 仅包含单个display公式时直接渲染为块，避免<p>内嵌<div>
+        if len(inlines_data) == 1:
+            standalone = self._render_standalone_math_inline(inlines_data[0])
+            if standalone:
+                return standalone
+
+        inlines = "".join(self._render_inline(run) for run in inlines_data)
         return f"<p>{inlines}</p>"
+
+    def _render_standalone_math_inline(self, run: Dict[str, Any] | str) -> str | None:
+        """当段落只包含单个display公式时，转为math-block避免破坏行内布局"""
+        if isinstance(run, dict):
+            text_value, marks = self._normalize_inline_payload(run)
+            if marks:
+                return None
+            math_id_hint = run.get("mathIds") or run.get("mathId")
+        else:
+            text_value = "" if run is None else str(run)
+            math_id_hint = None
+            marks = []
+
+        rendered = self._render_text_with_inline_math(
+            text_value,
+            math_id_hint,
+            allow_display_block=True
+        )
+        if rendered and rendered.strip().startswith('<div class="math-block"'):
+            return rendered
+        return None
 
     def _render_list(self, block: Dict[str, Any]) -> str:
         """渲染有序/无序/任务列表"""
@@ -2034,7 +2062,12 @@ class HTMLRenderer:
                 break
         return latex
 
-    def _render_text_with_inline_math(self, text: Any, math_id: str | list | None = None) -> str | None:
+    def _render_text_with_inline_math(
+        self,
+        text: Any,
+        math_id: str | list | None = None,
+        allow_display_block: bool = False
+    ) -> str | None:
         """
         识别纯文本中的数学定界符并渲染为math-inline/math-block，提升兼容性。
 
@@ -2045,17 +2078,19 @@ class HTMLRenderer:
             return None
 
         pattern = re.compile(r'(\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\])', re.S)
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return None
+
         cursor = 0
         parts: List[str] = []
-        idx = 0
         id_iter = iter(math_id) if isinstance(math_id, list) else None
-        for m in pattern.finditer(text):
+
+        for idx, m in enumerate(matches, start=1):
             start, end = m.span()
-            if start > cursor:
-                parts.append(self._escape_html(text[cursor:start]))
+            prefix = text[cursor:start]
             raw = next(g for g in m.groups()[1:] if g is not None)
             latex = self._normalize_latex_string(raw)
-            idx += 1
             # 若已有math_id，直接使用，避免与SVG注入ID不一致；否则按局部序号生成
             if id_iter:
                 mid = next(id_iter, f"auto-math-{idx}")
@@ -2063,14 +2098,23 @@ class HTMLRenderer:
                 mid = math_id or f"auto-math-{idx}"
             id_attr = f' data-math-id="{self._escape_attr(mid)}"'
             is_display = m.group(1).startswith('$$') or m.group(1).startswith('\\[')
-            if is_display:
+            is_standalone = (
+                len(matches) == 1 and
+                not text[:start].strip() and
+                not text[end:].strip()
+            )
+            use_block = allow_display_block and is_display and is_standalone
+            if use_block:
+                # 独立display公式，跳过两侧空白，直接渲染块级
                 parts.append(f'<div class="math-block"{id_attr}>$$ {self._escape_html(latex)} $$</div>')
+                cursor = len(text)
+                break
             else:
+                if prefix:
+                    parts.append(self._escape_html(prefix))
                 parts.append(f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>')
             cursor = end
 
-        if cursor == 0:
-            return None
         if cursor < len(text):
             parts.append(self._escape_html(text[cursor:]))
         return "".join(parts)

@@ -550,7 +550,8 @@ class PDFRenderer:
                     # 仅单个math mark
                     raw = math_mark.get('value') or run.get('text') or ''
                     latex = self._normalize_latex(raw)
-                    is_display = bool(re.match(r'^\s*(\$\$|\\\[)', str(raw)))
+                    # 行内mark统一按inline处理，避免误将行内公式当成display
+                    is_display = False
                     if not latex:
                         continue
                     block_counter[0] += 1
@@ -748,13 +749,19 @@ class PDFRenderer:
         if not isinstance(text, str):
             return None
         pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
-        m = pattern.search(text)
-        if not m:
+        matches = list(pattern.finditer(text))
+        if not matches:
             return None
+        m = matches[0]
         raw = next(g for g in m.groups() if g is not None)
         latex = raw.strip()
-        is_display = bool(m.group(1) or m.group(4))  # $$ or \[ \]
-        return latex, is_display
+        is_display_raw = bool(m.group(1) or m.group(4))  # $$ or \[ \]
+        is_standalone = (
+            len(matches) == 1 and
+            not text[:m.start()].strip() and
+            not text[m.end():].strip()
+        )
+        return latex, bool(is_display_raw and is_standalone)
 
     @staticmethod
     def _find_all_math_in_text(text: Any) -> list[tuple[str, bool]]:
@@ -763,10 +770,21 @@ class PDFRenderer:
             return []
         pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
         results = []
-        for m in pattern.finditer(text):
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return results
+        total = len(matches)
+
+        for m in matches:
             raw = next(g for g in m.groups() if g is not None)
             latex = raw.strip()
-            is_display = bool(m.group(1) or m.group(4))
+            is_display_raw = bool(m.group(1) or m.group(4))
+            is_standalone = (
+                total == 1 and
+                not text[:m.start()].strip() and
+                not text[m.end():].strip()
+            )
+            is_display = is_display_raw and is_standalone
             results.append((latex, is_display))
         return results
 
