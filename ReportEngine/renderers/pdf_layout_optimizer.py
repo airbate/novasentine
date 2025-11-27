@@ -926,9 +926,15 @@ p {{
     hyphens: auto;
     max-width: 100%;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     gap: 4px 6px;
+}}
+.kpi-card .kpi-value small {{
+    font-size: 0.65em;
+    white-space: nowrap;
+    align-self: baseline;
+}}
 .kpi-card .kpi-label {{
     font-size: {body_kpi_label}px !important;
     word-break: break-word;

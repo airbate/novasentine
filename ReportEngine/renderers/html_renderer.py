@@ -2762,11 +2762,16 @@ table th {{
   font-size: 2rem;
   font-weight: 700;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px 6px;
   line-height: 1.25;
   word-break: break-word;
   overflow-wrap: break-word;
+}}
+.kpi-value small {{
+  font-size: 0.65em;
+  align-self: baseline;
+  white-space: nowrap;
 }}
 .kpi-label {{
   color: var(--secondary-color);
