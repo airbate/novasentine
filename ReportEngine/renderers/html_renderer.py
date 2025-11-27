@@ -1764,6 +1764,7 @@ class HTMLRenderer:
     ) -> str:
         """为词云提供表格兜底，避免WordCloud渲染失败后页面空白"""
         def _collect_items(raw: Any) -> list[dict]:
+            """将多种词云输入格式（数组/对象/元组/纯文本）规整为统一的词条列表"""
             collected: list[dict] = []
             if isinstance(raw, list):
                 for item in raw:
@@ -1812,6 +1813,7 @@ class HTMLRenderer:
             return ""
 
         def _format_weight(value: Any) -> str:
+            """统一格式化权重，支持百分比/数值与字符串回退"""
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 if 0 <= value <= 1.5:
                     return f"{value * 100:.1f}%"

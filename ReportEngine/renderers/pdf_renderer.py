@@ -667,6 +667,7 @@ class PDFRenderer:
                 fallback_pattern = rf'<div class="chart-fallback"([^>]*data-widget-id="{re.escape(widget_id)}"[^>]*)>'
 
                 def _hide_fallback(m: re.Match) -> str:
+                    """为匹配到的图表fallback添加隐藏类，防止PDF中重复渲染"""
                     tag = m.group(0)
                     if 'svg-hidden' in tag:
                         return tag
@@ -712,6 +713,7 @@ class PDFRenderer:
             fallback_pattern = rf'<div class="chart-fallback"([^>]*data-widget-id="{re.escape(widget_id)}"[^>]*)>'
 
             def _hide_fallback(m: re.Match) -> str:
+                """匹配词云表格兜底并打上隐藏标记，避免SVG/图片重复显示"""
                 tag = m.group(0)
                 if 'svg-hidden' in tag:
                     return tag

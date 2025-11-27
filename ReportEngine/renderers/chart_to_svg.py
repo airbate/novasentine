@@ -797,6 +797,7 @@ class ChartToSVGConverter:
             colors = self._get_colors(datasets)
 
             def _safe_radius(raw) -> float:
+                """将输入半径安全转为浮点并设置最小阈值，避免气泡完全消失"""
                 try:
                     val = float(raw)
                     return max(val, 0.5)
