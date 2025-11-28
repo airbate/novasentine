@@ -127,43 +127,21 @@ BettaFish/
 ├── QueryEngine/                            # 国内外新闻广度搜索Agent
 │   ├── agent.py                            # Agent主逻辑，协调搜索与分析流程
 │   ├── llms/                               # LLM接口封装
-│   │   └── base.py                         # 统一的OpenAI兼容客户端
 │   ├── nodes/                              # 处理节点：搜索、格式化、总结等
-│   │   ├── base_node.py                    # 基础节点类
-│   │   ├── search_node.py                  # 搜索节点
-│   │   ├── formatting_node.py              # 格式化节点
-│   │   ├── report_structure_node.py        # 报告结构节点
-│   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 搜索工具
-│   │   └── search.py                       # 网页搜索工具集
+│   ├── tools/                              # 国内外新闻搜索工具集
 │   ├── utils/                              # 工具函数
-│   │   ├── config.py                       # 配置管理
-│   │   └── text_processing.py              # 文本处理工具
 │   ├── state/                              # 状态管理
-│   │   └── state.py                        # Agent状态定义
 │   ├── prompts/                            # 提示词模板
-│   │   └── prompts.py                      # 各类提示词
-│   └── __init__.py
+│   └── ...
 ├── MediaEngine/                            # 强大的多模态理解Agent
 │   ├── agent.py                            # Agent主逻辑，处理视频/图片等多模态内容
 │   ├── llms/                               # LLM接口封装
-│   │   └── base.py                         # 统一的OpenAI兼容客户端
 │   ├── nodes/                              # 处理节点：搜索、格式化、总结等
-│   │   ├── base_node.py                    # 基础节点类
-│   │   ├── search_node.py                  # 搜索节点
-│   │   ├── formatting_node.py              # 格式化节点
-│   │   ├── report_structure_node.py        # 报告结构节点
-│   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 多模态搜索工具
-│   │   └── search.py                       # 多模态内容搜索工具集
+│   ├── tools/                              # 多模态搜索工具集
 │   ├── utils/                              # 工具函数
-│   │   ├── config.py                       # 配置管理
-│   │   └── text_processing.py              # 文本处理工具
 │   ├── state/                              # 状态管理
-│   │   └── state.py                        # Agent状态定义
 │   ├── prompts/                            # 提示词模板
-│   │   └── prompts.py                      # 各类提示词
-│   └── __init__.py
+│   └── ...
 ├── InsightEngine/                          # 私有数据库挖掘Agent
 │   ├── agent.py                            # Agent主逻辑，协调数据库查询与分析
 │   ├── llms/                               # LLM接口封装
@@ -174,7 +152,7 @@ BettaFish/
 │   │   ├── formatting_node.py              # 格式化节点
 │   │   ├── report_structure_node.py        # 报告结构节点
 │   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 数据库查询和分析工具
+│   ├── tools/                              # 数据库查询和分析工具集
 │   │   ├── keyword_optimizer.py            # Qwen关键词优化中间件
 │   │   ├── search.py                       # 数据库操作工具集（话题搜索、评论获取等）
 │   │   └── sentiment_analyzer.py           # 情感分析集成工具

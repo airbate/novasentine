@@ -127,43 +127,21 @@ BettaFish/
 ├── QueryEngine/                            # Domestic and international news breadth search Agent
 │   ├── agent.py                            # Agent main logic, coordinates search and analysis workflow
 │   ├── llms/                               # LLM interface wrapper
-│   │   └── base.py                         # Unified OpenAI-compatible client
 │   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
-│   │   ├── base_node.py                    # Base node class
-│   │   ├── search_node.py                  # Search node
-│   │   ├── formatting_node.py              # Formatting node
-│   │   ├── report_structure_node.py        # Report structure node
-│   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Search tools
-│   │   └── search.py                       # Web search toolkit
+│   ├── tools/                              # Domestic and international news search toolkit
 │   ├── utils/                              # Utility functions
-│   │   ├── config.py                       # Configuration management
-│   │   └── text_processing.py              # Text processing utilities
 │   ├── state/                              # State management
-│   │   └── state.py                        # Agent state definition
 │   ├── prompts/                            # Prompt templates
-│   │   └── prompts.py                      # Various prompt templates
-│   └── __init__.py
+│   └── ...
 ├── MediaEngine/                            # Powerful multimodal understanding Agent
 │   ├── agent.py                            # Agent main logic, handles video/image multimodal content
 │   ├── llms/                               # LLM interface wrapper
-│   │   └── base.py                         # Unified OpenAI-compatible client
 │   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
-│   │   ├── base_node.py                    # Base node class
-│   │   ├── search_node.py                  # Search node
-│   │   ├── formatting_node.py              # Formatting node
-│   │   ├── report_structure_node.py        # Report structure node
-│   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Multimodal search tools
-│   │   └── search.py                       # Multimodal content search toolkit
+│   ├── tools/                              # Multimodal search toolkit
 │   ├── utils/                              # Utility functions
-│   │   ├── config.py                       # Configuration management
-│   │   └── text_processing.py              # Text processing utilities
 │   ├── state/                              # State management
-│   │   └── state.py                        # Agent state definition
 │   ├── prompts/                            # Prompt templates
-│   │   └── prompts.py                      # Various prompt templates
-│   └── __init__.py
+│   └── ...
 ├── InsightEngine/                          # Private database mining Agent
 │   ├── agent.py                            # Agent main logic, coordinates database queries and analysis
 │   ├── llms/                               # LLM interface wrapper
@@ -174,7 +152,7 @@ BettaFish/
 │   │   ├── formatting_node.py              # Formatting node
 │   │   ├── report_structure_node.py        # Report structure node
 │   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Database query and analysis tools
+│   ├── tools/                              # Database query and analysis toolkit
 │   │   ├── keyword_optimizer.py            # Qwen keyword optimization middleware
 │   │   ├── search.py                       # Database operation toolkit (topic search, comment retrieval, etc.)
 │   │   └── sentiment_analyzer.py           # Sentiment analysis integration tool
