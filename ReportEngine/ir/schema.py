@@ -45,6 +45,12 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "toc",
 ]
 
+ENGINE_AGENT_TITLES: Dict[str, str] = {
+    "insight": "Insight Agent",
+    "media": "Media Agent",
+    "query": "Query Agent",
+}
+
 # ====== Schema定义 ======
 inline_mark_schema: Dict[str, Any] = {
     "type": "object",
@@ -190,7 +196,21 @@ engine_quote_block: Dict[str, Any] = {
             "items": {"$ref": "#/definitions/block"},
         },
     },
-    "required": ["type", "engine", "blocks"],
+    "required": ["type", "engine", "blocks", "title"],
+    "allOf": [
+        {
+            "if": {"properties": {"engine": {"const": "insight"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["insight"]}}},
+        },
+        {
+            "if": {"properties": {"engine": {"const": "media"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["media"]}}},
+        },
+        {
+            "if": {"properties": {"engine": {"const": "query"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["query"]}}},
+        },
+    ],
     "additionalProperties": True,
 }
 
@@ -384,4 +404,5 @@ __all__ = [
     "ALLOWED_BLOCK_TYPES",
     "CHAPTER_JSON_SCHEMA",
     "CHAPTER_JSON_SCHEMA_TEXT",
+    "ENGINE_AGENT_TITLES",
 ]

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from loguru import logger
 
+from ReportEngine.ir.schema import ENGINE_AGENT_TITLES
 from ReportEngine.utils.chart_validator import (
     ChartValidator,
     ChartRepairer,
@@ -1287,15 +1288,10 @@ class HTMLRenderer:
     def _render_engine_quote(self, block: Dict[str, Any]) -> str:
         """渲染单Engine发言块，带独立配色与标题"""
         engine_raw = (block.get("engine") or "").lower()
-        engine = engine_raw if engine_raw in {"insight", "media", "query"} else "insight"
-        title = (
-            block.get("title")
-            or {
-                "insight": "Insight Engine 发言",
-                "media": "Media Engine 发言",
-                "query": "Query Engine 发言",
-            }.get(engine, "Engine 发言")
-        )
+        engine = engine_raw if engine_raw in ENGINE_AGENT_TITLES else "insight"
+        expected_title = ENGINE_AGENT_TITLES.get(engine, ENGINE_AGENT_TITLES["insight"])
+        title_raw = block.get("title") if isinstance(block.get("title"), str) else ""
+        title = title_raw if title_raw == expected_title else expected_title
         inner = self._render_blocks(block.get("blocks", []))
         return (
             f'<div class="engine-quote engine-{self._escape_attr(engine)}">'

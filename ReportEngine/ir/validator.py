@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-from .schema import ALLOWED_BLOCK_TYPES, ALLOWED_INLINE_MARKS, IR_VERSION
+from .schema import (
+    ALLOWED_BLOCK_TYPES,
+    ALLOWED_INLINE_MARKS,
+    ENGINE_AGENT_TITLES,
+    IR_VERSION,
+)
 
 
 class IRValidator:
@@ -142,9 +147,20 @@ class IRValidator:
         self, block: Dict[str, Any], path: str, errors: List[str]
     ):
         """单引擎发言块需标注engine并包含子blocks"""
-        engine = block.get("engine")
+        engine_raw = block.get("engine")
+        engine = engine_raw.lower() if isinstance(engine_raw, str) else None
         if engine not in {"insight", "media", "query"}:
-            errors.append(f"{path}.engine 取值非法: {engine}")
+            errors.append(f"{path}.engine 取值非法: {engine_raw}")
+        title = block.get("title")
+        expected_title = ENGINE_AGENT_TITLES.get(engine) if engine else None
+        if title is None:
+            errors.append(f"{path}.title 缺失")
+        elif not isinstance(title, str):
+            errors.append(f"{path}.title 必须是字符串")
+        elif expected_title and title != expected_title:
+            errors.append(
+                f"{path}.title 必须与engine一致，使用对应Agent名称: {expected_title}"
+            )
         inner = block.get("blocks")
         if not isinstance(inner, list) or not inner:
             errors.append(f"{path}.blocks 必须是非空数组")
