@@ -34,6 +34,7 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "list",
     "table",
     "blockquote",
+    "engineQuote",
     "hr",
     "code",
     "math",
@@ -177,6 +178,22 @@ blockquote_block: Dict[str, Any] = {
     "additionalProperties": True,
 }
 
+engine_quote_block: Dict[str, Any] = {
+    "title": "EngineQuoteBlock",
+    "type": "object",
+    "properties": {
+        "type": {"const": "engineQuote"},
+        "engine": {"type": "string", "enum": ["insight", "media", "query"]},
+        "title": {"type": "string"},
+        "blocks": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/block"},
+        },
+    },
+    "required": ["type", "engine", "blocks"],
+    "additionalProperties": True,
+}
+
 hr_block: Dict[str, Any] = {
     "title": "HorizontalRuleBlock",
     "type": "object",
@@ -315,6 +332,7 @@ block_variants: List[Dict[str, Any]] = [
     list_block,
     table_block,
     blockquote_block,
+    engine_quote_block,
     hr_block,
     code_block,
     math_block,

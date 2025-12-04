@@ -138,6 +138,45 @@ class IRValidator:
         for idx, sub_block in enumerate(inner):
             self._validate_block(sub_block, f"{path}.blocks[{idx}]", errors)
 
+    def _validate_engineQuote_block(
+        self, block: Dict[str, Any], path: str, errors: List[str]
+    ):
+        """单引擎发言块需标注engine并包含子blocks"""
+        engine = block.get("engine")
+        if engine not in {"insight", "media", "query"}:
+            errors.append(f"{path}.engine 取值非法: {engine}")
+        inner = block.get("blocks")
+        if not isinstance(inner, list) or not inner:
+            errors.append(f"{path}.blocks 必须是非空数组")
+            return
+        for idx, sub_block in enumerate(inner):
+            sub_path = f"{path}.blocks[{idx}]"
+            if not isinstance(sub_block, dict):
+                errors.append(f"{sub_path} 必须是对象")
+                continue
+            if sub_block.get("type") != "paragraph":
+                errors.append(f"{sub_path}.type 仅允许 paragraph")
+                continue
+            # 复用 paragraph 结构校验，但限制 marks
+            inlines = sub_block.get("inlines")
+            if not isinstance(inlines, list) or not inlines:
+                errors.append(f"{sub_path}.inlines 必须是非空数组")
+                continue
+            for ridx, run in enumerate(inlines):
+                self._validate_inline_run(run, f"{sub_path}.inlines[{ridx}]", errors)
+                if not isinstance(run, dict):
+                    continue
+                marks = run.get("marks") or []
+                if not isinstance(marks, list):
+                    errors.append(f"{sub_path}.inlines[{ridx}].marks 必须是数组")
+                    continue
+                for midx, mark in enumerate(marks):
+                    mark_type = mark.get("type") if isinstance(mark, dict) else None
+                    if mark_type not in {"bold", "italic"}:
+                        errors.append(
+                            f"{sub_path}.inlines[{ridx}].marks[{midx}].type 仅允许 bold/italic"
+                        )
+
     def _validate_callout_block(self, block: Dict[str, Any], path: str, errors: List[str]):
         """callout需声明tone，并至少有一个子block"""
         tone = block.get("tone")
