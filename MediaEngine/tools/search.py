@@ -103,7 +103,7 @@ class BochaMultimodalSearch:
     每个公共方法都设计为供 AI Agent 独立调用的工具。
     """
 
-    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bocha.com/v1/ai-search"
+    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bocha.cn/v1/ai-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
