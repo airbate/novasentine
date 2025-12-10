@@ -141,7 +141,8 @@ def _ensure_windows_gtk_paths():
     ]
 
     # 常见自定义安装位置（其他盘符 / DevelopSoftware 目录）
-    common_drives = ["C", "D", "E", "F"]
+    # common_drives = ["C", "D", "E", "F"]
+    common_drives = ["C", "E", "F"]
     common_names = ["GTK3-Runtime Win64", "GTK3-Runtime Win32", "GTK3-Runtime"]
     for drive in common_drives:
         root = Path(f"{drive}:/")
