@@ -141,14 +141,19 @@ def _ensure_windows_gtk_paths():
     ]
 
     # 常见自定义安装位置（其他盘符 / DevelopSoftware 目录）
-    # common_drives = ["C", "D", "E", "F"]
-    common_drives = ["C", "E", "F"]
+    common_drives = ["C", "D", "E", "F"]
     common_names = ["GTK3-Runtime Win64", "GTK3-Runtime Win32", "GTK3-Runtime"]
     for drive in common_drives:
         root = Path(f"{drive}:/")
-        for name in common_names:
-            default_dirs.append(root / name)
-            default_dirs.append(root / "DevelopSoftware" / name)
+        # 检测路径是否存在并可访问
+        try:
+            if root.exists():
+                for name in common_names:
+                    default_dirs.append(root / name)
+                    default_dirs.append(root / "DevelopSoftware" / name)
+        except OSError as e:
+            # print(f'盘{drive}不存在或被加密，已跳过')
+            pass
 
     # 扫描 Program Files 下所有以 GTK 开头的目录，适配自定义安装目录名
     for root in (program_files, program_files_x86):
