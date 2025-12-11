@@ -1365,6 +1365,190 @@ body {{
     font-style: italic !important;
 }}
 
+/* ========== PEST PDF表格布局 ========== */
+/* 核心策略：PDF中使用表格形式而非卡片形式，更适合分页 */
+
+/* 隐藏HTML卡片布局，显示PDF表格布局 */
+.pest-card--html {{
+    display: none !important;
+}}
+
+.pest-pdf-wrapper {{
+    display: block !important;
+    margin: 24px 0;
+}}
+
+/* PDF表格整体样式 */
+.pest-pdf-table {{
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    table-layout: fixed !important;
+    background: white;
+}}
+
+/* 表格标题 */
+.pest-pdf-caption {{
+    caption-side: top !important;
+    text-align: left !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    padding: 12px 0 !important;
+    color: #333 !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 表头样式 */
+.pest-pdf-thead {{
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+}}
+
+.pest-pdf-thead th {{
+    background: #f5f3f7 !important;
+    padding: 10px 8px !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    border: 1px solid #ccc !important;
+    color: #4a4458 !important;
+    font-size: 11px !important;
+}}
+
+.pest-pdf-th-dimension {{ width: 70px !important; }}
+.pest-pdf-th-num {{ width: 40px !important; text-align: center !important; }}
+.pest-pdf-th-title {{ width: 20% !important; }}
+.pest-pdf-th-detail {{ width: auto !important; }}
+.pest-pdf-th-tags {{ width: 80px !important; text-align: center !important; }}
+
+/* 摘要行 */
+.pest-pdf-summary {{
+    padding: 10px 12px !important;
+    background: #f8f6fa !important;
+    color: #555 !important;
+    font-style: italic !important;
+    border: 1px solid #ccc !important;
+    font-size: 11px !important;
+}}
+
+/* 每个维度区块 - 核心分页控制 */
+.pest-pdf-dimension {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}}
+
+/* 允许在不同维度之间分页 */
+.pest-pdf-dimension + .pest-pdf-dimension {{
+    break-before: auto;
+    page-break-before: auto;
+}}
+
+/* 维度标签单元格 */
+.pest-pdf-dimension-label {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 12px 6px !important;
+    font-weight: 700 !important;
+    border: 1px solid #ccc !important;
+    width: 70px !important;
+}}
+
+/* 四个维度的颜色主题 */
+.pest-pdf-dimension-label.pest-pdf-political {{
+    background: #f5eef8 !important;
+    color: #8e44ad !important;
+    border-left: 4px solid #8e44ad !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-economic {{
+    background: #e8f6f3 !important;
+    color: #16a085 !important;
+    border-left: 4px solid #16a085 !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-social {{
+    background: #fdecf4 !important;
+    color: #e84393 !important;
+    border-left: 4px solid #e84393 !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-technological {{
+    background: #ebf3f9 !important;
+    color: #2980b9 !important;
+    border-left: 4px solid #2980b9 !important;
+}}
+
+/* 维度代码字母 */
+.pest-pdf-code {{
+    display: block !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    margin-bottom: 2px !important;
+}}
+
+/* 维度标签文字 */
+.pest-pdf-label-text {{
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}}
+
+/* 数据行 */
+.pest-pdf-item-row td {{
+    padding: 8px 6px !important;
+    border: 1px solid #ddd !important;
+    vertical-align: top !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}}
+
+/* 行背景色 */
+.pest-pdf-item-row.pest-pdf-political td {{ background: #faf7fc !important; }}
+.pest-pdf-item-row.pest-pdf-economic td {{ background: #f5fbfa !important; }}
+.pest-pdf-item-row.pest-pdf-social td {{ background: #fef8fb !important; }}
+.pest-pdf-item-row.pest-pdf-technological td {{ background: #f7fafd !important; }}
+
+/* 序号单元格 */
+.pest-pdf-item-num {{
+    text-align: center !important;
+    font-weight: 600 !important;
+    color: #888 !important;
+    width: 40px !important;
+}}
+
+/* 要点标题 */
+.pest-pdf-item-title {{
+    font-weight: 600 !important;
+    color: #222 !important;
+}}
+
+/* 详情说明 */
+.pest-pdf-item-detail {{
+    color: #444 !important;
+    line-height: 1.5 !important;
+}}
+
+/* 标签单元格 */
+.pest-pdf-item-tags {{
+    text-align: center !important;
+}}
+
+/* 标签样式 */
+.pest-pdf-tag {{
+    display: inline-block !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 9px !important;
+    background: #ece9f1 !important;
+    color: #5a4f6a !important;
+    margin: 1px !important;
+}}
+
+/* 空数据提示 */
+.pest-pdf-empty {{
+    text-align: center !important;
+    color: #999 !important;
+    font-style: italic !important;
+}}
+
 {optimized_css}
 </style>
 """
