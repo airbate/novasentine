@@ -8,6 +8,8 @@
 <a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
+<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>
+
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
 [![GitHub Forks](https://img.shields.io/github/forks/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/network)
@@ -21,13 +23,6 @@
 
 [English](./README-EN.md) | [中文文档](./README.md)
 
-</div>
-
-## 🌟 Join Our Official Community
-
-<div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Scan%20to%20Join%20Our%20QQ%20Group&fontSize=40&fontAlignY=35&desc=Welcome%20to%20Our%20Community!&descAlignY=55" alt="Welcome%20to%20Our%20Community!" style="width:60%; max-width:900px; display:block; margin:0 auto;">
-  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish QQ Group QR Code" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
 </div>
 
 ## ⚡ Project Overview
@@ -88,6 +83,11 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 302.AI is a pay-as-you-go enterprise AI resource hub that offers the latest and most comprehensive AI models and APIs on the market, along with a variety of ready-to-use online AI applications.
 </details>
 
+<details>
+<summary>Provider of core agent capabilities including AI web search, file parsing, and web content scraping: <span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></span></summary>
+Anspire Open is a leading infrastructure provider for the agent era. We offer developers the core capability stack needed to build powerful agents. Currently available services include AI web search (multiple versions, highly competitive pricing), file parsing (limited-time free), web content scraping (limited-time free), cloud browser automation (Anspire Browser Agent, in beta), multi-turn rewriting, and more. We continue to provide a solid foundation for agents to connect and operate in complex digital worlds. Seamlessly integrates with mainstream agent platforms such as Dify, Coze, and Yuanqi. Through a transparent credit-based billing system and modular design, we provide enterprises with efficient, low-cost customized support to accelerate intelligent transformation.
+</details>
+
 ## 🏗️ System Architecture
 
 ### Overall Architecture Diagram
@@ -114,18 +114,11 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 | 4 | Strategy Formulation | Develop segmented research strategies based on preliminary results | Internal Decision Modules of Each Agent | - |
 | 5-N | **Iterative Phase** | **Forum Collaboration + In-depth Research** | **ForumEngine + All Agents** | **Multi-round cycles** |
 | 5.1 | In-depth Research | Each Agent conducts specialized search guided by forum host | Each Agent + Reflection Mechanisms + Forum Guidance | Each cycle |
-| 5.2 | Forum Collaboration | ForumEngine monitors Agent communications and generates host summaries | ForumEngine + LLM Host | Each cycle |
+| 5.2 | Forum Collaboration | ForumEngine monitors Agent communications and generates host guidance | ForumEngine + LLM Host | Each cycle |
 | 5.3 | Communication Integration | Each Agent adjusts research directions based on discussions | Each Agent + forum_reader tool | Each cycle |
 | N+1 | Result Integration | Report Agent collects all analysis results and forum content | Report Agent | - |
-| N+2 | Report Generation | Dynamically select templates and styles, generate final reports through multiple rounds | Report Agent + Template Engine | - |
-
-### 🆕 Report Engine Highlights
-
-- **IR → HTML/PDF rendering**: New `ReportEngine/renderers/html_renderer.py` and `pdf_renderer.py` ship with a Source Han Serif subset plus offline MathJax/Chart.js/html2canvas; `report_engine_only.py` lets you render reports from the CLI without the web UI.
-- **PDF export APIs**: Added `/api/report/export/pdf/<task_id>` and `/api/report/export/pdf-from-ir`, performing Pango dependency checks and returning vector PDFs that mirror the HTML preview.
-- **Chart.js safety guardrails**: `utils/chart_validator.py` with optional LLM repair ensures widget payloads are valid, avoiding crashes or XSS from malformed chart configs.
-- **Multi-source log console**: Frontend console now uses a double-buffered virtual list with SSE replay; backend exposes `/api/report/log` and `/api/report/log/clear` for quick inspect/reset.
-- **Sanitization regression tests**: `tests/test_report_engine_sanitization.py` covers table block auto-repair to keep rendering stable.
+| N+2 | IR Intermediate Representation | Dynamically select templates and styles, generate metadata through multiple rounds, assemble into IR intermediate representation | Report Agent + Template Engine | - |
+| N+3 | Report Generation | Perform quality checks on chunks, render into interactive HTML report based on IR | Report Agent + Stitching Engine | - |
 
 ### Project Code Structure Tree
 
@@ -134,43 +127,21 @@ BettaFish/
 ├── QueryEngine/                            # Domestic and international news breadth search Agent
 │   ├── agent.py                            # Agent main logic, coordinates search and analysis workflow
 │   ├── llms/                               # LLM interface wrapper
-│   │   └── base.py                         # Unified OpenAI-compatible client
 │   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
-│   │   ├── base_node.py                    # Base node class
-│   │   ├── search_node.py                  # Search node
-│   │   ├── formatting_node.py              # Formatting node
-│   │   ├── report_structure_node.py        # Report structure node
-│   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Search tools
-│   │   └── search.py                       # Web search toolkit
+│   ├── tools/                              # Domestic and international news search toolkit
 │   ├── utils/                              # Utility functions
-│   │   ├── config.py                       # Configuration management
-│   │   └── text_processing.py              # Text processing utilities
 │   ├── state/                              # State management
-│   │   └── state.py                        # Agent state definition
 │   ├── prompts/                            # Prompt templates
-│   │   └── prompts.py                      # Various prompt templates
-│   └── __init__.py
+│   └── ...
 ├── MediaEngine/                            # Powerful multimodal understanding Agent
 │   ├── agent.py                            # Agent main logic, handles video/image multimodal content
 │   ├── llms/                               # LLM interface wrapper
-│   │   └── base.py                         # Unified OpenAI-compatible client
 │   ├── nodes/                              # Processing nodes: search, formatting, summarization, etc.
-│   │   ├── base_node.py                    # Base node class
-│   │   ├── search_node.py                  # Search node
-│   │   ├── formatting_node.py              # Formatting node
-│   │   ├── report_structure_node.py        # Report structure node
-│   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Multimodal search tools
-│   │   └── search.py                       # Multimodal content search toolkit
+│   ├── tools/                              # Multimodal search toolkit
 │   ├── utils/                              # Utility functions
-│   │   ├── config.py                       # Configuration management
-│   │   └── text_processing.py              # Text processing utilities
 │   ├── state/                              # State management
-│   │   └── state.py                        # Agent state definition
 │   ├── prompts/                            # Prompt templates
-│   │   └── prompts.py                      # Various prompt templates
-│   └── __init__.py
+│   └── ...
 ├── InsightEngine/                          # Private database mining Agent
 │   ├── agent.py                            # Agent main logic, coordinates database queries and analysis
 │   ├── llms/                               # LLM interface wrapper
@@ -181,7 +152,7 @@ BettaFish/
 │   │   ├── formatting_node.py              # Formatting node
 │   │   ├── report_structure_node.py        # Report structure node
 │   │   └── summary_node.py                 # Summary node
-│   ├── tools/                              # Database query and analysis tools
+│   ├── tools/                              # Database query and analysis toolkit
 │   │   ├── keyword_optimizer.py            # Qwen keyword optimization middleware
 │   │   ├── search.py                       # Database operation toolkit (topic search, comment retrieval, etc.)
 │   │   └── sentiment_analyzer.py           # Sentiment analysis integration tool
@@ -215,8 +186,8 @@ BettaFish/
 │   ├── prompts/                            # Prompt library and schema descriptions
 │   │   └── prompts.py                      # Template selection/layout/budget/chapter prompts
 │   ├── renderers/                          # IR renderers
-│   │   ├── html_renderer.py                # Document IR → interactive HTML
-│   │   ├── pdf_renderer.py                 # HTML → PDF export (WeasyPrint)
+│   │   ├── html_renderer.py                # Document IR→interactive HTML
+│   │   ├── pdf_renderer.py                 # HTML→PDF export (WeasyPrint)
 │   │   ├── pdf_layout_optimizer.py         # PDF layout optimizer
 │   │   └── chart_to_svg.py                 # Chart to SVG conversion tool
 │   ├── state/                              # Task/metadata state models
@@ -247,7 +218,7 @@ BettaFish/
 │   │   ├── main.py                         # Deep crawling main program
 │   │   ├── keyword_manager.py              # Keyword manager
 │   │   ├── platform_crawler.py             # Platform crawler manager
-│   │   └── MediaCrawler/                   # Media crawler core (Weibo/TikTok/Xiaohongshu, etc.)
+│   │   └── MediaCrawler/                   # Media crawler core
 │   │       ├── main.py
 │   │       ├── config/                     # Platform configurations
 │   │       ├── media_platform/             # Platform crawler implementations
@@ -268,7 +239,7 @@ BettaFish/
 │   │       ├── train.py
 │   │       ├── predict.py
 │   │       └── ...
-│   ├── WeiboMultilingualSentiment/         # Multilingual sentiment analysis (recommended)
+│   ├── WeiboMultilingualSentiment/         # Multilingual sentiment analysis
 │   │   ├── train.py
 │   │   ├── predict.py
 │   │   └── ...
@@ -308,13 +279,13 @@ BettaFish/
 │   ├── test_report_engine_sanitization.py  # ReportEngine security tests
 │   └── ...
 ├── app.py                                  # Flask main application entry point
-├── config.py                               # Global configuration file (unified LLM/DB config management)
+├── config.py                               # Global configuration file
 ├── .env.example                            # Environment variable example file
 ├── docker-compose.yml                      # Docker multi-service orchestration config
 ├── Dockerfile                              # Docker image build file
 ├── requirements.txt                        # Python dependency list
 ├── regenerate_latest_pdf.py                # PDF regeneration utility script
-├── report_engine_only.py                   # Report Engine CLI version (no Web interface required)
+├── report_engine_only.py                   # Report Engine CLI version
 ├── README.md                               # Chinese documentation
 ├── README-EN.md                            # English documentation
 ├── CONTRIBUTING.md                         # Chinese contribution guide
@@ -432,19 +403,18 @@ DB_CHARSET=utf8mb4
 DB_DIALECT=postgresql
 # Database initialization is not required, as it will be checked automatically upon executing app.py
 
-# LLM configuration
+# ====================== LLM Configuration ======================
 # You can switch each Engine's LLM provider as long as it follows the OpenAI-compatible request format
+# The configuration file provides recommended LLMs for each Agent. For initial deployment, please refer to the recommended settings first
 
 # Insight Agent
 INSIGHT_ENGINE_API_KEY=
-# Insight Agent LLM API BaseUrl, customize API provider
 INSIGHT_ENGINE_BASE_URL=
-# Insight Agent LLM Model Name, e.g., kimi-k2-0711-preview
 INSIGHT_ENGINE_MODEL_NAME=
+
 # Media Agent
 ...
 ```
-Recommended LLM API Provider: [aihubmix](https://aihubmix.com/?aff=8Ds9)
 
 ### 6. Launch System
 
@@ -470,8 +440,6 @@ python app.py
 > Note 1: After a run is terminated, the Streamlit app might not shut down correctly and may still be occupying the port. If this occurs, find the process that is holding the port and kill it.
 
 > Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 5.3.
-
-> Note 3: If page display issues occur during remote server deployment, see [PR#45](https://github.com/666ghj/BettaFish/pull/45)
 
 Visit http://localhost:5000 to use the complete system
 
@@ -520,7 +488,7 @@ python main.py --deep-sentiment --platforms xhs dy wb
 
 #### 6.4 Command-line Report Generation Tool
 
-If you don't need the Web interface, you can use the command-line tool to generate reports directly. This tool automatically retrieves the latest report files from the three analysis engines, skips file addition verification, and directly generates comprehensive reports.
+This tool bypasses the execution phase of all three analysis engines, directly loads their most recent log files, and generates a consolidated report without requiring the Web interface (while also skipping incremental file-validation steps). It is typically used when rapid retries are needed due to unsatisfactory report outputs, or when debugging the Report Engine.
 
 ```bash
 # Basic usage (automatically extract topic from filename)
@@ -805,6 +773,13 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 Thanks to these excellent contributors:
 
 [![Contributors](https://contrib.rocks/image?repo=666ghj/BettaFish)](https://github.com/666ghj/BettaFish/graphs/contributors)
+
+## 🌟 Join Our Official Community
+
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Welcome%20to%20Our%20QQ%20Group!&fontSize=40&fontAlignY=35&desc=Scan%20to%20Join%20Our%20Community&descAlignY=55" alt="Welcome to Our QQ Group!" style="width:60%; max-width:900px; display:block; margin:0 auto;">
+  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish QQ Group QR Code" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
+</div>
 
 ## 📈 Project Statistics
 
