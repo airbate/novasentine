@@ -487,7 +487,7 @@ class HTMLRenderer:
   </div>
   <div class="header-actions">
     <theme-button value="light" id="theme-toggle" size="1.5"></theme-button>
-    <button id="print-btn" class="action-btn" type="button">🖨️ 打印</button>
+    <button id="print-btn" class="action-btn" type="button">打印页面</button>
     <button id="export-btn" class="action-btn" type="button" style="display: none;">⬇️ 导出PDF</button>
   </div>
 </header>
