@@ -77,6 +77,18 @@ class ChapterContentError(ValueError):
         self.non_heading_blocks: int = int(non_heading_blocks or 0)
 
 
+class ChapterValidationError(ValueError):
+    """
+    章节结构在本地和LLM修复后仍无法通过校验时抛出。
+
+    该异常用于在Agent层触发针对单章的重试，而无需重启整本报告。
+    """
+
+    def __init__(self, message: str, errors: Optional[List[str]] | None = None):
+        super().__init__(message)
+        self.errors: List[str] = list(errors or [])
+
+
 class ChapterGenerationNode(BaseNode):
     """
     负责按章节调用LLM并校验JSON结构。
@@ -268,8 +280,9 @@ class ChapterGenerationNode(BaseNode):
         )
 
         if not valid:
-            raise ValueError(
-                f"{section.title} 章节JSON校验失败: {'; '.join(errors[:5])}"
+            raise ChapterValidationError(
+                f"{section.title} 章节JSON校验失败: {'; '.join(errors[:5])}",
+                errors=errors,
             )
         if content_error:
             raise content_error
@@ -1555,4 +1568,9 @@ class ChapterGenerationNode(BaseNode):
         raise last_exc
 
 
-__all__ = ["ChapterGenerationNode", "ChapterJsonParseError"]
+__all__ = [
+    "ChapterGenerationNode",
+    "ChapterJsonParseError",
+    "ChapterContentError",
+    "ChapterValidationError",
+]
