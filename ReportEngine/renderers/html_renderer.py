@@ -3438,19 +3438,32 @@ img, canvas, svg {{
 
 /* 颜色模式自适应：在暗色环境下提升SWOT文本对比度 */
 @media (prefers-color-scheme: dark) {{
-  .swot-card,
+  .swot-card {{
+    color: var(--swot-on-dark);
+    background: linear-gradient(135deg, rgba(36,64,110,0.52), rgba(19,88,73,0.48));
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+  }}
   .swot-legend__item,
   .swot-pill,
   .swot-item,
   .swot-tag {{
     color: var(--swot-on-dark);
   }}
+  .swot-cell {{
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.14);
+  }}
+  .swot-cell.strength {{ background: linear-gradient(135deg, rgba(28,127,110,0.28), rgba(28,127,110,0.12)); border-color: rgba(28,127,110,0.65); }}
+  .swot-cell.weakness {{ background: linear-gradient(135deg, rgba(192,57,43,0.28), rgba(192,57,43,0.12)); border-color: rgba(192,57,43,0.65); }}
+  .swot-cell.opportunity {{ background: linear-gradient(135deg, rgba(31,90,179,0.28), rgba(31,90,179,0.12)); border-color: rgba(31,90,179,0.65); }}
+  .swot-cell.threat {{ background: linear-gradient(135deg, rgba(179,107,22,0.28), rgba(179,107,22,0.12)); border-color: rgba(179,107,22,0.65); }}
   .swot-item {{
-    background: rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.06);
     border-color: rgba(255,255,255,0.16);
   }}
   .swot-tag {{
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.12);
   }}
   .swot-item-evidence {{
     color: color-mix(in srgb, var(--secondary-color) 75%, #ffffff 25%);
