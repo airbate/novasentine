@@ -2542,26 +2542,26 @@ class HTMLRenderer:
   --swot-threat: #b36b16;
   --swot-on-light: #0f1b2b;
   --swot-on-dark: #f7fbff;
-  --swot-text: #0f1b2b;
-  --swot-muted: rgba(0,0,0,0.65);
-  --swot-surface: rgba(255,255,255,0.86);
-  --swot-chip-bg: rgba(0,0,0,0.06);
-  --swot-tag-border: rgba(0,0,0,0.08);
-  --swot-card-bg: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.08)), var(--card-bg);
+  --swot-text: var(--text-color);
+  --swot-muted: rgba(0,0,0,0.58);
+  --swot-surface: rgba(255,255,255,0.92);
+  --swot-chip-bg: rgba(0,0,0,0.04);
+  --swot-tag-border: var(--border-color);
+  --swot-card-bg: linear-gradient(135deg, rgba(76,132,255,0.04), rgba(28,127,110,0.06)), var(--card-bg);
   --swot-card-border: var(--border-color);
-  --swot-card-shadow: 0 12px 30px var(--shadow-color);
+  --swot-card-shadow: 0 14px 28px var(--shadow-color);
   --swot-card-blur: none;
-  --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-  --swot-cell-border: rgba(0,0,0,0.05);
-  --swot-cell-strength-bg: linear-gradient(135deg, rgba(28,127,110,0.08), rgba(255,255,255,0.75)), var(--card-bg);
-  --swot-cell-weakness-bg: linear-gradient(135deg, rgba(192,57,43,0.08), rgba(255,255,255,0.75)), var(--card-bg);
-  --swot-cell-opportunity-bg: linear-gradient(135deg, rgba(31,90,179,0.08), rgba(255,255,255,0.75)), var(--card-bg);
-  --swot-cell-threat-bg: linear-gradient(135deg, rgba(179,107,22,0.08), rgba(255,255,255,0.75)), var(--card-bg);
+  --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5));
+  --swot-cell-border: rgba(0,0,0,0.04);
+  --swot-cell-strength-bg: linear-gradient(135deg, rgba(28,127,110,0.07), rgba(255,255,255,0.78)), var(--card-bg);
+  --swot-cell-weakness-bg: linear-gradient(135deg, rgba(192,57,43,0.07), rgba(255,255,255,0.78)), var(--card-bg);
+  --swot-cell-opportunity-bg: linear-gradient(135deg, rgba(31,90,179,0.07), rgba(255,255,255,0.78)), var(--card-bg);
+  --swot-cell-threat-bg: linear-gradient(135deg, rgba(179,107,22,0.07), rgba(255,255,255,0.78)), var(--card-bg);
   --swot-cell-strength-border: rgba(28,127,110,0.35);
   --swot-cell-weakness-border: rgba(192,57,43,0.35);
   --swot-cell-opportunity-border: rgba(31,90,179,0.35);
   --swot-cell-threat-border: rgba(179,107,22,0.35);
-  --swot-item-border: rgba(0,0,0,0.06);
+  --swot-item-border: rgba(0,0,0,0.05);
 }}
 .dark-mode {{
   --bg-color: #121212;
@@ -3490,36 +3490,6 @@ img, canvas, svg {{
 }}
 }}
 
-/* 深色系统偏好下，同步SWOT的玻璃态配色与文字对比度 */
-@media (prefers-color-scheme: dark) {{
-  :root {{
-    --swot-strength: #1c7f6e;
-    --swot-weakness: #e06754;
-    --swot-opportunity: #5a8cff;
-    --swot-threat: #d48a2c;
-    --swot-on-dark: #e6f0ff;
-    --swot-text: #e6f0ff;
-    --swot-muted: rgba(230,240,255,0.75);
-    --swot-surface: rgba(255,255,255,0.08);
-    --swot-chip-bg: rgba(255,255,255,0.14);
-    --swot-tag-border: rgba(255,255,255,0.24);
-    --swot-card-bg: radial-gradient(140% 140% at 18% 18%, rgba(110,168,254,0.18), transparent 55%), radial-gradient(120% 140% at 82% 0%, rgba(28,127,110,0.16), transparent 52%), linear-gradient(160deg, #0b1424 0%, #0b1f31 52%, #0a1626 100%);
-    --swot-card-border: rgba(255,255,255,0.14);
-    --swot-card-shadow: 0 24px 60px rgba(0, 0, 0, 0.58);
-    --swot-card-blur: blur(12px);
-    --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-    --swot-cell-border: rgba(255,255,255,0.2);
-    --swot-cell-strength-bg: linear-gradient(150deg, rgba(28,127,110,0.28), rgba(28,127,110,0.12)), var(--swot-cell-base);
-    --swot-cell-weakness-bg: linear-gradient(150deg, rgba(192,57,43,0.32), rgba(192,57,43,0.14)), var(--swot-cell-base);
-    --swot-cell-opportunity-bg: linear-gradient(150deg, rgba(31,90,179,0.28), rgba(31,90,179,0.12)), var(--swot-cell-base);
-    --swot-cell-threat-bg: linear-gradient(150deg, rgba(179,107,22,0.32), rgba(179,107,22,0.14)), var(--swot-cell-base);
-    --swot-cell-strength-border: rgba(28,127,110,0.65);
-    --swot-cell-weakness-border: rgba(192,57,43,0.68);
-    --swot-cell-opportunity-border: rgba(31,90,179,0.68);
-    --swot-cell-threat-border: rgba(179,107,22,0.68);
-    --swot-item-border: rgba(255,255,255,0.14);
-  }}
-}}
 """
 
     def _hydration_script(self) -> str:
