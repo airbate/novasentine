@@ -576,10 +576,10 @@ SENTIMENT_CONFIG = {
 >from openai import OpenAI
 >
 >client = OpenAI(api_key="your_api_key", 
->                base_url="https://api.siliconflow.cn/v1")
+>                base_url="https://aihubmix.com/v1")
 >
 >response = client.chat.completions.create(
->    model="Qwen/Qwen2.5-72B-Instruct",
+>    model="gpt-4o-mini",
 >    messages=[
 >        {'role': 'user', 
 >         'content': "推理模型会给市场带来哪些新的机会"}
