@@ -49,6 +49,7 @@ class HTMLRenderer:
         "figure",
         "kpiGrid",
         "swotTable",
+        "pestTable",
         "engineQuote",
     }
     INLINE_ARTIFACT_KEYS = {
@@ -1023,6 +1024,7 @@ class HTMLRenderer:
             "list": self._render_list,
             "table": self._render_table,
             "swotTable": self._render_swot_table,
+            "pestTable": self._render_pest_table,
             "blockquote": self._render_blockquote,
             "engineQuote": self._render_engine_quote,
             "hr": lambda b: "<hr />",
@@ -1423,6 +1425,254 @@ class HTMLRenderer:
             <li class="swot-item">
               <div class="swot-item-title">{self._escape_html(title)}{tags_html}</div>
               {detail_html}{evidence_html}
+            </li>
+        """
+
+    # ==================== PEST 分析块 ====================
+    
+    def _render_pest_table(self, block: Dict[str, Any]) -> str:
+        """
+        渲染四维度的PEST分析，同时生成两种布局：
+        1. 卡片布局（用于HTML网页显示）- 横向条状堆叠
+        2. 表格布局（用于PDF导出）- 结构化表格，支持分页
+        
+        PEST分析维度：
+        - P: Political（政治因素）
+        - E: Economic（经济因素）
+        - S: Social（社会因素）
+        - T: Technological（技术因素）
+        """
+        title = block.get("title") or "PEST 分析"
+        summary = block.get("summary")
+        
+        # ========== 卡片布局（HTML用）==========
+        card_html = self._render_pest_card_layout(block, title, summary)
+        
+        # ========== 表格布局（PDF用）==========
+        table_html = self._render_pest_pdf_table_layout(block, title, summary)
+        
+        # 返回包含两种布局的容器
+        return f"""
+        <div class="pest-container">
+          {card_html}
+          {table_html}
+        </div>
+        """
+    
+    def _render_pest_card_layout(self, block: Dict[str, Any], title: str, summary: str | None) -> str:
+        """渲染PEST卡片布局（用于HTML网页显示）- 横向条状堆叠设计"""
+        dimensions = [
+            ("political", "政治因素 Political", "P", "political"),
+            ("economic", "经济因素 Economic", "E", "economic"),
+            ("social", "社会因素 Social", "S", "social"),
+            ("technological", "技术因素 Technological", "T", "technological"),
+        ]
+        strips_html = ""
+        for idx, (key, label, code, css) in enumerate(dimensions):
+            items = self._normalize_pest_items(block.get(key))
+            caption_text = f"{len(items)} 条要点" if items else "待补充"
+            list_html = "".join(self._render_pest_item(item) for item in items) if items else '<li class="pest-empty">尚未填入要点</li>'
+            first_strip_class = " pest-strip--first" if idx == 0 else ""
+            strips_html += f"""
+        <div class="pest-strip pest-strip--pageable {css}{first_strip_class}" data-pest-key="{key}">
+          <div class="pest-strip__indicator {css}">
+            <span class="pest-code">{self._escape_html(code)}</span>
+          </div>
+          <div class="pest-strip__content">
+            <div class="pest-strip__header">
+              <div class="pest-strip__title">{self._escape_html(label)}</div>
+              <div class="pest-strip__caption">{self._escape_html(caption_text)}</div>
+            </div>
+            <ul class="pest-list">{list_html}</ul>
+          </div>
+        </div>"""
+        summary_html = f'<p class="pest-card__summary">{self._escape_html(summary)}</p>' if summary else ""
+        title_html = f'<div class="pest-card__title">{self._escape_html(title)}</div>' if title else ""
+        legend = """
+            <div class="pest-legend">
+              <span class="pest-legend__item political">P 政治</span>
+              <span class="pest-legend__item economic">E 经济</span>
+              <span class="pest-legend__item social">S 社会</span>
+              <span class="pest-legend__item technological">T 技术</span>
+            </div>
+        """
+        return f"""
+        <div class="pest-card pest-card--html">
+          <div class="pest-card__head">
+            <div>{title_html}{summary_html}</div>
+            {legend}
+          </div>
+          <div class="pest-strips">{strips_html}</div>
+        </div>
+        """
+    
+    def _render_pest_pdf_table_layout(self, block: Dict[str, Any], title: str, summary: str | None) -> str:
+        """
+        渲染PEST表格布局（用于PDF导出）
+        
+        设计说明：
+        - 整体为一个大表格，包含标题行和4个维度区域
+        - 每个维度有自己的子标题行和内容行
+        - 使用合并单元格来显示维度标题
+        - 通过CSS控制分页行为
+        """
+        dimensions = [
+            ("political", "P", "政治因素 Political", "pest-pdf-political", "#8e44ad"),
+            ("economic", "E", "经济因素 Economic", "pest-pdf-economic", "#16a085"),
+            ("social", "S", "社会因素 Social", "pest-pdf-social", "#e84393"),
+            ("technological", "T", "技术因素 Technological", "pest-pdf-technological", "#2980b9"),
+        ]
+        
+        # 标题和摘要
+        summary_row = ""
+        if summary:
+            summary_row = f"""
+            <tr class="pest-pdf-summary-row">
+              <td colspan="4" class="pest-pdf-summary">{self._escape_html(summary)}</td>
+            </tr>"""
+        
+        # 生成四个维度的表格内容
+        dimension_tables = ""
+        for idx, (key, code, label, css_class, color) in enumerate(dimensions):
+            items = self._normalize_pest_items(block.get(key))
+            
+            # 生成每个维度的内容行
+            items_rows = ""
+            if items:
+                for item_idx, item in enumerate(items):
+                    item_title = item.get("title") or item.get("label") or item.get("text") or "未命名要点"
+                    item_detail = item.get("detail") or item.get("description") or ""
+                    item_source = item.get("source") or item.get("evidence") or ""
+                    item_trend = item.get("trend") or item.get("impact") or ""
+                    
+                    # 构建详情内容
+                    detail_parts = []
+                    if item_detail:
+                        detail_parts.append(item_detail)
+                    if item_source:
+                        detail_parts.append(f"来源：{item_source}")
+                    detail_text = "<br/>".join(detail_parts) if detail_parts else "-"
+                    
+                    # 构建标签
+                    tags = []
+                    if item_trend:
+                        tags.append(f'<span class="pest-pdf-tag">{self._escape_html(item_trend)}</span>')
+                    tags_html = " ".join(tags)
+                    
+                    # 第一行需要合并维度标题单元格
+                    if item_idx == 0:
+                        rowspan = len(items)
+                        items_rows += f"""
+            <tr class="pest-pdf-item-row {css_class}">
+              <td rowspan="{rowspan}" class="pest-pdf-dimension-label {css_class}">
+                <span class="pest-pdf-code">{code}</span>
+                <span class="pest-pdf-label-text">{self._escape_html(label.split()[0])}</span>
+              </td>
+              <td class="pest-pdf-item-num">{item_idx + 1}</td>
+              <td class="pest-pdf-item-title">{self._escape_html(item_title)}</td>
+              <td class="pest-pdf-item-detail">{detail_text}</td>
+              <td class="pest-pdf-item-tags">{tags_html}</td>
+            </tr>"""
+                    else:
+                        items_rows += f"""
+            <tr class="pest-pdf-item-row {css_class}">
+              <td class="pest-pdf-item-num">{item_idx + 1}</td>
+              <td class="pest-pdf-item-title">{self._escape_html(item_title)}</td>
+              <td class="pest-pdf-item-detail">{detail_text}</td>
+              <td class="pest-pdf-item-tags">{tags_html}</td>
+            </tr>"""
+            else:
+                # 没有内容时显示占位
+                items_rows = f"""
+            <tr class="pest-pdf-item-row {css_class}">
+              <td class="pest-pdf-dimension-label {css_class}">
+                <span class="pest-pdf-code">{code}</span>
+                <span class="pest-pdf-label-text">{self._escape_html(label.split()[0])}</span>
+              </td>
+              <td class="pest-pdf-item-num">-</td>
+              <td colspan="3" class="pest-pdf-empty">暂无要点</td>
+            </tr>"""
+            
+            # 每个维度作为一个独立的tbody，便于分页控制
+            dimension_tables += f"""
+          <tbody class="pest-pdf-dimension {css_class}">
+            {items_rows}
+          </tbody>"""
+        
+        return f"""
+        <div class="pest-pdf-wrapper">
+          <table class="pest-pdf-table">
+            <caption class="pest-pdf-caption">{self._escape_html(title)}</caption>
+            <thead class="pest-pdf-thead">
+              <tr>
+                <th class="pest-pdf-th-dimension">维度</th>
+                <th class="pest-pdf-th-num">序号</th>
+                <th class="pest-pdf-th-title">要点</th>
+                <th class="pest-pdf-th-detail">详细说明</th>
+                <th class="pest-pdf-th-tags">趋势/影响</th>
+              </tr>
+              {summary_row}
+            </thead>
+            {dimension_tables}
+          </table>
+        </div>
+        """
+
+    def _normalize_pest_items(self, raw: Any) -> List[Dict[str, Any]]:
+        """将PEST条目规整为统一结构，兼容字符串/对象两种写法"""
+        normalized: List[Dict[str, Any]] = []
+        if raw is None:
+            return normalized
+        if isinstance(raw, (str, int, float)):
+            text = self._safe_text(raw).strip()
+            if text:
+                normalized.append({"title": text})
+            return normalized
+        if not isinstance(raw, list):
+            return normalized
+        for entry in raw:
+            if isinstance(entry, (str, int, float)):
+                text = self._safe_text(entry).strip()
+                if text:
+                    normalized.append({"title": text})
+                continue
+            if not isinstance(entry, dict):
+                continue
+            title = entry.get("title") or entry.get("label") or entry.get("text")
+            detail = entry.get("detail") or entry.get("description")
+            source = entry.get("source") or entry.get("evidence")
+            trend = entry.get("trend") or entry.get("impact")
+            if not title and isinstance(detail, str):
+                title = detail
+                detail = None
+            if not (title or detail or source):
+                continue
+            normalized.append(
+                {
+                    "title": title,
+                    "detail": detail,
+                    "source": source,
+                    "trend": trend,
+                }
+            )
+        return normalized
+
+    def _render_pest_item(self, item: Dict[str, Any]) -> str:
+        """输出单个PEST条目的HTML片段"""
+        title = item.get("title") or item.get("label") or item.get("text") or "未命名要点"
+        detail = item.get("detail") or item.get("description")
+        source = item.get("source") or item.get("evidence")
+        trend = item.get("trend") or item.get("impact")
+        tags: List[str] = []
+        if trend:
+            tags.append(f'<span class="pest-tag">{self._escape_html(trend)}</span>')
+        tags_html = f'<span class="pest-item-tags">{"".join(tags)}</span>' if tags else ""
+        detail_html = f'<div class="pest-item-desc">{self._escape_html(detail)}</div>' if detail else ""
+        source_html = f'<div class="pest-item-source">来源：{self._escape_html(source)}</div>' if source else ""
+        return f"""
+            <li class="pest-item">
+              <div class="pest-item-title">{self._escape_html(title)}{tags_html}</div>
+              {detail_html}{source_html}
             </li>
         """
 
@@ -2702,6 +2952,33 @@ class HTMLRenderer:
   --swot-cell-opportunity-border: rgba(31,90,179,0.35);
   --swot-cell-threat-border: rgba(179,107,22,0.35);
   --swot-item-border: rgba(0,0,0,0.05);
+  /* PEST 分析变量 - 紫青色系 */
+  --pest-political: #8e44ad;
+  --pest-economic: #16a085;
+  --pest-social: #e84393;
+  --pest-technological: #2980b9;
+  --pest-on-light: #1a1a2e;
+  --pest-on-dark: #f8f9ff;
+  --pest-text: var(--text-color);
+  --pest-muted: rgba(0,0,0,0.55);
+  --pest-surface: rgba(255,255,255,0.88);
+  --pest-chip-bg: rgba(0,0,0,0.05);
+  --pest-tag-border: var(--border-color);
+  --pest-card-bg: linear-gradient(145deg, rgba(142,68,173,0.03), rgba(22,160,133,0.04)), var(--card-bg);
+  --pest-card-border: var(--border-color);
+  --pest-card-shadow: 0 16px 32px var(--shadow-color);
+  --pest-card-blur: none;
+  --pest-strip-base: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7));
+  --pest-strip-border: rgba(0,0,0,0.06);
+  --pest-strip-political-bg: linear-gradient(90deg, rgba(142,68,173,0.08), rgba(255,255,255,0.85)), var(--card-bg);
+  --pest-strip-economic-bg: linear-gradient(90deg, rgba(22,160,133,0.08), rgba(255,255,255,0.85)), var(--card-bg);
+  --pest-strip-social-bg: linear-gradient(90deg, rgba(232,67,147,0.08), rgba(255,255,255,0.85)), var(--card-bg);
+  --pest-strip-technological-bg: linear-gradient(90deg, rgba(41,128,185,0.08), rgba(255,255,255,0.85)), var(--card-bg);
+  --pest-strip-political-border: rgba(142,68,173,0.4);
+  --pest-strip-economic-border: rgba(22,160,133,0.4);
+  --pest-strip-social-border: rgba(232,67,147,0.4);
+  --pest-strip-technological-border: rgba(41,128,185,0.4);
+  --pest-item-border: rgba(0,0,0,0.06);
 }}
 .dark-mode {{
   --bg-color: #121212;
@@ -2751,6 +3028,33 @@ class HTMLRenderer:
   --swot-cell-opportunity-border: rgba(31,90,179,0.68);
   --swot-cell-threat-border: rgba(179,107,22,0.68);
   --swot-item-border: rgba(255,255,255,0.14);
+  /* PEST 分析变量 - 暗色模式 */
+  --pest-political: #a569bd;
+  --pest-economic: #48c9b0;
+  --pest-social: #f06292;
+  --pest-technological: #5dade2;
+  --pest-on-light: #1a1a2e;
+  --pest-on-dark: #f0f4ff;
+  --pest-text: #f0f4ff;
+  --pest-muted: rgba(240,244,255,0.7);
+  --pest-surface: rgba(255,255,255,0.06);
+  --pest-chip-bg: rgba(255,255,255,0.12);
+  --pest-tag-border: rgba(255,255,255,0.22);
+  --pest-card-bg: radial-gradient(130% 130% at 15% 15%, rgba(165,105,189,0.16), transparent 50%), radial-gradient(110% 130% at 85% 5%, rgba(72,201,176,0.14), transparent 48%), linear-gradient(155deg, #12162a 0%, #161b30 50%, #0f1425 100%);
+  --pest-card-border: rgba(255,255,255,0.12);
+  --pest-card-shadow: 0 28px 65px rgba(0, 0, 0, 0.55);
+  --pest-card-blur: blur(10px);
+  --pest-strip-base: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  --pest-strip-border: rgba(255,255,255,0.18);
+  --pest-strip-political-bg: linear-gradient(90deg, rgba(142,68,173,0.25), rgba(142,68,173,0.1)), var(--pest-strip-base);
+  --pest-strip-economic-bg: linear-gradient(90deg, rgba(22,160,133,0.25), rgba(22,160,133,0.1)), var(--pest-strip-base);
+  --pest-strip-social-bg: linear-gradient(90deg, rgba(232,67,147,0.25), rgba(232,67,147,0.1)), var(--pest-strip-base);
+  --pest-strip-technological-bg: linear-gradient(90deg, rgba(41,128,185,0.25), rgba(41,128,185,0.1)), var(--pest-strip-base);
+  --pest-strip-political-border: rgba(165,105,189,0.6);
+  --pest-strip-economic-border: rgba(72,201,176,0.6);
+  --pest-strip-social-border: rgba(240,98,146,0.6);
+  --pest-strip-technological-border: rgba(93,173,226,0.6);
+  --pest-item-border: rgba(255,255,255,0.12);
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -3482,6 +3786,313 @@ table th {{
     page-break-inside: avoid;
   }}
 }}
+
+/* ==================== PEST 分析样式 ==================== */
+.pest-card {{
+  margin: 28px 0;
+  padding: 20px 20px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--pest-card-border);
+  background: var(--pest-card-bg);
+  box-shadow: var(--pest-card-shadow);
+  color: var(--pest-text);
+  backdrop-filter: var(--pest-card-blur);
+  position: relative;
+  overflow: hidden;
+}}
+.pest-card__head {{
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}}
+.pest-card__title {{
+  font-size: 1.18rem;
+  font-weight: 750;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--pest-political), var(--pest-technological));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}}
+.pest-card__summary {{
+  margin: 0;
+  color: var(--pest-text);
+  opacity: 0.8;
+}}
+.pest-legend {{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}}
+.pest-legend__item {{
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--pest-on-dark);
+  border: 1px solid var(--pest-tag-border);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}}
+.pest-legend__item.political {{ background: var(--pest-political); }}
+.pest-legend__item.economic {{ background: var(--pest-economic); }}
+.pest-legend__item.social {{ background: var(--pest-social); }}
+.pest-legend__item.technological {{ background: var(--pest-technological); }}
+.pest-strips {{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}}
+.pest-strip {{
+  display: flex;
+  border-radius: 14px;
+  border: 1px solid var(--pest-strip-border);
+  background: var(--pest-strip-base);
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}}
+.pest-strip:hover {{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+}}
+.pest-strip.political {{ border-color: var(--pest-strip-political-border); background: var(--pest-strip-political-bg); }}
+.pest-strip.economic {{ border-color: var(--pest-strip-economic-border); background: var(--pest-strip-economic-bg); }}
+.pest-strip.social {{ border-color: var(--pest-strip-social-border); background: var(--pest-strip-social-bg); }}
+.pest-strip.technological {{ border-color: var(--pest-strip-technological-border); background: var(--pest-strip-technological-bg); }}
+.pest-strip__indicator {{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  min-width: 56px;
+  padding: 16px 8px;
+  color: var(--pest-on-dark);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}}
+.pest-strip__indicator.political {{ background: linear-gradient(180deg, var(--pest-political), rgba(142,68,173,0.8)); }}
+.pest-strip__indicator.economic {{ background: linear-gradient(180deg, var(--pest-economic), rgba(22,160,133,0.8)); }}
+.pest-strip__indicator.social {{ background: linear-gradient(180deg, var(--pest-social), rgba(232,67,147,0.8)); }}
+.pest-strip__indicator.technological {{ background: linear-gradient(180deg, var(--pest-technological), rgba(41,128,185,0.8)); }}
+.pest-code {{
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}}
+.pest-strip__content {{
+  flex: 1;
+  padding: 14px 16px;
+  min-width: 0;
+}}
+.pest-strip__header {{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}}
+.pest-strip__title {{
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--pest-text);
+}}
+.pest-strip__caption {{
+  font-size: 0.85rem;
+  color: var(--pest-text);
+  opacity: 0.65;
+}}
+.pest-list {{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}}
+.pest-item {{
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--pest-surface);
+  border: 1px solid var(--pest-item-border);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+}}
+.pest-item-title {{
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 650;
+  color: var(--pest-text);
+}}
+.pest-item-tags {{
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}}
+.pest-tag {{
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--pest-chip-bg);
+  color: var(--pest-text);
+  border: 1px solid var(--pest-tag-border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  line-height: 1.2;
+}}
+.pest-item-desc {{
+  margin-top: 5px;
+  color: var(--pest-text);
+  opacity: 0.88;
+  font-size: 0.95rem;
+}}
+.pest-item-source {{
+  margin-top: 4px;
+  font-size: 0.88rem;
+  color: var(--secondary-color);
+  opacity: 0.9;
+}}
+.pest-empty {{
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--pest-card-border);
+  text-align: center;
+  color: var(--pest-muted);
+  opacity: 0.65;
+}}
+
+/* ========== PEST PDF表格布局样式（默认隐藏）========== */
+.pest-pdf-wrapper {{
+  display: none;
+}}
+
+/* PEST PDF表格样式定义（用于PDF渲染时显示） */
+.pest-pdf-table {{
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 13px;
+  table-layout: fixed;
+}}
+.pest-pdf-caption {{
+  caption-side: top;
+  text-align: left;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 12px 0;
+  color: var(--text-color);
+}}
+.pest-pdf-thead th {{
+  background: #f5f3f7;
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid #e0dce3;
+  color: #4a4458;
+}}
+.pest-pdf-th-dimension {{ width: 85px; }}
+.pest-pdf-th-num {{ width: 50px; text-align: center; }}
+.pest-pdf-th-title {{ width: 22%; }}
+.pest-pdf-th-detail {{ width: auto; }}
+.pest-pdf-th-tags {{ width: 100px; text-align: center; }}
+.pest-pdf-summary {{
+  padding: 12px;
+  background: #f8f6fa;
+  color: #666;
+  font-style: italic;
+  border: 1px solid #e0dce3;
+}}
+.pest-pdf-dimension {{
+  break-inside: avoid;
+  page-break-inside: avoid;
+}}
+.pest-pdf-dimension-label {{
+  text-align: center;
+  vertical-align: middle;
+  padding: 12px 8px;
+  font-weight: 700;
+  border: 1px solid #e0dce3;
+  writing-mode: horizontal-tb;
+}}
+.pest-pdf-dimension-label.pest-pdf-political {{ background: rgba(142,68,173,0.12); color: #8e44ad; border-left: 4px solid #8e44ad; }}
+.pest-pdf-dimension-label.pest-pdf-economic {{ background: rgba(22,160,133,0.12); color: #16a085; border-left: 4px solid #16a085; }}
+.pest-pdf-dimension-label.pest-pdf-social {{ background: rgba(232,67,147,0.12); color: #e84393; border-left: 4px solid #e84393; }}
+.pest-pdf-dimension-label.pest-pdf-technological {{ background: rgba(41,128,185,0.12); color: #2980b9; border-left: 4px solid #2980b9; }}
+.pest-pdf-code {{
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}}
+.pest-pdf-label-text {{
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}}
+.pest-pdf-item-row td {{
+  padding: 10px 8px;
+  border: 1px solid #e0dce3;
+  vertical-align: top;
+}}
+.pest-pdf-item-row.pest-pdf-political td {{ background: rgba(142,68,173,0.03); }}
+.pest-pdf-item-row.pest-pdf-economic td {{ background: rgba(22,160,133,0.03); }}
+.pest-pdf-item-row.pest-pdf-social td {{ background: rgba(232,67,147,0.03); }}
+.pest-pdf-item-row.pest-pdf-technological td {{ background: rgba(41,128,185,0.03); }}
+.pest-pdf-item-num {{
+  text-align: center;
+  font-weight: 600;
+  color: #6c757d;
+}}
+.pest-pdf-item-title {{
+  font-weight: 600;
+  color: #212529;
+}}
+.pest-pdf-item-detail {{
+  color: #495057;
+  line-height: 1.5;
+}}
+.pest-pdf-item-tags {{
+  text-align: center;
+}}
+.pest-pdf-tag {{
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: #ece9f1;
+  color: #5a4f6a;
+  margin: 2px;
+}}
+.pest-pdf-empty {{
+  text-align: center;
+  color: #adb5bd;
+  font-style: italic;
+}}
+
+/* 打印模式下的PEST分页控制 */
+@media print {{
+  .pest-card {{
+    break-inside: auto;
+    page-break-inside: auto;
+  }}
+  .pest-card__head {{
+    break-after: avoid;
+    page-break-after: avoid;
+  }}
+  .pest-pdf-dimension {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+  .pest-strip {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+}}
 .callout {{
   border-left: 4px solid var(--primary-color);
   padding: 16px;
@@ -3705,6 +4316,7 @@ pre.code-block {{
   .chart-card,
   .kpi-grid,
 .swot-card,
+.pest-card,
 .table-wrap,
 figure,
 blockquote {{
@@ -3766,6 +4378,33 @@ blockquote {{
     flex: 1 1 320px;
     min-width: 240px;
     height: auto;
+  }}
+  /* PEST 打印样式 */
+  .pest-card,
+  .pest-strip {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+  .pest-card {{
+    color: var(--pest-text);
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }}
+  .pest-card__head {{
+    break-after: avoid;
+    page-break-after: avoid;
+  }}
+  .pest-strips {{
+    break-before: avoid;
+    page-break-before: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
+  }}
+  .pest-legend {{
+    display: none !important;
+  }}
+  .pest-strip {{
+    flex-direction: row;
   }}
 .table-wrap {{
   overflow-x: auto;
