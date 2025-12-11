@@ -306,6 +306,10 @@ class ChapterGenerationNode(BaseNode):
         # 章节篇幅规划（来自WordBudgetNode），用于指导字数与强调点
         chapter_plan_map = context.get("chapter_directives", {})
         chapter_plan = chapter_plan_map.get(section.chapter_id) if chapter_plan_map else {}
+
+        # 从 layout 的 tocPlan 中查找该章节是否允许使用SWOT块
+        allow_swot = self._get_chapter_swot_permission(section.chapter_id, context)
+
         payload = {
             "section": {
                 "chapterId": section.chapter_id,
@@ -335,6 +339,7 @@ class ChapterGenerationNode(BaseNode):
                 "language": "zh-CN",
                 "maxTokens": context.get("max_tokens", 4096),
                 "allowedBlocks": ALLOWED_BLOCK_TYPES,
+                "allowSwot": allow_swot,
                 "styleHints": {
                     "expectWidgets": True,
                     "forceHeadingAnchors": True,
@@ -358,6 +363,36 @@ class ChapterGenerationNode(BaseNode):
                 constraints["sectionBudgets"] = chapter_plan["sections"]
                 payload["globalContext"]["sectionBudgets"] = chapter_plan["sections"]
         return payload
+
+    def _get_chapter_swot_permission(self, chapter_id: str, context: Dict[str, Any]) -> bool:
+        """
+        从 layout 的 tocPlan 中查找指定章节是否允许使用 SWOT 块。
+
+        全文最多只有一个章节允许使用 SWOT 块，由文档设计阶段在 tocPlan 中
+        通过 allowSwot 字段标记。
+
+        参数:
+            chapter_id: 当前章节ID。
+            context: 全局上下文字典。
+
+        返回:
+            bool: 如果该章节允许使用 SWOT 块则返回 True，否则返回 False。
+        """
+        layout = context.get("layout")
+        if not isinstance(layout, dict):
+            return False
+
+        toc_plan = layout.get("tocPlan")
+        if not isinstance(toc_plan, list):
+            return False
+
+        for entry in toc_plan:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("chapterId") == chapter_id:
+                return bool(entry.get("allowSwot", False))
+
+        return False
 
     def _stream_llm(
         self,

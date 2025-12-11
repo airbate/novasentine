@@ -139,6 +139,10 @@ document_layout_output_schema = {
                     "anchor": {"type": "string"},
                     "display": {"type": "string"},
                     "description": {"type": "string"},
+                    "allowSwot": {
+                        "type": "boolean",
+                        "description": "是否允许该章节使用SWOT分析块，全文最多只有一个章节可设为true",
+                    },
                 },
                 "required": ["chapterId", "display"],
             },
@@ -304,7 +308,11 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
 3. 所有段落都放入paragraph.inlines，混排样式通过marks表示（bold/italic/color/link等）。
 4. 所有heading必须包含anchor，锚点与编号保持模板一致，比如section-2-1。
 5. 表格需给出rows/cells/align，KPI卡请使用kpiGrid，分割线用hr。
-6. SWOT分析必须优先使用 block.type="swotTable"：分别填写 strengths/weaknesses/opportunities/threats 数组，单项至少包含 title/label/text 之一，可附加 detail/evidence/impact 字段；title/summary 字段用于概览说明。**特别注意：impact 字段只允许填写影响评级（"低"/"中低"/"中"/"中高"/"高"/"极高"）；任何关于影响的文字叙述、详细说明、佐证或扩展描述必须写入 detail 字段，禁止在 impact 字段中混入描述性文字。**
+6. **SWOT块使用限制（重要！）**：
+   - 只有在 constraints.allowSwot 为 true 时才允许使用 block.type="swotTable"；
+   - 如果 constraints.allowSwot 为 false 或不存在，严禁生成任何 swotTable 类型的块，即使章节标题包含"SWOT"字样也不能使用该块类型，应改用表格（table）或列表（list）呈现相关内容；
+   - 当允许使用SWOT块时，分别填写 strengths/weaknesses/opportunities/threats 数组，单项至少包含 title/label/text 之一，可附加 detail/evidence/impact 字段；title/summary 字段用于概览说明；
+   - **特别注意：impact 字段只允许填写影响评级（"低"/"中低"/"中"/"中高"/"高"/"极高"）；任何关于影响的文字叙述、详细说明、佐证或扩展描述必须写入 detail 字段，禁止在 impact 字段中混入描述性文字。**
 7. 如需引用图表/交互组件，统一用widgetType表示（例如chart.js/line、chart.js/doughnut）。
 8. 鼓励结合outline中列出的子标题，生成多层heading与细粒度内容，同时可补充callout、blockquote等。
 9. engineQuote 仅用于呈现单Agent的原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph，paragraph.inlines 的 marks 仅可使用 bold/italic（可留空），禁止在 engineQuote 中放表格/图表/引用/公式等；当 reports 或 forumLogs 中有明确的文字段落、结论、数字/时间等可直接引用时，优先分别从 Query/Media/Insight 三个 Agent 摘出关键原文或文字版数据放入 engineQuote，尽量覆盖三类 Agent 而非只用单一来源，严禁臆造内容或把表格/图表改写进 engineQuote。
@@ -376,7 +384,12 @@ SYSTEM_PROMPT_DOCUMENT_LAYOUT = f"""
 3. 输出 tocPlan，一级目录固定用中文数字（"一、二、三"），二级目录用"1.1/1.2"，可在description里说明详略；如需定制目录标题，请填写 tocTitle；
 4. 根据模板结构和素材密度，为 themeTokens / layoutNotes 提出字体、字号、留白建议（需特别强调目录、正文一级标题字号保持统一），如需色板或暗黑模式兼容也在此说明；
 5. 严禁要求外部图片或AI生图，推荐Chart.js图表、表格、色块、KPI卡等可直接渲染的原生组件；
-6. 不随意增删章节，仅优化命名或描述；若有排版或章节合并提示，请放入 layoutNotes，渲染层会严格遵循。
+6. 不随意增删章节，仅优化命名或描述；若有排版或章节合并提示，请放入 layoutNotes，渲染层会严格遵循；
+7. **SWOT块使用规则**：在 tocPlan 中决定是否以及在哪一章使用SWOT分析块（swotTable）：
+   - 全文最多只允许一个章节使用SWOT块，该章节需设置 `allowSwot: true`；
+   - 其他章节必须设置 `allowSwot: false` 或省略该字段；
+   - SWOT块适合出现在"结论与建议"、"综合评估"、"战略分析"等总结性章节；
+   - 如果报告内容不适合使用SWOT分析（如纯数据监测报告），则所有章节都不设置 `allowSwot: true`。
 
 **tocPlan的description字段特别要求：**
 - description字段必须是纯文本描述，用于在目录中展示章节简介
