@@ -33,6 +33,7 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "paragraph",
     "list",
     "table",
+    "swotTable",
     "blockquote",
     "engineQuote",
     "hr",
@@ -166,6 +167,63 @@ table_block: Dict[str, Any] = {
         "zebra": {"type": "boolean"},
     },
     "required": ["type", "rows"],
+    "additionalProperties": True,
+}
+
+swot_item_schema: Dict[str, Any] = {
+    "title": "SwotItem",
+    "oneOf": [
+        {"type": "string"},
+        {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "label": {"type": "string"},
+                "text": {"type": "string"},
+                "detail": {"type": "string"},
+                "description": {"type": "string"},
+                "evidence": {"type": "string"},
+                "impact": {"type": "string"},
+                "score": {"type": ["number", "string"]},
+                "priority": {"type": ["string", "number"]},
+            },
+            "required": [],
+            "additionalProperties": True,
+        },
+    ],
+}
+
+swot_block: Dict[str, Any] = {
+    "title": "SwotTableBlock",
+    "type": "object",
+    "properties": {
+        "type": {"const": "swotTable"},
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "strengths": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/swotItem"},
+        },
+        "weaknesses": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/swotItem"},
+        },
+        "opportunities": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/swotItem"},
+        },
+        "threats": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/swotItem"},
+        },
+    },
+    "required": ["type"],
+    "anyOf": [
+        {"required": ["strengths"]},
+        {"required": ["weaknesses"]},
+        {"required": ["opportunities"]},
+        {"required": ["threats"]},
+    ],
     "additionalProperties": True,
 }
 
@@ -361,6 +419,7 @@ block_variants: List[Dict[str, Any]] = [
     kpi_block,
     widget_block,
     toc_block,
+    swot_block,
 ]
 
 CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
@@ -388,6 +447,7 @@ CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
     "definitions": {
         "inlineMark": inline_mark_schema,
         "inlineRun": inline_run_schema,
+        "swotItem": swot_item_schema,
         "block": {"oneOf": block_variants},
     },
 }

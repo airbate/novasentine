@@ -48,6 +48,7 @@ class HTMLRenderer:
         "math",
         "figure",
         "kpiGrid",
+        "swotTable",
         "engineQuote",
     }
     INLINE_ARTIFACT_KEYS = {
@@ -1021,6 +1022,7 @@ class HTMLRenderer:
             "paragraph": self._render_paragraph,
             "list": self._render_list,
             "table": self._render_table,
+            "swotTable": self._render_swot_table,
             "blockquote": self._render_blockquote,
             "engineQuote": self._render_engine_quote,
             "hr": lambda b: "<hr />",
@@ -1172,6 +1174,117 @@ class HTMLRenderer:
         caption = block.get("caption")
         caption_html = f"<caption>{self._escape_html(caption)}</caption>" if caption else ""
         return f'<div class="table-wrap"><table>{caption_html}<tbody>{rows_html}</tbody></table></div>'
+
+    def _render_swot_table(self, block: Dict[str, Any]) -> str:
+        """
+        渲染四象限的SWOT专用表格，兼顾HTML与PDF的可读性。
+        """
+        title = block.get("title") or "SWOT 分析"
+        summary = block.get("summary")
+        quadrants = [
+            ("strengths", "优势 Strengths", "S", "strength"),
+            ("weaknesses", "劣势 Weaknesses", "W", "weakness"),
+            ("opportunities", "机会 Opportunities", "O", "opportunity"),
+            ("threats", "威胁 Threats", "T", "threat"),
+        ]
+        cells_html = ""
+        for key, label, code, css in quadrants:
+            items = self._normalize_swot_items(block.get(key))
+            caption_text = f"{len(items)} 条要点" if items else "待补充"
+            list_html = "".join(self._render_swot_item(item) for item in items) if items else '<li class="swot-empty">尚未填入要点</li>'
+            cells_html += f"""
+        <div class="swot-cell {css}">
+          <div class="swot-cell__meta">
+            <span class="swot-pill {css}">{self._escape_html(code)}</span>
+            <div>
+              <div class="swot-cell__title">{self._escape_html(label)}</div>
+              <div class="swot-cell__caption">{self._escape_html(caption_text)}</div>
+            </div>
+          </div>
+          <ul class="swot-list">{list_html}</ul>
+        </div>"""
+        summary_html = f'<p class="swot-card__summary">{self._escape_html(summary)}</p>' if summary else ""
+        title_html = f'<div class="swot-card__title">{self._escape_html(title)}</div>' if title else ""
+        legend = """
+            <div class="swot-legend">
+              <span class="swot-legend__item strength">S 优势</span>
+              <span class="swot-legend__item weakness">W 劣势</span>
+              <span class="swot-legend__item opportunity">O 机会</span>
+              <span class="swot-legend__item threat">T 威胁</span>
+            </div>
+        """
+        return f"""
+        <div class="swot-card">
+          <div class="swot-card__head">
+            <div>{title_html}{summary_html}</div>
+            {legend}
+          </div>
+          <div class="swot-grid">{cells_html}</div>
+        </div>
+        """
+
+    def _normalize_swot_items(self, raw: Any) -> List[Dict[str, Any]]:
+        """将SWOT条目规整为统一结构，兼容字符串/对象两种写法"""
+        normalized: List[Dict[str, Any]] = []
+        if raw is None:
+            return normalized
+        if isinstance(raw, (str, int, float)):
+            text = self._safe_text(raw).strip()
+            if text:
+                normalized.append({"title": text})
+            return normalized
+        if not isinstance(raw, list):
+            return normalized
+        for entry in raw:
+            if isinstance(entry, (str, int, float)):
+                text = self._safe_text(entry).strip()
+                if text:
+                    normalized.append({"title": text})
+                continue
+            if not isinstance(entry, dict):
+                continue
+            title = entry.get("title") or entry.get("label") or entry.get("text")
+            detail = entry.get("detail") or entry.get("description")
+            evidence = entry.get("evidence") or entry.get("source")
+            impact = entry.get("impact") or entry.get("priority")
+            score = entry.get("score")
+            if not title and isinstance(detail, str):
+                title = detail
+                detail = None
+            if not (title or detail or evidence):
+                continue
+            normalized.append(
+                {
+                    "title": title,
+                    "detail": detail,
+                    "evidence": evidence,
+                    "impact": impact,
+                    "score": score,
+                }
+            )
+        return normalized
+
+    def _render_swot_item(self, item: Dict[str, Any]) -> str:
+        """输出单个SWOT条目的HTML片段"""
+        title = item.get("title") or item.get("label") or item.get("text") or "未命名要点"
+        detail = item.get("detail") or item.get("description")
+        evidence = item.get("evidence") or item.get("source")
+        impact = item.get("impact") or item.get("priority")
+        score = item.get("score")
+        tags: List[str] = []
+        if impact:
+            tags.append(f'<span class="swot-tag">{self._escape_html(impact)}</span>')
+        if score not in (None, ""):
+            tags.append(f'<span class="swot-tag neutral">评分 {self._escape_html(score)}</span>')
+        tags_html = f'<span class="swot-item-tags">{"".join(tags)}</span>' if tags else ""
+        detail_html = f'<div class="swot-item-desc">{self._escape_html(detail)}</div>' if detail else ""
+        evidence_html = f'<div class="swot-item-evidence">佐证：{self._escape_html(evidence)}</div>' if evidence else ""
+        return f"""
+            <li class="swot-item">
+              <div class="swot-item-title">{self._escape_html(title)}{tags_html}</div>
+              {detail_html}{evidence_html}
+            </li>
+        """
 
     def _normalize_table_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -2446,6 +2559,10 @@ class HTMLRenderer:
   --engine-query-border: rgba(141, 215, 165, 0.45);
   --engine-query-text: #a7e2ba;
   --engine-quote-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --swot-strength: #1c7f6e;
+  --swot-weakness: #c0392b;
+  --swot-opportunity: #1f5ab3;
+  --swot-threat: #b36b16;
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -2886,6 +3003,150 @@ table th {{
 }}
 .align-center {{ text-align: center; }}
 .align-right {{ text-align: right; }}
+.swot-card {{
+  margin: 26px 0;
+  padding: 18px 18px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.06)), var(--card-bg);
+  box-shadow: 0 12px 30px var(--shadow-color);
+}}
+.swot-card__head {{
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}}
+.swot-card__title {{
+  font-size: 1.15rem;
+  font-weight: 750;
+  margin-bottom: 4px;
+}}
+.swot-card__summary {{
+  margin: 0;
+  color: var(--text-color);
+  opacity: 0.85;
+}}
+.swot-legend {{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}}
+.swot-legend__item {{
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}}
+.swot-legend__item.strength {{ background: var(--swot-strength); }}
+.swot-legend__item.weakness {{ background: var(--swot-weakness); }}
+.swot-legend__item.opportunity {{ background: var(--swot-opportunity); }}
+.swot-legend__item.threat {{ background: var(--swot-threat); }}
+.swot-grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}}
+.swot-cell {{
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.05);
+  padding: 12px 12px 10px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}}
+.swot-cell.strength {{ border-color: rgba(28,127,110,0.35); background: linear-gradient(135deg, rgba(28,127,110,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
+.swot-cell.weakness {{ border-color: rgba(192,57,43,0.35); background: linear-gradient(135deg, rgba(192,57,43,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
+.swot-cell.opportunity {{ border-color: rgba(31,90,179,0.35); background: linear-gradient(135deg, rgba(31,90,179,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
+.swot-cell.threat {{ border-color: rgba(179,107,22,0.35); background: linear-gradient(135deg, rgba(179,107,22,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
+.swot-cell__meta {{
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}}
+.swot-pill {{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+}}
+.swot-pill.strength {{ background: var(--swot-strength); }}
+.swot-pill.weakness {{ background: var(--swot-weakness); }}
+.swot-pill.opportunity {{ background: var(--swot-opportunity); }}
+.swot-pill.threat {{ background: var(--swot-threat); }}
+.swot-cell__title {{
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}}
+.swot-cell__caption {{
+  font-size: 0.9rem;
+  color: var(--text-color);
+  opacity: 0.7;
+}}
+.swot-list {{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}}
+.swot-item {{
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.02);
+  border: 1px dashed rgba(0,0,0,0.05);
+}}
+.swot-item-title {{
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 650;
+}}
+.swot-item-tags {{
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}}
+.swot-tag {{
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-color);
+  line-height: 1.2;
+}}
+.swot-tag.neutral {{
+  background: rgba(0,0,0,0.04);
+}}
+.swot-item-desc {{
+  margin-top: 4px;
+  color: var(--text-color);
+  opacity: 0.92;
+}}
+.swot-item-evidence {{
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}}
+.swot-empty {{
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--border-color);
+  text-align: center;
+  color: var(--text-color);
+  opacity: 0.7;
+}}
 .callout {{
   border-left: 4px solid var(--primary-color);
   padding: 16px;
@@ -3108,6 +3369,7 @@ pre.code-block {{
   .engine-quote,
   .chart-card,
   .kpi-grid,
+  .swot-card,
   .table-wrap,
   figure,
   blockquote {{
@@ -3132,6 +3394,11 @@ pre.code-block {{
     width: 100% !important;
     height: auto !important;
     max-width: 100% !important;
+  }}
+  .swot-card,
+  .swot-cell {{
+    break-inside: avoid;
+    page-break-inside: avoid;
   }}
 .table-wrap {{
   overflow-x: auto;
