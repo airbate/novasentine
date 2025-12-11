@@ -3946,8 +3946,132 @@ document.documentElement.classList.add('js-ready');
       const shadow = this.attachShadow({ mode: "closed" });
       const container = document.createElement("div");
       container.setAttribute("class", "container");
+      // font-size 控制整个组件的缩放比例
+      // size 参数默认为 3，此时 font-size = 1px，组件实际尺寸为 180px x 70px
+      // size = 1.5 时，font-size = 0.5px，组件缩小到 90px x 35px
       container.setAttribute("style", `font-size: ${(size / 3).toFixed(2)}px`);
-      container.innerHTML = '<div class="components"><div class="main-button"><div class="moon"></div><div class="moon"></div><div class="moon"></div></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="cloud"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="cloud-light"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="stars"><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div></div></div>';
+
+      /**
+       * 日夜切换按钮的 DOM 结构
+       * 
+       * 层级关系：
+       * .components (胶囊形主容器)
+       * ├── .main-button (可移动的太阳/月亮圆球)
+       * │   ├── .moon (环形山1 - 右上小)
+       * │   ├── .moon (环形山2 - 左侧大)
+       * │   └── .moon (环形山3 - 右下小)
+       * ├── .daytime-background (光晕层1 - 最亮)
+       * ├── .daytime-background (光晕层2 - 中等)
+       * ├── .daytime-background (光晕层3 - 最淡)
+       * ├── .cloud (主云朵容器)
+       * │   └── .cloud-son x 6 (6个白色圆形组成云朵)
+       * ├── .cloud-light (浅色云朵容器，增加层次感)
+       * │   └── .cloud-son x 6 (6个半透明圆形)
+       * └── .stars (星星容器)
+       *     ├── .star.big x 2 (2颗大星星)
+       *     │   └── .star-son x 4 (4个角组成四角星)
+       *     ├── .star.medium x 2 (2颗中星星)
+       *     │   └── .star-son x 4
+       *     └── .star.small x 2 (2颗小星星)
+       *         └── .star-son x 4
+       */
+      container.innerHTML = [
+        // ========== 主容器开始 ==========
+        '<div class="components">',
+
+          // ========== 太阳/月亮按钮 ==========
+          // 白天显示为金黄色太阳，夜晚变为灰白色月亮
+          // 通过 JS 控制 translateX 实现左右移动
+          '<div class="main-button">',
+            // 三个月亮环形山（白天时 opacity:0 隐藏，夜晚时显示）
+            '<div class="moon"></div>',  // 环形山1：右上角，小尺寸
+            '<div class="moon"></div>',  // 环形山2：左侧，大尺寸
+            '<div class="moon"></div>',  // 环形山3：右下角，小尺寸
+          '</div>',
+
+          // ========== 太阳光晕效果 ==========
+          // 三层同心圆，透明度递减，模拟太阳的光晕扩散
+          // 随太阳一起移动（通过 JS 控制 translateX）
+          '<div class="daytime-background"></div>',  // 光晕层1：110em，20%不透明度
+          '<div class="daytime-background"></div>',  // 光晕层2：135em，10%不透明度
+          '<div class="daytime-background"></div>',  // 光晕层3：160em，5%不透明度
+
+          // ========== 主云朵层 ==========
+          // 白天可见，夜晚通过 translateY(80em) 移出视野
+          '<div class="cloud">',
+            // 6个白色圆形，通过不同位置和大小组合成云朵形状
+            // CSS 使用 nth-child(6n+x) 选择器为每个云朵设置不同位置
+            '<div class="cloud-son"></div>',  // 云朵1：right:-20em, bottom:10em, 50x50em
+            '<div class="cloud-son"></div>',  // 云朵2：right:-10em, bottom:-25em, 60x60em
+            '<div class="cloud-son"></div>',  // 云朵3：right:20em, bottom:-40em, 60x60em
+            '<div class="cloud-son"></div>',  // 云朵4：right:50em, bottom:-35em, 60x60em
+            '<div class="cloud-son"></div>',  // 云朵5：right:75em, bottom:-60em, 75x75em
+            '<div class="cloud-son"></div>',  // 云朵6：right:110em, bottom:-50em, 60x60em
+          '</div>',
+
+          // ========== 浅色云朵层 ==========
+          // opacity:0.5 的半透明云朵，增加层次感和立体感
+          '<div class="cloud-light">',
+            '<div class="cloud-son"></div>',
+            '<div class="cloud-son"></div>',
+            '<div class="cloud-son"></div>',
+            '<div class="cloud-son"></div>',
+            '<div class="cloud-son"></div>',
+            '<div class="cloud-son"></div>',
+          '</div>',
+
+          // ========== 星星容器 ==========
+          // 白天通过 translateY(-125em) 隐藏在上方
+          // 夜晚通过 translateY(-62.5em) 移入视野
+          '<div class="stars">',
+
+            // 大星星 x 2（--size: 7.5em）
+            // 每颗星星由4个 .star-son 组成四角星形状
+            '<div class="star big">',  // 星星1：top:11em, left:39em, 动画周期3.5s
+              '<div class="star-son"></div>',  // 左上角
+              '<div class="star-son"></div>',  // 右上角
+              '<div class="star-son"></div>',  // 左下角
+              '<div class="star-son"></div>',  // 右下角
+            '</div>',
+            '<div class="star big">',  // 星星2：top:39em, left:91em, 动画周期4.1s
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+            '</div>',
+
+            // 中星星 x 2（--size: 5em）
+            '<div class="star medium">',  // 星星3：top:26em, left:19em, 动画周期4.9s
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+            '</div>',
+            '<div class="star medium">',  // 星星4：top:37em, left:66em, 动画周期5.3s
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+            '</div>',
+
+            // 小星星 x 2（--size: 3em）
+            '<div class="star small">',  // 星星5：top:21em, left:75em, 动画周期3s
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+            '</div>',
+            '<div class="star small">',  // 星星6：top:51em, left:38em, 动画周期2.2s
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+              '<div class="star-son"></div>',
+            '</div>',
+
+          '</div>',  // .stars 结束
+
+        '</div>'  // .components 结束
+      ].join('');
       const style = document.createElement("style");
       /**
        * 日夜切换按钮组件的完整 CSS 样式
