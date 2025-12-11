@@ -2563,6 +2563,10 @@ class HTMLRenderer:
   --swot-weakness: #c0392b;
   --swot-opportunity: #1f5ab3;
   --swot-threat: #b36b16;
+  --swot-on-light: #0f1b2b;
+  --swot-on-dark: #f7fbff;
+  --swot-muted: rgba(0,0,0,0.65);
+  --swot-surface: rgba(255,255,255,0.86);
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -3008,8 +3012,9 @@ table th {{
   padding: 18px 18px 14px;
   border-radius: 16px;
   border: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.06)), var(--card-bg);
+  background: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.08)), var(--card-bg);
   box-shadow: 0 12px 30px var(--shadow-color);
+  color: var(--swot-on-light);
 }}
 .swot-card__head {{
   display: flex;
@@ -3038,7 +3043,8 @@ table th {{
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
-  color: #fff;
+  color: var(--swot-on-light);
+  border: 1px solid rgba(255,255,255,0.18);
   box-shadow: 0 4px 10px rgba(0,0,0,0.12);
 }}
 .swot-legend__item.strength {{ background: var(--swot-strength); }}
@@ -3076,7 +3082,8 @@ table th {{
   height: 36px;
   border-radius: 12px;
   font-weight: 800;
-  color: #fff;
+  color: var(--swot-on-light);
+  border: 1px solid rgba(255,255,255,0.2);
   box-shadow: 0 6px 16px rgba(0,0,0,0.14);
 }}
 .swot-pill.strength {{ background: var(--swot-strength); }}
@@ -3103,8 +3110,8 @@ table th {{
 .swot-item {{
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(0,0,0,0.02);
-  border: 1px dashed rgba(0,0,0,0.05);
+  background: var(--swot-surface);
+  border: 1px dashed rgba(0,0,0,0.06);
 }}
 .swot-item-title {{
   display: flex;
@@ -3123,7 +3130,7 @@ table th {{
   padding: 4px 8px;
   border-radius: 10px;
   background: rgba(0,0,0,0.06);
-  color: var(--text-color);
+  color: var(--swot-on-light);
   line-height: 1.2;
 }}
 .swot-tag.neutral {{
@@ -3132,7 +3139,7 @@ table th {{
 .swot-item-desc {{
   margin-top: 4px;
   color: var(--text-color);
-  opacity: 0.92;
+  opacity: 0.94;
 }}
 .swot-item-evidence {{
   margin-top: 4px;
@@ -3144,7 +3151,7 @@ table th {{
   border-radius: 12px;
   border: 1px dashed var(--border-color);
   text-align: center;
-  color: var(--text-color);
+  color: var(--swot-muted);
   opacity: 0.7;
 }}
 .callout {{
@@ -3369,11 +3376,11 @@ pre.code-block {{
   .engine-quote,
   .chart-card,
   .kpi-grid,
-  .swot-card,
-  .table-wrap,
-  figure,
-  blockquote {{
-    break-inside: avoid;
+.swot-card,
+.table-wrap,
+figure,
+blockquote {{
+  break-inside: avoid;
     page-break-inside: avoid;
     max-width: 100%;
   }}
@@ -3400,6 +3407,9 @@ pre.code-block {{
     break-inside: avoid;
     page-break-inside: avoid;
   }}
+  .swot-card {{
+    color: var(--swot-on-dark);
+  }}
 .table-wrap {{
   overflow-x: auto;
   max-width: 100%;
@@ -3424,6 +3434,27 @@ img, canvas, svg {{
   box-sizing: border-box;
   max-width: 100%;
 }}
+}}
+
+/* 颜色模式自适应：在暗色环境下提升SWOT文本对比度 */
+@media (prefers-color-scheme: dark) {{
+  .swot-card,
+  .swot-legend__item,
+  .swot-pill,
+  .swot-item,
+  .swot-tag {{
+    color: var(--swot-on-dark);
+  }}
+  .swot-item {{
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.16);
+  }}
+  .swot-tag {{
+    background: rgba(255,255,255,0.08);
+  }}
+  .swot-item-evidence {{
+    color: color-mix(in srgb, var(--secondary-color) 75%, #ffffff 25%);
+  }}
 }}
 """
 
