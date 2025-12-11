@@ -1000,6 +1000,133 @@ body {{
     background: white !important;
 }}
 
+/* ========== 修复 WeasyPrint CSS 变量渐变兼容性问题 ========== */
+/* WeasyPrint 不支持在 linear-gradient 中使用 var()，需要用静态值覆盖 */
+
+/* 覆盖按钮渐变 */
+.action-btn {{
+    background: linear-gradient(135deg, #4a90e2 0%, #17a2b8 100%) !important;
+}}
+
+/* 覆盖进度条渐变 */
+.export-progress::after {{
+    background: linear-gradient(90deg, #4a90e2, #17a2b8) !important;
+}}
+
+/* 覆盖 PEST 卡片标题渐变 */
+.pest-card__title {{
+    background: linear-gradient(135deg, #8e44ad, #2980b9) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}}
+
+/* 覆盖 PEST 条带指示器渐变 */
+.pest-strip__indicator.political {{
+    background: linear-gradient(180deg, #8e44ad, rgba(142,68,173,0.8)) !important;
+}}
+.pest-strip__indicator.economic {{
+    background: linear-gradient(180deg, #16a085, rgba(22,160,133,0.8)) !important;
+}}
+.pest-strip__indicator.social {{
+    background: linear-gradient(180deg, #e84393, rgba(232,67,147,0.8)) !important;
+}}
+.pest-strip__indicator.technological {{
+    background: linear-gradient(180deg, #2980b9, rgba(41,128,185,0.8)) !important;
+}}
+
+/* 覆盖 PEST 条带背景（原来使用 var(--pest-strip-*-bg)，包含渐变和变量） */
+.pest-strip {{
+    background: #ffffff !important;
+}}
+.pest-strip.political {{
+    background: linear-gradient(90deg, rgba(142,68,173,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(142,68,173,0.4) !important;
+}}
+.pest-strip.economic {{
+    background: linear-gradient(90deg, rgba(22,160,133,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(22,160,133,0.4) !important;
+}}
+.pest-strip.social {{
+    background: linear-gradient(90deg, rgba(232,67,147,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(232,67,147,0.4) !important;
+}}
+.pest-strip.technological {{
+    background: linear-gradient(90deg, rgba(41,128,185,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(41,128,185,0.4) !important;
+}}
+
+/* 覆盖 SWOT 卡片背景（原来使用 var(--swot-card-bg)，包含渐变和变量） */
+.swot-card {{
+    background: linear-gradient(135deg, rgba(76,132,255,0.04), rgba(28,127,110,0.06)), #ffffff !important;
+}}
+
+/* 覆盖 SWOT 单元格背景（原来使用 var(--swot-cell-*-bg)，包含渐变和变量） */
+.swot-cell {{
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5)) !important;
+}}
+.swot-cell.strength {{
+    background: linear-gradient(135deg, rgba(28,127,110,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(28,127,110,0.35) !important;
+}}
+.swot-cell.weakness {{
+    background: linear-gradient(135deg, rgba(192,57,43,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(192,57,43,0.35) !important;
+}}
+.swot-cell.opportunity {{
+    background: linear-gradient(135deg, rgba(31,90,179,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(31,90,179,0.35) !important;
+}}
+.swot-cell.threat {{
+    background: linear-gradient(135deg, rgba(179,107,22,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(179,107,22,0.35) !important;
+}}
+
+/* 覆盖 SWOT 图例项和药丸（使用静态颜色） */
+.swot-legend__item.strength, .swot-pill.strength {{
+    background: #1c7f6e !important;
+}}
+.swot-legend__item.weakness, .swot-pill.weakness {{
+    background: #c0392b !important;
+}}
+.swot-legend__item.opportunity, .swot-pill.opportunity {{
+    background: #1f5ab3 !important;
+}}
+.swot-legend__item.threat, .swot-pill.threat {{
+    background: #b36b16 !important;
+}}
+
+/* 覆盖其他使用 var() 的元素 */
+.swot-item {{
+    background: rgba(255,255,255,0.92) !important;
+}}
+.swot-tag {{
+    background: rgba(0,0,0,0.04) !important;
+}}
+.swot-empty {{
+    border-color: #e0e0e0 !important;
+}}
+
+/* 覆盖 PEST 卡片背景 */
+.pest-card {{
+    background: linear-gradient(145deg, rgba(142,68,173,0.03), rgba(22,160,133,0.04)), #ffffff !important;
+}}
+
+/* 覆盖图表卡片错误状态渐变 */
+.chart-card.chart-card--error {{
+    background: linear-gradient(135deg, rgba(0,0,0,0.015), rgba(0,0,0,0.04)) !important;
+}}
+
+/* 覆盖词云徽章渐变 */
+.wordcloud-badge {{
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.14) 0%, rgba(74, 144, 226, 0.24) 100%) !important;
+}}
+
+/* 覆盖英雄区域渐变 */
+.hero-section {{
+    background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.1)) !important;
+}}
+
 /* SVG图表容器样式 */
 .chart-svg-container {{
     width: 100%;

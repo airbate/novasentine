@@ -4501,418 +4501,91 @@ document.documentElement.classList.add('js-ready');
 /* ========== Theme Button Web Component ========== */
 (() => {
   const themeButtonFunc = (root, initTheme, changeTheme) => {
-    const $ = (s) => {
-      let dom = root.querySelectorAll(s);
-      return dom.length == 1 ? dom[0] : dom;
-    };
-    let mainButton = $(".main-button");
-    let daytimeBackground = $(".daytime-background");
-    let cloud = $(".cloud");
-    let cloudList = $(".cloud-son");
-    let cloudLight = $(".cloud-light");
-    let components = $(".components");
-    let moon = $(".moon");
-    let stars = $(".stars");
-    let star = $(".star");
-    let isMoved = false;
-    let isClicked = false;
-
-    components.onclick = () => {
-      if (isMoved) {
-        mainButton.style.transform = "translateX(0)";
-        mainButton.style.backgroundColor = "rgba(255, 195, 35,1)";
-        mainButton.style.boxShadow = "3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 230, 80,1)";
-        daytimeBackground[0].style.transform = "translateX(0)";
-        daytimeBackground[1].style.transform = "translateX(0)";
-        daytimeBackground[2].style.transform = "translateX(0)";
-        cloud.style.transform = "translateY(10em)";
-        cloudLight.style.transform = "translateY(10em)";
-        components.style.backgroundColor = "rgba(70, 133, 192,1)";
-        moon[0].style.opacity = "0";
-        moon[1].style.opacity = "0";
-        moon[2].style.opacity = "0";
-        stars.style.transform = "translateY(-125em)";
-        stars.style.opacity = "0";
-        changeTheme("light");
-      } else {
-        mainButton.style.transform = "translateX(110em)";
-        mainButton.style.backgroundColor = "rgba(195, 200,210,1)";
-        mainButton.style.boxShadow = "3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 255, 210,1)";
-        daytimeBackground[0].style.transform = "translateX(110em)";
-        daytimeBackground[1].style.transform = "translateX(80em)";
-        daytimeBackground[2].style.transform = "translateX(50em)";
-        cloud.style.transform = "translateY(80em)";
-        cloudLight.style.transform = "translateY(80em)";
-        components.style.backgroundColor = "rgba(25,30,50,1)";
-        moon[0].style.opacity = "1";
-        moon[1].style.opacity = "1";
-        moon[2].style.opacity = "1";
-        stars.style.transform = "translateY(-62.5em)";
-        stars.style.opacity = "1";
-        changeTheme("dark");
-      }
-      isClicked = true;
-      setTimeout(function () { isClicked = false; }, 500);
-      isMoved = !isMoved;
-    };
-
-    mainButton.addEventListener("mousemove", function () {
-      if (isClicked) return;
-      if (isMoved) {
-        mainButton.style.transform = "translateX(100em)";
-        daytimeBackground[0].style.transform = "translateX(100em)";
-        daytimeBackground[1].style.transform = "translateX(73em)";
-        daytimeBackground[2].style.transform = "translateX(46em)";
-        star[0].style.top = "10em"; star[0].style.left = "36em";
-        star[1].style.top = "40em"; star[1].style.left = "87em";
-        star[2].style.top = "26em"; star[2].style.left = "16em";
-        star[3].style.top = "38em"; star[3].style.left = "63em";
-        star[4].style.top = "20.5em"; star[4].style.left = "72em";
-        star[5].style.top = "51.5em"; star[5].style.left = "35em";
-      } else {
-        mainButton.style.transform = "translateX(10em)";
-        daytimeBackground[0].style.transform = "translateX(10em)";
-        daytimeBackground[1].style.transform = "translateX(7em)";
-        daytimeBackground[2].style.transform = "translateX(4em)";
-        cloudList[0].style.right = "-24em"; cloudList[0].style.bottom = "10em";
-        cloudList[1].style.right = "-12em"; cloudList[1].style.bottom = "-27em";
-        cloudList[2].style.right = "17em"; cloudList[2].style.bottom = "-43em";
-        cloudList[3].style.right = "46em"; cloudList[3].style.bottom = "-39em";
-        cloudList[4].style.right = "70em"; cloudList[4].style.bottom = "-65em";
-        cloudList[5].style.right = "109em"; cloudList[5].style.bottom = "-54em";
-        cloudList[6].style.right = "-23em"; cloudList[6].style.bottom = "10em";
-        cloudList[7].style.right = "-11em"; cloudList[7].style.bottom = "-26em";
-        cloudList[8].style.right = "18em"; cloudList[8].style.bottom = "-42em";
-        cloudList[9].style.right = "47em"; cloudList[9].style.bottom = "-38em";
-        cloudList[10].style.right = "74em"; cloudList[10].style.bottom = "-64em";
-        cloudList[11].style.right = "110em"; cloudList[11].style.bottom = "-55em";
-      }
-    });
-
-    mainButton.addEventListener("mouseout", function () {
-      if (isClicked) return;
-      if (isMoved) {
-        mainButton.style.transform = "translateX(110em)";
-        daytimeBackground[0].style.transform = "translateX(110em)";
-        daytimeBackground[1].style.transform = "translateX(80em)";
-        daytimeBackground[2].style.transform = "translateX(50em)";
-        star[0].style.top = "11em"; star[0].style.left = "39em";
-        star[1].style.top = "39em"; star[1].style.left = "91em";
-        star[2].style.top = "26em"; star[2].style.left = "19em";
-        star[3].style.top = "37em"; star[3].style.left = "66em";
-        star[4].style.top = "21em"; star[4].style.left = "75em";
-        star[5].style.top = "51em"; star[5].style.left = "38em";
-      } else {
-        mainButton.style.transform = "translateX(0em)";
-        daytimeBackground[0].style.transform = "translateX(0em)";
-        daytimeBackground[1].style.transform = "translateX(0em)";
-        daytimeBackground[2].style.transform = "translateX(0em)";
-        cloudList[0].style.right = "-20em"; cloudList[0].style.bottom = "10em";
-        cloudList[1].style.right = "-10em"; cloudList[1].style.bottom = "-25em";
-        cloudList[2].style.right = "20em"; cloudList[2].style.bottom = "-40em";
-        cloudList[3].style.right = "50em"; cloudList[3].style.bottom = "-35em";
-        cloudList[4].style.right = "75em"; cloudList[4].style.bottom = "-60em";
-        cloudList[5].style.right = "110em"; cloudList[5].style.bottom = "-50em";
-        cloudList[6].style.right = "-20em"; cloudList[6].style.bottom = "10em";
-        cloudList[7].style.right = "-10em"; cloudList[7].style.bottom = "-25em";
-        cloudList[8].style.right = "20em"; cloudList[8].style.bottom = "-40em";
-        cloudList[9].style.right = "50em"; cloudList[9].style.bottom = "-35em";
-        cloudList[10].style.right = "75em"; cloudList[10].style.bottom = "-60em";
-        cloudList[11].style.right = "110em"; cloudList[11].style.bottom = "-50em";
-      }
-    });
-
-    const getRandomDirection = () => ["2em", "-2em"][Math.floor(Math.random() * 2)];
-    const moveElementRandomly = (element) => {
-      element.style.transform = `translate(${getRandomDirection()}, ${getRandomDirection()})`;
-    };
-    const cloudSons = root.querySelectorAll(".cloud-son");
-    setInterval(() => { cloudSons.forEach(moveElementRandomly); }, 1000);
-
-    if (initTheme === "dark") {
-      components.onclick();
+    const checkbox = root.querySelector('.theme-checkbox');
+    // 初始化状态
+    if (initTheme === 'dark') {
+      checkbox.checked = true;
     }
+    checkbox.addEventListener('change', (e) => {
+      const isDark = e.target.checked;
+      changeTheme(isDark ? 'dark' : 'light');
+    });
   };
 
   class ThemeButton extends HTMLElement {
     constructor() { super(); }
     connectedCallback() {
       const initTheme = this.getAttribute("value") || "light";
-      const size = +this.getAttribute("size") || 3;
+      const size = +this.getAttribute("size") || 1.5;
+      
       const shadow = this.attachShadow({ mode: "closed" });
       const container = document.createElement("div");
       container.setAttribute("class", "container");
-      // font-size 控制整个组件的缩放比例
-      // size 参数默认为 3，此时 font-size = 1px，组件实际尺寸为 180px x 70px
-      // size = 1.5 时，font-size = 0.5px，组件缩小到 90px x 35px
-      container.setAttribute("style", `font-size: ${(size / 3).toFixed(2)}px`);
+      container.style.fontSize = `${size * 10}px`;
 
-      /**
-       * 日夜切换按钮的 DOM 结构
-       * 
-       * 层级关系：
-       * .components (胶囊形主容器)
-       * ├── .main-button (可移动的太阳/月亮圆球)
-       * │   ├── .moon (环形山1 - 右上小)
-       * │   ├── .moon (环形山2 - 左侧大)
-       * │   └── .moon (环形山3 - 右下小)
-       * ├── .daytime-background (光晕层1 - 最亮)
-       * ├── .daytime-background (光晕层2 - 中等)
-       * ├── .daytime-background (光晕层3 - 最淡)
-       * ├── .cloud (主云朵容器)
-       * │   └── .cloud-son x 6 (6个白色圆形组成云朵)
-       * ├── .cloud-light (浅色云朵容器，增加层次感)
-       * │   └── .cloud-son x 6 (6个半透明圆形)
-       * └── .stars (星星容器)
-       *     ├── .star.big x 2 (2颗大星星)
-       *     │   └── .star-son x 4 (4个角组成四角星)
-       *     ├── .star.medium x 2 (2颗中星星)
-       *     │   └── .star-son x 4
-       *     └── .star.small x 2 (2颗小星星)
-       *         └── .star-son x 4
-       */
       container.innerHTML = [
-        // ========== 主容器开始 ==========
-        '<div class="components">',
-
-          // ========== 太阳/月亮按钮 ==========
-          // 白天显示为金黄色太阳，夜晚变为灰白色月亮
-          // 通过 JS 控制 translateX 实现左右移动
-          '<div class="main-button">',
-            // 三个月亮环形山（白天时 opacity:0 隐藏，夜晚时显示）
-            '<div class="moon"></div>',  // 环形山1：右上角，小尺寸
-            '<div class="moon"></div>',  // 环形山2：左侧，大尺寸
-            '<div class="moon"></div>',  // 环形山3：右下角，小尺寸
-          '</div>',
-
-          // ========== 太阳光晕效果 ==========
-          // 三层同心圆，透明度递减，模拟太阳的光晕扩散
-          // 随太阳一起移动（通过 JS 控制 translateX）
-          '<div class="daytime-background"></div>',  // 光晕层1：110em，20%不透明度
-          '<div class="daytime-background"></div>',  // 光晕层2：135em，10%不透明度
-          '<div class="daytime-background"></div>',  // 光晕层3：160em，5%不透明度
-
-          // ========== 主云朵层 ==========
-          // 白天可见，夜晚通过 translateY(80em) 移出视野
-          '<div class="cloud">',
-            // 6个白色圆形，通过不同位置和大小组合成云朵形状
-            // CSS 使用 nth-child(6n+x) 选择器为每个云朵设置不同位置
-            '<div class="cloud-son"></div>',  // 云朵1：right:-20em, bottom:10em, 50x50em
-            '<div class="cloud-son"></div>',  // 云朵2：right:-10em, bottom:-25em, 60x60em
-            '<div class="cloud-son"></div>',  // 云朵3：right:20em, bottom:-40em, 60x60em
-            '<div class="cloud-son"></div>',  // 云朵4：right:50em, bottom:-35em, 60x60em
-            '<div class="cloud-son"></div>',  // 云朵5：right:75em, bottom:-60em, 75x75em
-            '<div class="cloud-son"></div>',  // 云朵6：right:110em, bottom:-50em, 60x60em
-          '</div>',
-
-          // ========== 浅色云朵层 ==========
-          // opacity:0.5 的半透明云朵，增加层次感和立体感
-          '<div class="cloud-light">',
-            '<div class="cloud-son"></div>',
-            '<div class="cloud-son"></div>',
-            '<div class="cloud-son"></div>',
-            '<div class="cloud-son"></div>',
-            '<div class="cloud-son"></div>',
-            '<div class="cloud-son"></div>',
-          '</div>',
-
-          // ========== 星星容器 ==========
-          // 白天通过 translateY(-125em) 隐藏在上方
-          // 夜晚通过 translateY(-62.5em) 移入视野
-          '<div class="stars">',
-
-            // 大星星 x 2（--size: 7.5em）
-            // 每颗星星由4个 .star-son 组成四角星形状
-            '<div class="star big">',  // 星星1：top:11em, left:39em, 动画周期3.5s
-              '<div class="star-son"></div>',  // 左上角
-              '<div class="star-son"></div>',  // 右上角
-              '<div class="star-son"></div>',  // 左下角
-              '<div class="star-son"></div>',  // 右下角
-            '</div>',
-            '<div class="star big">',  // 星星2：top:39em, left:91em, 动画周期4.1s
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-            '</div>',
-
-            // 中星星 x 2（--size: 5em）
-            '<div class="star medium">',  // 星星3：top:26em, left:19em, 动画周期4.9s
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-            '</div>',
-            '<div class="star medium">',  // 星星4：top:37em, left:66em, 动画周期5.3s
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-            '</div>',
-
-            // 小星星 x 2（--size: 3em）
-            '<div class="star small">',  // 星星5：top:21em, left:75em, 动画周期3s
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-            '</div>',
-            '<div class="star small">',  // 星星6：top:51em, left:38em, 动画周期2.2s
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-              '<div class="star-son"></div>',
-            '</div>',
-
-          '</div>',  // .stars 结束
-
-        '</div>'  // .components 结束
+        '<div class="toggle-wrapper">',
+        '  <input type="checkbox" class="theme-checkbox" id="theme-toggle-input">',
+        '  <label for="theme-toggle-input" class="toggle-label">',
+        '    <div class="toggle-background">',
+        '      <div class="stars">',
+        '        <span class="star"></span>',
+        '        <span class="star"></span>',
+        '        <span class="star"></span>',
+        '        <span class="star"></span>',
+        '      </div>',
+        '      <div class="clouds">',
+        '        <span class="cloud"></span>',
+        '        <span class="cloud"></span>',
+        '      </div>',
+        '    </div>',
+        '    <div class="toggle-circle">',
+        '      <div class="moon-crater"></div>',
+        '      <div class="moon-crater"></div>',
+        '      <div class="moon-crater"></div>',
+        '    </div>',
+        '  </label>',
+        '</div>'
       ].join('');
+
       const style = document.createElement("style");
-      /**
-       * 日夜切换按钮组件的完整 CSS 样式
-       * 
-       * 组件结构：
-       * - .container: 最外层容器，控制整体尺寸和定位
-       * - .components: 按钮主体（胶囊形状），包含所有内部元素
-       * - .main-button: 可移动的圆形按钮（太阳/月亮）
-       * - .moon: 月亮上的环形山（3个灰色圆形）
-       * - .daytime-background: 太阳光晕效果（3层渐变圆形）
-       * - .cloud / .cloud-light: 白天的云朵容器
-       * - .cloud-son: 单个云朵（白色圆形）
-       * - .stars: 夜晚的星星容器
-       * - .star: 单颗星星（由4个 .star-son 组成四角星形状）
-       */
       style.textContent = [
-        // ========== 全局重置 ==========
-        // 清除默认边距，设置统一过渡动画，禁用移动端点击高亮
-        "* { margin: 0; padding: 0; transition: 0.7s; -webkit-tap-highlight-color: rgba(0,0,0,0); }",
+        '* { box-sizing: border-box; margin: 0; padding: 0; }',
+        '.container { display: inline-block; position: relative; width: 5.4em; height: 2.6em; vertical-align: middle; }',
+        '.toggle-wrapper { width: 100%; height: 100%; }',
+        '.theme-checkbox { display: none; }',
+        '.toggle-label { display: block; width: 100%; height: 100%; border-radius: 2.6em; background-color: #87CEEB; cursor: pointer; position: relative; overflow: hidden; transition: background-color 0.5s ease; box-shadow: inset 0 0.1em 0.3em rgba(0,0,0,0.2); }',
+        '.theme-checkbox:checked + .toggle-label { background-color: #1F2937; }',
+        '.toggle-circle { position: absolute; top: 0.2em; left: 0.2em; width: 2.2em; height: 2.2em; border-radius: 50%; background-color: #FFD700; box-shadow: 0 0.1em 0.2em rgba(0,0,0,0.3); transition: transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.5s ease; z-index: 2; }',
+        '.theme-checkbox:checked + .toggle-label .toggle-circle { transform: translateX(2.8em); background-color: #F3F4F6; box-shadow: inset -0.2em -0.2em 0.2em rgba(0,0,0,0.1), 0 0.1em 0.2em rgba(255,255,255,0.2); }',
+        '.moon-crater { position: absolute; background-color: rgba(200, 200, 200, 0.6); border-radius: 50%; opacity: 0; transition: opacity 0.3s ease; }',
+        '.theme-checkbox:checked + .toggle-label .toggle-circle .moon-crater { opacity: 1; }',
+        '.moon-crater:nth-child(1) { width: 0.6em; height: 0.6em; top: 0.4em; left: 0.8em; }',
+        '.moon-crater:nth-child(2) { width: 0.4em; height: 0.4em; top: 1.2em; left: 0.4em; }',
+        '.moon-crater:nth-child(3) { width: 0.3em; height: 0.3em; top: 1.4em; left: 1.2em; }',
+        '.toggle-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }',
+        '.clouds { position: absolute; width: 100%; height: 100%; transition: transform 0.5s ease, opacity 0.5s ease; opacity: 1; }',
+        '.theme-checkbox:checked + .toggle-label .clouds { transform: translateY(100%); opacity: 0; }',
+        '.cloud { position: absolute; background-color: #fff; border-radius: 2em; opacity: 0.9; }',
+        '.cloud::before { content: ""; position: absolute; top: -40%; left: 15%; width: 50%; height: 100%; background-color: inherit; border-radius: 50%; }',
+        '.cloud::after { content: ""; position: absolute; top: -55%; left: 45%; width: 50%; height: 120%; background-color: inherit; border-radius: 50%; }',
+        '.cloud:nth-child(1) { width: 1.4em; height: 0.5em; top: 0.8em; right: 1.0em; }',
+        '.cloud:nth-child(2) { width: 1.0em; height: 0.4em; top: 1.6em; right: 2.0em; opacity: 0.7; }',
+        '.stars { position: absolute; width: 100%; height: 100%; transition: transform 0.5s ease, opacity 0.5s ease; transform: translateY(-100%); opacity: 0; }',
+        '.theme-checkbox:checked + .toggle-label .stars { transform: translateY(0); opacity: 1; }',
+        '.star { position: absolute; background-color: #FFF; border-radius: 50%; width: 0.15em; height: 0.15em; box-shadow: 0 0 0.2em #FFF; animation: twinkle 2s infinite ease-in-out; }',
+        '.star:nth-child(1) { top: 0.6em; left: 1.0em; animation-delay: 0s; }',
+        '.star:nth-child(2) { top: 1.6em; left: 1.8em; width: 0.1em; height: 0.1em; animation-delay: 0.5s; }',
+        '.star:nth-child(3) { top: 0.8em; left: 2.4em; width: 0.12em; height: 0.12em; animation-delay: 1s; }',
+        '.star:nth-child(4) { top: 1.8em; left: 0.8em; width: 0.08em; height: 0.08em; animation-delay: 1.5s; }',
+        '@keyframes twinkle { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }'
+      ].join(' ');
 
-        // ========== 最外层容器 ==========
-        // position: relative - 在文档流中正常显示，作为内部 absolute 元素的定位参考
-        // width/height: 180em x 70em - 按钮整体尺寸（em 单位可通过 font-size 缩放）
-        // display: inline-block - 行内块元素，便于在 header 中排列
-        // vertical-align: bottom - 底部对齐
-        // transform: translate3d(0,0,0) - 开启 GPU 加速，提升动画性能
-        ".container { position: relative; width: 180em; height: 70em; display: inline-block; vertical-align: bottom; transform: translate3d(0, 0, 0); }",
-
-        // ========== 按钮主体（胶囊形状） ==========
-        // position: absolute - 相对于 .container 绝对定位
-        // background-color: rgba(70,133,192,1) - 白天的蓝色天空背景
-        // border-radius: 100em - 超大圆角形成胶囊形状
-        // box-shadow: inset ... - 内阴影增加立体感
-        // overflow: hidden - 隐藏超出边界的元素（云朵、光晕等）
-        // transition-timing-function: cubic-bezier(0,0.5,1,1) - 自定义缓动曲线
-        // cursor: pointer - 鼠标悬停显示手型
-        ".components { position: absolute; top: 0; left: 0; width: 180em; height: 70em; background-color: rgba(70, 133, 192, 1); border-radius: 100em; box-shadow: inset 0 0 5em 3em rgba(0, 0, 0, 0.5); overflow: hidden; transition: 0.7s; transition-timing-function: cubic-bezier(0, 0.5, 1, 1); cursor: pointer; }",
-
-        // ========== 可移动的圆形按钮（太阳/月亮） ==========
-        // margin: 7.5em 0 0 7.5em - 初始位置在左侧（白天/太阳状态）
-        // width/height: 55em - 圆形按钮直径
-        // background-color: rgba(255,195,35,1) - 太阳的金黄色
-        // border-radius: 50% - 完美圆形
-        // box-shadow - 三层阴影：外阴影(立体感) + 内阴影(暗部) + 内高光(亮部)
-        // transition: 1.0s - 切换动画时长
-        // cubic-bezier(0.56,1.35,0.52,1.00) - 弹性缓动效果（超过终点后回弹）
-        ".main-button { margin: 7.5em 0 0 7.5em; width: 55em; height: 55em; background-color: rgba(255, 195, 35, 1); border-radius: 50%; box-shadow: 3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 230, 80, 1); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
-
-        // ========== 月亮环形山 ==========
-        // 三个灰色圆形模拟月球表面的环形山
-        // opacity: 0 - 白天时隐藏，切换到夜晚时显示
-        // box-shadow: inset ... - 内阴影增加凹陷效果
-        ".moon { position: absolute; background-color: rgba(150, 160, 180, 1); box-shadow: inset 0em 0em 1em 1em rgba(0, 0, 0, 0.3); border-radius: 50%; transition: 0.5s; opacity: 0; }",
-        // 三个环形山的不同位置和大小
-        ".moon:nth-child(1) { top: 7.5em; left: 25em; width: 12.5em; height: 12.5em; }",   // 右上角小环形山
-        ".moon:nth-child(2) { top: 20em; left: 7.5em; width: 20em; height: 20em; }",       // 左侧大环形山
-        ".moon:nth-child(3) { top: 32.5em; left: 32.5em; width: 12.5em; height: 12.5em; }", // 右下角小环形山
-
-        // ========== 太阳光晕效果 ==========
-        // 三层半透明白色圆形，模拟太阳的光晕扩散效果
-        // 随太阳移动，z-index 为负值确保在太阳后面
-        ".daytime-background { position: absolute; border-radius: 50%; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
-        // 第一层光晕：最亮，20%不透明度
-        ".daytime-background:nth-child(2) { top: -20em; left: -20em; width: 110em; height: 110em; background-color: rgba(255, 255, 255, 0.2); z-index: -2; }",
-        // 第二层光晕：中等亮度，10%不透明度
-        ".daytime-background:nth-child(3) { top: -32.5em; left: -17.5em; width: 135em; height: 135em; background-color: rgba(255, 255, 255, 0.1); z-index: -3; }",
-        // 第三层光晕：最淡，5%不透明度
-        ".daytime-background:nth-child(4) { top: -45em; left: -15em; width: 160em; height: 160em; background-color: rgba(255, 255, 255, 0.05); z-index: -4; }",
-
-        // ========== 云朵容器 ==========
-        // transform: translateY(10em) - 白天时云朵可见位置
-        // 切换到夜晚时 translateY(80em) 将云朵移出视野
-        ".cloud, .cloud-light { transform: translateY(10em); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
-
-        // ========== 单个云朵 ==========
-        // 白色圆形，通过不同位置组合形成云朵形状
-        // transition: transform 6s - 云朵随机飘动动画较慢（6秒）
-        // right/bottom 1s - 位置变化动画较快（1秒）
-        ".cloud-son { position: absolute; background-color: #fff; border-radius: 50%; z-index: -1; transition: transform 6s, right 1s, bottom 1s; }",
-        // 6个云朵的不同位置和大小（使用 6n+x 选择器循环应用）
-        ".cloud-son:nth-child(6n+1) { right: -20em; bottom: 10em; width: 50em; height: 50em; }",
-        ".cloud-son:nth-child(6n+2) { right: -10em; bottom: -25em; width: 60em; height: 60em; }",
-        ".cloud-son:nth-child(6n+3) { right: 20em; bottom: -40em; width: 60em; height: 60em; }",
-        ".cloud-son:nth-child(6n+4) { right: 50em; bottom: -35em; width: 60em; height: 60em; }",
-        ".cloud-son:nth-child(6n+5) { right: 75em; bottom: -60em; width: 75em; height: 75em; }",
-        ".cloud-son:nth-child(6n+6) { right: 110em; bottom: -50em; width: 60em; height: 60em; }",
-        // 主云朵层
-        ".cloud { z-index: -2; }",
-        // 浅色云朵层（半透明，增加层次感）
-        ".cloud-light { position: absolute; right: 0em; bottom: 25em; opacity: 0.5; z-index: -3; }",
-
-        // ========== 星星容器 ==========
-        // transform: translateY(-125em) - 白天时星星在视野外上方
-        // 切换到夜晚时 translateY(-62.5em) 将星星移入视野
-        ".stars { transform: translateY(-125em); z-index: -2; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
-
-        // ========== 星星尺寸变量 ==========
-        // 使用 CSS 变量定义三种星星大小
-        ".big { --size: 7.5em; }",     // 大星星
-        ".medium { --size: 5em; }",    // 中星星
-        ".small { --size: 3em; }",     // 小星星
-
-        // ========== 单颗星星 ==========
-        // 星星尺寸为 2 * --size（因为由4个角组成）
-        ".star { position: absolute; width: calc(2*var(--size)); height: calc(2*var(--size)); }",
-        // 6颗星星的不同位置和闪烁动画时长（错开闪烁节奏）
-        ".star:nth-child(1) { top: 11em; left: 39em; animation-name: star; animation-duration: 3.5s; }",
-        ".star:nth-child(2) { top: 39em; left: 91em; animation-name: star; animation-duration: 4.1s; }",
-        ".star:nth-child(3) { top: 26em; left: 19em; animation-name: star; animation-duration: 4.9s; }",
-        ".star:nth-child(4) { top: 37em; left: 66em; animation-name: star; animation-duration: 5.3s; }",
-        ".star:nth-child(5) { top: 21em; left: 75em; animation-name: star; animation-duration: 3s; }",
-        ".star:nth-child(6) { top: 51em; left: 38em; animation-name: star; animation-duration: 2.2s; }",
-
-        // ========== 星星闪烁动画 ==========
-        // 0-20%: 缩小到0（消失）
-        // 20-100%: 恢复原大小（显示）
-        // 配合 animation-direction: alternate 实现来回闪烁
-        "@keyframes star { 0%, 20% { transform: scale(0); } 20%, 100% { transform: scale(1); } }",
-
-        // ========== 星星角（组成四角星形状） ==========
-        // 每颗星星由4个 .star-son 组成，分别是四个角
-        ".star-son { float: left; }",
-        // 四个角的位置变量（用于 radial-gradient 定位）
-        ".star-son:nth-child(1) { --pos: left 0; }",       // 左上角
-        ".star-son:nth-child(2) { --pos: right 0; }",      // 右上角
-        ".star-son:nth-child(3) { --pos: 0 bottom; }",     // 左下角
-        ".star-son:nth-child(4) { --pos: right bottom; }", // 右下角
-        // 使用 radial-gradient 创建四分之一圆形，组合成四角星
-        // 原理：在角落位置创建透明圆形，圆形外是白色，形成尖角效果
-        ".star-son { width: var(--size); height: var(--size); background-image: radial-gradient(circle var(--size) at var(--pos), transparent var(--size), #fff); }",
-
-        // ========== 星星动画属性 ==========
-        // animation-iteration-count: infinite - 无限循环
-        // animation-direction: alternate - 正反交替播放
-        // animation-timing-function: linear - 线性匀速
-        ".star { transform: scale(1); transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); transition: 1s; animation-iteration-count: infinite; animation-direction: alternate; animation-timing-function: linear; }",
-
-        // ========== 星星闪烁状态 ==========
-        // 用于 JS 控制的闪烁状态类
-        ".twinkle { transform: scale(0); }"
-      ].join(" ");
-      const changeTheme = (detail) => {
+      const changeThemeWrapper = (detail) => {
         this.dispatchEvent(new CustomEvent("change", { detail }));
       };
-      themeButtonFunc(container, initTheme, changeTheme);
+      
+      themeButtonFunc(container, initTheme, changeThemeWrapper);
       shadow.appendChild(style);
       shadow.appendChild(container);
     }
