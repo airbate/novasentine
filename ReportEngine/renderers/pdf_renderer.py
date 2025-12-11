@@ -1049,35 +1049,78 @@ body {{
     min-height: 400px;
 }}
 
-/* SWOT：PDF导出隐藏四象限标注，并使用自适应布局避免重叠 */
+/* ========== SWOT PDF分页优化 ========== */
+/* 核心策略：S/W/O/T四个象限各自内部禁止分页，但允许象限之间分页 */
+
+/* 隐藏四象限标注图例 */
 .swot-legend {{
     display: none !important;
 }}
+
+/* SWOT卡片容器：允许内部分页 */
 .swot-card {{
-    /* 允许卡片内容在必要时分页，避免整体被抬到下一页 */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    margin: 20px 0;
+}}
+
+/* 卡片头部（标题+摘要）：避免紧跟其后分页，尽量与第一个象限保持在一起 */
+.swot-card__head {{
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}}
+
+/* 网格容器：PDF模式下使用纵向flex布局，允许子元素间分页 */
+.swot-grid {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
     break-inside: auto !important;
     page-break-inside: auto !important;
 }}
-.swot-card__head {{
-    break-after: avoid;
-    page-break-after: avoid;
+
+/* 每个SWOT象限单元格：禁止内部分页，允许前后分页 */
+.swot-cell {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-before: auto;
+    page-break-before: auto;
+    break-after: auto;
+    page-break-after: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    min-height: auto !important;
+    height: auto !important;
+    box-sizing: border-box;
 }}
-.swot-grid {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: stretch;
-    break-before: avoid;
-    page-break-before: avoid;
-    break-inside: auto;
-    page-break-inside: auto;
+
+/* 第一个象限：避免在标题后立即分页 */
+.swot-cell--first {{
+    break-before: avoid !important;
+    page-break-before: avoid !important;
 }}
-.swot-grid .swot-cell {{
-    flex: 1 1 320px;
-    min-width: 240px;
-    height: auto;
-    page-break-inside: avoid;
-    break-inside: avoid;
+
+/* 象限内的meta区域（图标+标题）：避免被分页切开 */
+.swot-cell__meta {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+}}
+
+/* 条目列表：允许列表整体分页 */
+.swot-list {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}}
+
+/* 单个条目：避免被分页切开 */
+.swot-item {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
 }}
 
 {optimized_css}

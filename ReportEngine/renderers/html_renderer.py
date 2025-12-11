@@ -1178,6 +1178,11 @@ class HTMLRenderer:
     def _render_swot_table(self, block: Dict[str, Any]) -> str:
         """
         渲染四象限的SWOT专用表格，兼顾HTML与PDF的可读性。
+        
+        PDF分页策略：
+        - 每个S/W/O/T象限内部禁止分页（break-inside: avoid）
+        - 允许在象限之间分页
+        - 卡片标题与第一个象限尽量保持在一起
         """
         title = block.get("title") or "SWOT 分析"
         summary = block.get("summary")
@@ -1188,12 +1193,14 @@ class HTMLRenderer:
             ("threats", "威胁 Threats", "T", "threat"),
         ]
         cells_html = ""
-        for key, label, code, css in quadrants:
+        for idx, (key, label, code, css) in enumerate(quadrants):
             items = self._normalize_swot_items(block.get(key))
             caption_text = f"{len(items)} 条要点" if items else "待补充"
             list_html = "".join(self._render_swot_item(item) for item in items) if items else '<li class="swot-empty">尚未填入要点</li>'
+            # 第一个象限添加特殊类以便与标题保持在一起
+            first_cell_class = " swot-cell--first" if idx == 0 else ""
             cells_html += f"""
-        <div class="swot-cell {css}">
+        <div class="swot-cell swot-cell--pageable {css}{first_cell_class}" data-swot-key="{key}">
           <div class="swot-cell__meta">
             <span class="swot-pill {css}">{self._escape_html(code)}</span>
             <div>
@@ -3208,20 +3215,61 @@ table th {{
   color: var(--swot-muted);
   opacity: 0.7;
 }}
-/* PDF/导出时的SWOT专用布局，避免圆角框重叠 */
+/* PDF/导出时的SWOT专用布局，支持分页且避免圆角框重叠 */
 body.exporting .swot-legend {{
   display: none !important;
 }}
 body.exporting .swot-grid {{
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: stretch;
+  flex-direction: column;
+  gap: 16px;
 }}
 body.exporting .swot-cell {{
-  flex: 1 1 320px;
-  min-width: 240px;
+  width: 100%;
   height: auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}}
+body.exporting .swot-cell--first {{
+  page-break-before: avoid;
+  break-before: avoid;
+}}
+/* 打印模式下的SWOT分页控制 */
+@media print {{
+  .swot-card {{
+    break-inside: auto;
+    page-break-inside: auto;
+  }}
+  .swot-card__head {{
+    break-after: avoid;
+    page-break-after: avoid;
+  }}
+  .swot-grid {{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }}
+  .swot-cell {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+    width: 100%;
+  }}
+  .swot-cell--first {{
+    break-before: avoid;
+    page-break-before: avoid;
+  }}
+  .swot-cell__meta {{
+    break-after: avoid;
+    page-break-after: avoid;
+  }}
+  .swot-list {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+  .swot-item {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
 }}
 .callout {{
   border-left: 4px solid var(--primary-color);
