@@ -1177,15 +1177,34 @@ class HTMLRenderer:
 
     def _render_swot_table(self, block: Dict[str, Any]) -> str:
         """
-        渲染四象限的SWOT专用表格，兼顾HTML与PDF的可读性。
+        渲染四象限的SWOT分析，同时生成两种布局：
+        1. 卡片布局（用于HTML网页显示）- 圆角矩形四象限
+        2. 表格布局（用于PDF导出）- 结构化表格，支持分页
         
         PDF分页策略：
-        - 每个S/W/O/T象限内部禁止分页（break-inside: avoid）
-        - 允许在象限之间分页
-        - 卡片标题与第一个象限尽量保持在一起
+        - 使用表格形式，每个S/W/O/T象限为独立表格区块
+        - 允许在不同象限之间分页
+        - 每个象限内的条目尽量保持在一起
         """
         title = block.get("title") or "SWOT 分析"
         summary = block.get("summary")
+        
+        # ========== 卡片布局（HTML用）==========
+        card_html = self._render_swot_card_layout(block, title, summary)
+        
+        # ========== 表格布局（PDF用）==========
+        table_html = self._render_swot_pdf_table_layout(block, title, summary)
+        
+        # 返回包含两种布局的容器
+        return f"""
+        <div class="swot-container">
+          {card_html}
+          {table_html}
+        </div>
+        """
+    
+    def _render_swot_card_layout(self, block: Dict[str, Any], title: str, summary: str | None) -> str:
+        """渲染SWOT卡片布局（用于HTML网页显示）"""
         quadrants = [
             ("strengths", "优势 Strengths", "S", "strength"),
             ("weaknesses", "劣势 Weaknesses", "W", "weakness"),
@@ -1197,7 +1216,6 @@ class HTMLRenderer:
             items = self._normalize_swot_items(block.get(key))
             caption_text = f"{len(items)} 条要点" if items else "待补充"
             list_html = "".join(self._render_swot_item(item) for item in items) if items else '<li class="swot-empty">尚未填入要点</li>'
-            # 第一个象限添加特殊类以便与标题保持在一起
             first_cell_class = " swot-cell--first" if idx == 0 else ""
             cells_html += f"""
         <div class="swot-cell swot-cell--pageable {css}{first_cell_class}" data-swot-key="{key}">
@@ -1221,12 +1239,127 @@ class HTMLRenderer:
             </div>
         """
         return f"""
-        <div class="swot-card">
+        <div class="swot-card swot-card--html">
           <div class="swot-card__head">
             <div>{title_html}{summary_html}</div>
             {legend}
           </div>
           <div class="swot-grid">{cells_html}</div>
+        </div>
+        """
+    
+    def _render_swot_pdf_table_layout(self, block: Dict[str, Any], title: str, summary: str | None) -> str:
+        """
+        渲染SWOT表格布局（用于PDF导出）
+        
+        设计说明：
+        - 整体为一个大表格，包含标题行和4个象限区域
+        - 每个象限区域有自己的子标题行和内容行
+        - 使用合并单元格来显示象限标题
+        - 通过CSS控制分页行为
+        """
+        quadrants = [
+            ("strengths", "S", "优势 Strengths", "swot-pdf-strength", "#1c7f6e"),
+            ("weaknesses", "W", "劣势 Weaknesses", "swot-pdf-weakness", "#c0392b"),
+            ("opportunities", "O", "机会 Opportunities", "swot-pdf-opportunity", "#1f5ab3"),
+            ("threats", "T", "威胁 Threats", "swot-pdf-threat", "#b36b16"),
+        ]
+        
+        # 标题和摘要
+        summary_row = ""
+        if summary:
+            summary_row = f"""
+            <tr class="swot-pdf-summary-row">
+              <td colspan="4" class="swot-pdf-summary">{self._escape_html(summary)}</td>
+            </tr>"""
+        
+        # 生成四个象限的表格内容
+        quadrant_tables = ""
+        for idx, (key, code, label, css_class, color) in enumerate(quadrants):
+            items = self._normalize_swot_items(block.get(key))
+            
+            # 生成每个象限的内容行
+            items_rows = ""
+            if items:
+                for item_idx, item in enumerate(items):
+                    item_title = item.get("title") or item.get("label") or item.get("text") or "未命名要点"
+                    item_detail = item.get("detail") or item.get("description") or ""
+                    item_evidence = item.get("evidence") or item.get("source") or ""
+                    item_impact = item.get("impact") or item.get("priority") or ""
+                    item_score = item.get("score")
+                    
+                    # 构建详情内容
+                    detail_parts = []
+                    if item_detail:
+                        detail_parts.append(item_detail)
+                    if item_evidence:
+                        detail_parts.append(f"佐证：{item_evidence}")
+                    detail_text = "<br/>".join(detail_parts) if detail_parts else "-"
+                    
+                    # 构建标签
+                    tags = []
+                    if item_impact:
+                        tags.append(f'<span class="swot-pdf-tag">{self._escape_html(item_impact)}</span>')
+                    if item_score not in (None, ""):
+                        tags.append(f'<span class="swot-pdf-tag swot-pdf-tag--score">评分 {self._escape_html(item_score)}</span>')
+                    tags_html = " ".join(tags)
+                    
+                    # 第一行需要合并象限标题单元格
+                    if item_idx == 0:
+                        rowspan = len(items)
+                        items_rows += f"""
+            <tr class="swot-pdf-item-row {css_class}">
+              <td rowspan="{rowspan}" class="swot-pdf-quadrant-label {css_class}">
+                <span class="swot-pdf-code">{code}</span>
+                <span class="swot-pdf-label-text">{self._escape_html(label.split()[0])}</span>
+              </td>
+              <td class="swot-pdf-item-num">{item_idx + 1}</td>
+              <td class="swot-pdf-item-title">{self._escape_html(item_title)}</td>
+              <td class="swot-pdf-item-detail">{detail_text}</td>
+              <td class="swot-pdf-item-tags">{tags_html}</td>
+            </tr>"""
+                    else:
+                        items_rows += f"""
+            <tr class="swot-pdf-item-row {css_class}">
+              <td class="swot-pdf-item-num">{item_idx + 1}</td>
+              <td class="swot-pdf-item-title">{self._escape_html(item_title)}</td>
+              <td class="swot-pdf-item-detail">{detail_text}</td>
+              <td class="swot-pdf-item-tags">{tags_html}</td>
+            </tr>"""
+            else:
+                # 没有内容时显示占位
+                items_rows = f"""
+            <tr class="swot-pdf-item-row {css_class}">
+              <td class="swot-pdf-quadrant-label {css_class}">
+                <span class="swot-pdf-code">{code}</span>
+                <span class="swot-pdf-label-text">{self._escape_html(label.split()[0])}</span>
+              </td>
+              <td class="swot-pdf-item-num">-</td>
+              <td colspan="3" class="swot-pdf-empty">暂无要点</td>
+            </tr>"""
+            
+            # 每个象限作为一个独立的tbody，便于分页控制
+            quadrant_tables += f"""
+          <tbody class="swot-pdf-quadrant {css_class}">
+            {items_rows}
+          </tbody>"""
+        
+        return f"""
+        <div class="swot-pdf-wrapper">
+          <table class="swot-pdf-table">
+            <caption class="swot-pdf-caption">{self._escape_html(title)}</caption>
+            <thead class="swot-pdf-thead">
+              <tr>
+                <th class="swot-pdf-th-quadrant">象限</th>
+                <th class="swot-pdf-th-num">序号</th>
+                <th class="swot-pdf-th-title">要点</th>
+                <th class="swot-pdf-th-detail">详细说明</th>
+                <th class="swot-pdf-th-tags">影响/评分</th>
+              </tr>
+              {summary_row}
+            </thead>
+            {quadrant_tables}
+          </table>
         </div>
         """
 
@@ -3215,26 +3348,121 @@ table th {{
   color: var(--swot-muted);
   opacity: 0.7;
 }}
-/* PDF/导出时的SWOT专用布局，支持分页且避免圆角框重叠 */
-body.exporting .swot-legend {{
-  display: none !important;
+
+/* ========== SWOT PDF表格布局样式（默认隐藏）========== */
+.swot-pdf-wrapper {{
+  display: none;
 }}
-body.exporting .swot-grid {{
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}}
-body.exporting .swot-cell {{
+
+/* SWOT PDF表格样式定义（用于PDF渲染时显示） */
+.swot-pdf-table {{
   width: 100%;
-  height: auto;
-  page-break-inside: avoid;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 13px;
+  table-layout: fixed;
+}}
+.swot-pdf-caption {{
+  caption-side: top;
+  text-align: left;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 12px 0;
+  color: var(--text-color);
+}}
+.swot-pdf-thead th {{
+  background: #f8f9fa;
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid #dee2e6;
+  color: #495057;
+}}
+.swot-pdf-th-quadrant {{ width: 80px; }}
+.swot-pdf-th-num {{ width: 50px; text-align: center; }}
+.swot-pdf-th-title {{ width: 22%; }}
+.swot-pdf-th-detail {{ width: auto; }}
+.swot-pdf-th-tags {{ width: 100px; text-align: center; }}
+.swot-pdf-summary {{
+  padding: 12px;
+  background: #f8f9fa;
+  color: #666;
+  font-style: italic;
+  border: 1px solid #dee2e6;
+}}
+.swot-pdf-quadrant {{
   break-inside: avoid;
+  page-break-inside: avoid;
 }}
-body.exporting .swot-cell--first {{
-  page-break-before: avoid;
-  break-before: avoid;
+.swot-pdf-quadrant-label {{
+  text-align: center;
+  vertical-align: middle;
+  padding: 12px 8px;
+  font-weight: 700;
+  border: 1px solid #dee2e6;
+  writing-mode: horizontal-tb;
 }}
-/* 打印模式下的SWOT分页控制 */
+.swot-pdf-quadrant-label.swot-pdf-strength {{ background: rgba(28,127,110,0.15); color: #1c7f6e; border-left: 4px solid #1c7f6e; }}
+.swot-pdf-quadrant-label.swot-pdf-weakness {{ background: rgba(192,57,43,0.12); color: #c0392b; border-left: 4px solid #c0392b; }}
+.swot-pdf-quadrant-label.swot-pdf-opportunity {{ background: rgba(31,90,179,0.12); color: #1f5ab3; border-left: 4px solid #1f5ab3; }}
+.swot-pdf-quadrant-label.swot-pdf-threat {{ background: rgba(179,107,22,0.12); color: #b36b16; border-left: 4px solid #b36b16; }}
+.swot-pdf-code {{
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}}
+.swot-pdf-label-text {{
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}}
+.swot-pdf-item-row td {{
+  padding: 10px 8px;
+  border: 1px solid #dee2e6;
+  vertical-align: top;
+}}
+.swot-pdf-item-row.swot-pdf-strength td {{ background: rgba(28,127,110,0.03); }}
+.swot-pdf-item-row.swot-pdf-weakness td {{ background: rgba(192,57,43,0.03); }}
+.swot-pdf-item-row.swot-pdf-opportunity td {{ background: rgba(31,90,179,0.03); }}
+.swot-pdf-item-row.swot-pdf-threat td {{ background: rgba(179,107,22,0.03); }}
+.swot-pdf-item-num {{
+  text-align: center;
+  font-weight: 600;
+  color: #6c757d;
+}}
+.swot-pdf-item-title {{
+  font-weight: 600;
+  color: #212529;
+}}
+.swot-pdf-item-detail {{
+  color: #495057;
+  line-height: 1.5;
+}}
+.swot-pdf-item-tags {{
+  text-align: center;
+}}
+.swot-pdf-tag {{
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: #e9ecef;
+  color: #495057;
+  margin: 2px;
+}}
+.swot-pdf-tag--score {{
+  background: #fff3cd;
+  color: #856404;
+}}
+.swot-pdf-empty {{
+  text-align: center;
+  color: #adb5bd;
+  font-style: italic;
+}}
+
+/* 打印模式下的SWOT分页控制（保留卡片布局的打印支持） */
 @media print {{
   .swot-card {{
     break-inside: auto;
@@ -3244,29 +3472,7 @@ body.exporting .swot-cell--first {{
     break-after: avoid;
     page-break-after: avoid;
   }}
-  .swot-grid {{
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }}
-  .swot-cell {{
-    break-inside: avoid;
-    page-break-inside: avoid;
-    width: 100%;
-  }}
-  .swot-cell--first {{
-    break-before: avoid;
-    page-break-before: avoid;
-  }}
-  .swot-cell__meta {{
-    break-after: avoid;
-    page-break-after: avoid;
-  }}
-  .swot-list {{
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }}
-  .swot-item {{
+  .swot-pdf-quadrant {{
     break-inside: avoid;
     page-break-inside: avoid;
   }}

@@ -1049,78 +1049,193 @@ body {{
     min-height: 400px;
 }}
 
-/* ========== SWOT PDF分页优化 ========== */
-/* 核心策略：S/W/O/T四个象限各自内部禁止分页，但允许象限之间分页 */
+/* ========== SWOT PDF表格布局 ========== */
+/* 核心策略：PDF中使用表格形式而非卡片形式，更适合分页 */
 
-/* 隐藏四象限标注图例 */
-.swot-legend {{
+/* 隐藏HTML卡片布局，显示PDF表格布局 */
+.swot-card--html {{
     display: none !important;
 }}
 
-/* SWOT卡片容器：允许内部分页 */
-.swot-card {{
-    break-inside: auto !important;
-    page-break-inside: auto !important;
-    margin: 20px 0;
+.swot-pdf-wrapper {{
+    display: block !important;
+    margin: 24px 0;
 }}
 
-/* 卡片头部（标题+摘要）：避免紧跟其后分页，尽量与第一个象限保持在一起 */
-.swot-card__head {{
+/* PDF表格整体样式 */
+.swot-pdf-table {{
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    table-layout: fixed !important;
+    background: white;
+}}
+
+/* 表格标题 */
+.swot-pdf-caption {{
+    caption-side: top !important;
+    text-align: left !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    padding: 12px 0 !important;
+    color: #1a1a1a !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 表头样式 */
+.swot-pdf-thead {{
     break-after: avoid !important;
     page-break-after: avoid !important;
+}}
+
+.swot-pdf-thead th {{
+    background: #f0f0f0 !important;
+    padding: 10px 8px !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+    font-size: 11px !important;
+}}
+
+.swot-pdf-th-quadrant {{ width: 70px !important; }}
+.swot-pdf-th-num {{ width: 40px !important; text-align: center !important; }}
+.swot-pdf-th-title {{ width: 20% !important; }}
+.swot-pdf-th-detail {{ width: auto !important; }}
+.swot-pdf-th-tags {{ width: 80px !important; text-align: center !important; }}
+
+/* 摘要行 */
+.swot-pdf-summary {{
+    padding: 10px 12px !important;
+    background: #f8f8f8 !important;
+    color: #555 !important;
+    font-style: italic !important;
+    border: 1px solid #ccc !important;
+    font-size: 11px !important;
+}}
+
+/* 每个象限区块 - 核心分页控制 */
+.swot-pdf-quadrant {{
     break-inside: avoid !important;
     page-break-inside: avoid !important;
 }}
 
-/* 网格容器：PDF模式下使用纵向flex布局，允许子元素间分页 */
-.swot-grid {{
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 16px !important;
-    break-inside: auto !important;
-    page-break-inside: auto !important;
-}}
-
-/* 每个SWOT象限单元格：禁止内部分页，允许前后分页 */
-.swot-cell {{
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+/* 允许在不同象限之间分页 */
+.swot-pdf-quadrant + .swot-pdf-quadrant {{
     break-before: auto;
     page-break-before: auto;
-    break-after: auto;
-    page-break-after: auto;
-    width: 100% !important;
-    max-width: 100% !important;
-    flex: none !important;
-    min-height: auto !important;
-    height: auto !important;
-    box-sizing: border-box;
 }}
 
-/* 第一个象限：避免在标题后立即分页 */
-.swot-cell--first {{
-    break-before: avoid !important;
-    page-break-before: avoid !important;
+/* 象限标签单元格 */
+.swot-pdf-quadrant-label {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 12px 6px !important;
+    font-weight: 700 !important;
+    border: 1px solid #ccc !important;
+    width: 70px !important;
 }}
 
-/* 象限内的meta区域（图标+标题）：避免被分页切开 */
-.swot-cell__meta {{
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    break-after: avoid !important;
-    page-break-after: avoid !important;
+/* 四个象限的颜色主题 */
+.swot-pdf-quadrant-label.swot-pdf-strength {{
+    background: #e8f5f2 !important;
+    color: #1c7f6e !important;
+    border-left: 4px solid #1c7f6e !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-weakness {{
+    background: #fdeaea !important;
+    color: #c0392b !important;
+    border-left: 4px solid #c0392b !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-opportunity {{
+    background: #e8f0fa !important;
+    color: #1f5ab3 !important;
+    border-left: 4px solid #1f5ab3 !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-threat {{
+    background: #fdf3e6 !important;
+    color: #b36b16 !important;
+    border-left: 4px solid #b36b16 !important;
 }}
 
-/* 条目列表：允许列表整体分页 */
-.swot-list {{
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+/* 象限代码字母 */
+.swot-pdf-code {{
+    display: block !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    margin-bottom: 2px !important;
 }}
 
-/* 单个条目：避免被分页切开 */
-.swot-item {{
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
+/* 象限标签文字 */
+.swot-pdf-label-text {{
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}}
+
+/* 数据行 */
+.swot-pdf-item-row td {{
+    padding: 8px 6px !important;
+    border: 1px solid #ddd !important;
+    vertical-align: top !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}}
+
+/* 行背景色 */
+.swot-pdf-item-row.swot-pdf-strength td {{ background: #f7fbfa !important; }}
+.swot-pdf-item-row.swot-pdf-weakness td {{ background: #fef9f9 !important; }}
+.swot-pdf-item-row.swot-pdf-opportunity td {{ background: #f7f9fc !important; }}
+.swot-pdf-item-row.swot-pdf-threat td {{ background: #fdfbf7 !important; }}
+
+/* 序号单元格 */
+.swot-pdf-item-num {{
+    text-align: center !important;
+    font-weight: 600 !important;
+    color: #888 !important;
+    width: 40px !important;
+}}
+
+/* 要点标题 */
+.swot-pdf-item-title {{
+    font-weight: 600 !important;
+    color: #222 !important;
+}}
+
+/* 详情说明 */
+.swot-pdf-item-detail {{
+    color: #444 !important;
+    line-height: 1.5 !important;
+}}
+
+/* 标签单元格 */
+.swot-pdf-item-tags {{
+    text-align: center !important;
+}}
+
+/* 标签样式 */
+.swot-pdf-tag {{
+    display: inline-block !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 9px !important;
+    background: #e9ecef !important;
+    color: #495057 !important;
+    margin: 1px !important;
+}}
+
+.swot-pdf-tag--score {{
+    background: #fff3cd !important;
+    color: #856404 !important;
+}}
+
+/* 空数据提示 */
+.swot-pdf-empty {{
+    text-align: center !important;
+    color: #999 !important;
+    font-style: italic !important;
 }}
 
 {optimized_css}
