@@ -1286,7 +1286,7 @@ class HTMLRenderer:
                     item_detail = item.get("detail") or item.get("description") or ""
                     item_evidence = item.get("evidence") or item.get("source") or ""
                     item_impact = item.get("impact") or item.get("priority") or ""
-                    item_score = item.get("score")
+                    # item_score = item.get("score")  # 评分功能已禁用
                     
                     # 构建详情内容
                     detail_parts = []
@@ -1300,8 +1300,8 @@ class HTMLRenderer:
                     tags = []
                     if item_impact:
                         tags.append(f'<span class="swot-pdf-tag">{self._escape_html(item_impact)}</span>')
-                    if item_score not in (None, ""):
-                        tags.append(f'<span class="swot-pdf-tag swot-pdf-tag--score">评分 {self._escape_html(item_score)}</span>')
+                    # if item_score not in (None, ""):  # 评分功能已禁用
+                    #     tags.append(f'<span class="swot-pdf-tag swot-pdf-tag--score">评分 {self._escape_html(item_score)}</span>')
                     tags_html = " ".join(tags)
                     
                     # 第一行需要合并象限标题单元格
@@ -1354,7 +1354,7 @@ class HTMLRenderer:
                 <th class="swot-pdf-th-num">序号</th>
                 <th class="swot-pdf-th-title">要点</th>
                 <th class="swot-pdf-th-detail">详细说明</th>
-                <th class="swot-pdf-th-tags">影响/评分</th>
+                <th class="swot-pdf-th-tags">影响</th>
               </tr>
               {summary_row}
             </thead>
@@ -1387,7 +1387,7 @@ class HTMLRenderer:
             detail = entry.get("detail") or entry.get("description")
             evidence = entry.get("evidence") or entry.get("source")
             impact = entry.get("impact") or entry.get("priority")
-            score = entry.get("score")
+            # score = entry.get("score")  # 评分功能已禁用
             if not title and isinstance(detail, str):
                 title = detail
                 detail = None
@@ -1399,7 +1399,7 @@ class HTMLRenderer:
                     "detail": detail,
                     "evidence": evidence,
                     "impact": impact,
-                    "score": score,
+                    # "score": score,  # 评分功能已禁用
                 }
             )
         return normalized
@@ -1410,12 +1410,12 @@ class HTMLRenderer:
         detail = item.get("detail") or item.get("description")
         evidence = item.get("evidence") or item.get("source")
         impact = item.get("impact") or item.get("priority")
-        score = item.get("score")
+        # score = item.get("score")  # 评分功能已禁用
         tags: List[str] = []
         if impact:
             tags.append(f'<span class="swot-tag">{self._escape_html(impact)}</span>')
-        if score not in (None, ""):
-            tags.append(f'<span class="swot-tag neutral">评分 {self._escape_html(score)}</span>')
+        # if score not in (None, ""):  # 评分功能已禁用
+        #     tags.append(f'<span class="swot-tag neutral">评分 {self._escape_html(score)}</span>')
         tags_html = f'<span class="swot-item-tags">{"".join(tags)}</span>' if tags else ""
         detail_html = f'<div class="swot-item-desc">{self._escape_html(detail)}</div>' if detail else ""
         evidence_html = f'<div class="swot-item-evidence">佐证：{self._escape_html(evidence)}</div>' if evidence else ""

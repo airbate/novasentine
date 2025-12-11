@@ -177,23 +177,23 @@ class IRValidator:
                     f"当前值: {impact}；如需详细说明请写入 detail 字段"
                 )
 
-        # 校验 score 字段：只允许 0-10 的数字
-        score = item.get("score")
-        if score is not None:
-            valid_score = False
-            if isinstance(score, (int, float)):
-                valid_score = 0 <= score <= 10
-            elif isinstance(score, str):
-                # 兼容字符串形式的数字
-                try:
-                    numeric_score = float(score)
-                    valid_score = 0 <= numeric_score <= 10
-                except ValueError:
-                    valid_score = False
-            if not valid_score:
-                errors.append(
-                    f"{path}.score 只允许填写 0-10 的数字，当前值: {score}"
-                )
+        # # 校验 score 字段：只允许 0-10 的数字（已禁用）
+        # score = item.get("score")
+        # if score is not None:
+        #     valid_score = False
+        #     if isinstance(score, (int, float)):
+        #         valid_score = 0 <= score <= 10
+        #     elif isinstance(score, str):
+        #         # 兼容字符串形式的数字
+        #         try:
+        #             numeric_score = float(score)
+        #             valid_score = 0 <= numeric_score <= 10
+        #         except ValueError:
+        #             valid_score = False
+        #     if not valid_score:
+        #         errors.append(
+        #             f"{path}.score 只允许填写 0-10 的数字，当前值: {score}"
+        #         )
 
     def _validate_blockquote_block(
         self, block: Dict[str, Any], path: str, errors: List[str]

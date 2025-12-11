@@ -188,12 +188,12 @@ swot_item_schema: Dict[str, Any] = {
                     "enum": ["低", "中低", "中", "中高", "高", "极高"],
                     "description": "影响评级，只允许填写：低/中低/中/中高/高/极高",
                 },
-                "score": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 10,
-                    "description": "评分，只允许0-10的数字",
-                },
+                # "score": {
+                #     "type": "number",
+                #     "minimum": 0,
+                #     "maximum": 10,
+                #     "description": "评分，只允许0-10的数字",
+                # },
                 "priority": {"type": ["string", "number"]},
             },
             "required": [],
