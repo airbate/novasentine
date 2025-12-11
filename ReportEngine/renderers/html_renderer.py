@@ -3949,7 +3949,146 @@ document.documentElement.classList.add('js-ready');
       container.setAttribute("style", `font-size: ${(size / 3).toFixed(2)}px`);
       container.innerHTML = '<div class="components"><div class="main-button"><div class="moon"></div><div class="moon"></div><div class="moon"></div></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="daytime-background"></div><div class="cloud"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="cloud-light"><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div><div class="cloud-son"></div></div><div class="stars"><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star big"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star medium"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div><div class="star small"><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div><div class="star-son"></div></div></div></div>';
       const style = document.createElement("style");
-      style.textContent = "* { margin: 0; padding: 0; transition: 0.7s; -webkit-tap-highlight-color:rgba(0,0,0,0); } .container { position: relative; width: 180em; height: 70em; display: inline-block; vertical-align: bottom; transform: translate3d(0, 0, 0); } .components{ position: absolute; top: 0; left: 0; width: 180em; height: 70em; background-color: rgba(70, 133, 192,1); border-radius: 100em; box-shadow: inset 0 0 5em 3em rgba(0, 0, 0, 0.5); overflow: hidden; transition: 0.7s; transition-timing-function: cubic-bezier( 0,0.5, 1,1); cursor: pointer; } .main-button{ margin: 7.5em 0 0 7.5em; width: 55em; height:55em; background-color: rgba(255, 195, 35,1); border-radius: 50%; box-shadow:3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 230, 80,1); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .moon{ position: absolute; background-color: rgba(150, 160, 180, 1); box-shadow:inset 0em 0em 1em 1em rgba(0, 0, 0, 0.3) ; border-radius: 50%; transition: 0.5s; opacity: 0; } .moon:nth-child(1){ top: 7.5em; left: 25em; width: 12.5em; height: 12.5em; } .moon:nth-child(2){ top: 20em; left: 7.5em; width: 20em; height: 20em; } .moon:nth-child(3){ top: 32.5em; left: 32.5em; width: 12.5em; height: 12.5em; } .daytime-background { position: absolute; border-radius: 50%; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .daytime-background:nth-child(2){ top: -20em; left: -20em; width: 110em; height:110em; background-color: rgba(255, 255, 255,0.2); z-index: -2; } .daytime-background:nth-child(3){ top: -32.5em; left: -17.5em; width: 135em; height:135em; background-color: rgba(255, 255, 255,0.1); z-index: -3; } .daytime-background:nth-child(4){ top: -45em; left: -15em; width: 160em; height:160em; background-color: rgba(255, 255, 255,0.05); z-index: -4; } .cloud,.cloud-light{ transform: translateY(10em); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .cloud-son{ position: absolute; background-color: #fff; border-radius: 50%; z-index: -1; transition: transform 6s,right 1s,bottom 1s; } .cloud-son:nth-child(6n+1){ right: -20em; bottom: 10em; width: 50em; height: 50em; } .cloud-son:nth-child(6n+2) { right: -10em; bottom: -25em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+3) { right: 20em; bottom: -40em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+4) { right: 50em; bottom: -35em; width: 60em; height: 60em; } .cloud-son:nth-child(6n+5) { right: 75em; bottom: -60em; width: 75em; height: 75em; } .cloud-son:nth-child(6n+6) { right: 110em; bottom: -50em; width: 60em; height: 60em; } .cloud{ z-index: -2; } .cloud-light{ position: absolute; right: 0em; bottom: 25em; opacity: 0.5; z-index: -3; } .stars{ transform: translateY(-125em); z-index: -2; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); } .big { --size: 7.5em; } .medium { --size: 5em; } .small { --size: 3em; } .star { position: absolute; width: calc(2*var(--size)); height: calc(2*var(--size)); } .star:nth-child(1){ top: 11em; left: 39em; animation-name: star; animation-duration: 3.5s; } .star:nth-child(2){ top: 39em; left: 91em; animation-name: star; animation-duration: 4.1s; } .star:nth-child(3){ top: 26em; left: 19em; animation-name: star; animation-duration: 4.9s; } .star:nth-child(4){ top: 37em; left: 66em; animation-name: star; animation-duration: 5.3s; } .star:nth-child(5){ top: 21em; left: 75em; animation-name: star; animation-duration: 3s; } .star:nth-child(6){ top: 51em; left: 38em; animation-name: star; animation-duration: 2.2s; } @keyframes star { 0%,20%{ transform: scale(0); } 20%,100% { transform: scale(1); } } .star-son{ float: left; } .star-son:nth-child(1) { --pos: left 0; } .star-son:nth-child(2) { --pos: right 0; } .star-son:nth-child(3) { --pos: 0 bottom; } .star-son:nth-child(4) { --pos: right bottom; } .star-son { width: var(--size); height: var(--size); background-image: radial-gradient(circle var(--size) at var(--pos), transparent var(--size), #fff); } .star{ transform: scale(1); transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); transition: 1s; animation-iteration-count:infinite; animation-direction: alternate; animation-timing-function: linear; } .twinkle { transform: scale(0); }";
+      /**
+       * 日夜切换按钮组件的完整 CSS 样式
+       * 
+       * 组件结构：
+       * - .container: 最外层容器，控制整体尺寸和定位
+       * - .components: 按钮主体（胶囊形状），包含所有内部元素
+       * - .main-button: 可移动的圆形按钮（太阳/月亮）
+       * - .moon: 月亮上的环形山（3个灰色圆形）
+       * - .daytime-background: 太阳光晕效果（3层渐变圆形）
+       * - .cloud / .cloud-light: 白天的云朵容器
+       * - .cloud-son: 单个云朵（白色圆形）
+       * - .stars: 夜晚的星星容器
+       * - .star: 单颗星星（由4个 .star-son 组成四角星形状）
+       */
+      style.textContent = [
+        // ========== 全局重置 ==========
+        // 清除默认边距，设置统一过渡动画，禁用移动端点击高亮
+        "* { margin: 0; padding: 0; transition: 0.7s; -webkit-tap-highlight-color: rgba(0,0,0,0); }",
+
+        // ========== 最外层容器 ==========
+        // position: relative - 在文档流中正常显示，作为内部 absolute 元素的定位参考
+        // width/height: 180em x 70em - 按钮整体尺寸（em 单位可通过 font-size 缩放）
+        // display: inline-block - 行内块元素，便于在 header 中排列
+        // vertical-align: bottom - 底部对齐
+        // transform: translate3d(0,0,0) - 开启 GPU 加速，提升动画性能
+        ".container { position: relative; width: 180em; height: 70em; display: inline-block; vertical-align: bottom; transform: translate3d(0, 0, 0); }",
+
+        // ========== 按钮主体（胶囊形状） ==========
+        // position: absolute - 相对于 .container 绝对定位
+        // background-color: rgba(70,133,192,1) - 白天的蓝色天空背景
+        // border-radius: 100em - 超大圆角形成胶囊形状
+        // box-shadow: inset ... - 内阴影增加立体感
+        // overflow: hidden - 隐藏超出边界的元素（云朵、光晕等）
+        // transition-timing-function: cubic-bezier(0,0.5,1,1) - 自定义缓动曲线
+        // cursor: pointer - 鼠标悬停显示手型
+        ".components { position: absolute; top: 0; left: 0; width: 180em; height: 70em; background-color: rgba(70, 133, 192, 1); border-radius: 100em; box-shadow: inset 0 0 5em 3em rgba(0, 0, 0, 0.5); overflow: hidden; transition: 0.7s; transition-timing-function: cubic-bezier(0, 0.5, 1, 1); cursor: pointer; }",
+
+        // ========== 可移动的圆形按钮（太阳/月亮） ==========
+        // margin: 7.5em 0 0 7.5em - 初始位置在左侧（白天/太阳状态）
+        // width/height: 55em - 圆形按钮直径
+        // background-color: rgba(255,195,35,1) - 太阳的金黄色
+        // border-radius: 50% - 完美圆形
+        // box-shadow - 三层阴影：外阴影(立体感) + 内阴影(暗部) + 内高光(亮部)
+        // transition: 1.0s - 切换动画时长
+        // cubic-bezier(0.56,1.35,0.52,1.00) - 弹性缓动效果（超过终点后回弹）
+        ".main-button { margin: 7.5em 0 0 7.5em; width: 55em; height: 55em; background-color: rgba(255, 195, 35, 1); border-radius: 50%; box-shadow: 3em 3em 5em rgba(0, 0, 0, 0.5), inset -3em -5em 3em -3em rgba(0, 0, 0, 0.5), inset 4em 5em 2em -2em rgba(255, 230, 80, 1); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
+
+        // ========== 月亮环形山 ==========
+        // 三个灰色圆形模拟月球表面的环形山
+        // opacity: 0 - 白天时隐藏，切换到夜晚时显示
+        // box-shadow: inset ... - 内阴影增加凹陷效果
+        ".moon { position: absolute; background-color: rgba(150, 160, 180, 1); box-shadow: inset 0em 0em 1em 1em rgba(0, 0, 0, 0.3); border-radius: 50%; transition: 0.5s; opacity: 0; }",
+        // 三个环形山的不同位置和大小
+        ".moon:nth-child(1) { top: 7.5em; left: 25em; width: 12.5em; height: 12.5em; }",   // 右上角小环形山
+        ".moon:nth-child(2) { top: 20em; left: 7.5em; width: 20em; height: 20em; }",       // 左侧大环形山
+        ".moon:nth-child(3) { top: 32.5em; left: 32.5em; width: 12.5em; height: 12.5em; }", // 右下角小环形山
+
+        // ========== 太阳光晕效果 ==========
+        // 三层半透明白色圆形，模拟太阳的光晕扩散效果
+        // 随太阳移动，z-index 为负值确保在太阳后面
+        ".daytime-background { position: absolute; border-radius: 50%; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
+        // 第一层光晕：最亮，20%不透明度
+        ".daytime-background:nth-child(2) { top: -20em; left: -20em; width: 110em; height: 110em; background-color: rgba(255, 255, 255, 0.2); z-index: -2; }",
+        // 第二层光晕：中等亮度，10%不透明度
+        ".daytime-background:nth-child(3) { top: -32.5em; left: -17.5em; width: 135em; height: 135em; background-color: rgba(255, 255, 255, 0.1); z-index: -3; }",
+        // 第三层光晕：最淡，5%不透明度
+        ".daytime-background:nth-child(4) { top: -45em; left: -15em; width: 160em; height: 160em; background-color: rgba(255, 255, 255, 0.05); z-index: -4; }",
+
+        // ========== 云朵容器 ==========
+        // transform: translateY(10em) - 白天时云朵可见位置
+        // 切换到夜晚时 translateY(80em) 将云朵移出视野
+        ".cloud, .cloud-light { transform: translateY(10em); transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
+
+        // ========== 单个云朵 ==========
+        // 白色圆形，通过不同位置组合形成云朵形状
+        // transition: transform 6s - 云朵随机飘动动画较慢（6秒）
+        // right/bottom 1s - 位置变化动画较快（1秒）
+        ".cloud-son { position: absolute; background-color: #fff; border-radius: 50%; z-index: -1; transition: transform 6s, right 1s, bottom 1s; }",
+        // 6个云朵的不同位置和大小（使用 6n+x 选择器循环应用）
+        ".cloud-son:nth-child(6n+1) { right: -20em; bottom: 10em; width: 50em; height: 50em; }",
+        ".cloud-son:nth-child(6n+2) { right: -10em; bottom: -25em; width: 60em; height: 60em; }",
+        ".cloud-son:nth-child(6n+3) { right: 20em; bottom: -40em; width: 60em; height: 60em; }",
+        ".cloud-son:nth-child(6n+4) { right: 50em; bottom: -35em; width: 60em; height: 60em; }",
+        ".cloud-son:nth-child(6n+5) { right: 75em; bottom: -60em; width: 75em; height: 75em; }",
+        ".cloud-son:nth-child(6n+6) { right: 110em; bottom: -50em; width: 60em; height: 60em; }",
+        // 主云朵层
+        ".cloud { z-index: -2; }",
+        // 浅色云朵层（半透明，增加层次感）
+        ".cloud-light { position: absolute; right: 0em; bottom: 25em; opacity: 0.5; z-index: -3; }",
+
+        // ========== 星星容器 ==========
+        // transform: translateY(-125em) - 白天时星星在视野外上方
+        // 切换到夜晚时 translateY(-62.5em) 将星星移入视野
+        ".stars { transform: translateY(-125em); z-index: -2; transition: 1.0s; transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); }",
+
+        // ========== 星星尺寸变量 ==========
+        // 使用 CSS 变量定义三种星星大小
+        ".big { --size: 7.5em; }",     // 大星星
+        ".medium { --size: 5em; }",    // 中星星
+        ".small { --size: 3em; }",     // 小星星
+
+        // ========== 单颗星星 ==========
+        // 星星尺寸为 2 * --size（因为由4个角组成）
+        ".star { position: absolute; width: calc(2*var(--size)); height: calc(2*var(--size)); }",
+        // 6颗星星的不同位置和闪烁动画时长（错开闪烁节奏）
+        ".star:nth-child(1) { top: 11em; left: 39em; animation-name: star; animation-duration: 3.5s; }",
+        ".star:nth-child(2) { top: 39em; left: 91em; animation-name: star; animation-duration: 4.1s; }",
+        ".star:nth-child(3) { top: 26em; left: 19em; animation-name: star; animation-duration: 4.9s; }",
+        ".star:nth-child(4) { top: 37em; left: 66em; animation-name: star; animation-duration: 5.3s; }",
+        ".star:nth-child(5) { top: 21em; left: 75em; animation-name: star; animation-duration: 3s; }",
+        ".star:nth-child(6) { top: 51em; left: 38em; animation-name: star; animation-duration: 2.2s; }",
+
+        // ========== 星星闪烁动画 ==========
+        // 0-20%: 缩小到0（消失）
+        // 20-100%: 恢复原大小（显示）
+        // 配合 animation-direction: alternate 实现来回闪烁
+        "@keyframes star { 0%, 20% { transform: scale(0); } 20%, 100% { transform: scale(1); } }",
+
+        // ========== 星星角（组成四角星形状） ==========
+        // 每颗星星由4个 .star-son 组成，分别是四个角
+        ".star-son { float: left; }",
+        // 四个角的位置变量（用于 radial-gradient 定位）
+        ".star-son:nth-child(1) { --pos: left 0; }",       // 左上角
+        ".star-son:nth-child(2) { --pos: right 0; }",      // 右上角
+        ".star-son:nth-child(3) { --pos: 0 bottom; }",     // 左下角
+        ".star-son:nth-child(4) { --pos: right bottom; }", // 右下角
+        // 使用 radial-gradient 创建四分之一圆形，组合成四角星
+        // 原理：在角落位置创建透明圆形，圆形外是白色，形成尖角效果
+        ".star-son { width: var(--size); height: var(--size); background-image: radial-gradient(circle var(--size) at var(--pos), transparent var(--size), #fff); }",
+
+        // ========== 星星动画属性 ==========
+        // animation-iteration-count: infinite - 无限循环
+        // animation-direction: alternate - 正反交替播放
+        // animation-timing-function: linear - 线性匀速
+        ".star { transform: scale(1); transition-timing-function: cubic-bezier(0.56, 1.35, 0.52, 1.00); transition: 1s; animation-iteration-count: infinite; animation-direction: alternate; animation-timing-function: linear; }",
+
+        // ========== 星星闪烁状态 ==========
+        // 用于 JS 控制的闪烁状态类
+        ".twinkle { transform: scale(0); }"
+      ].join(" ");
       const changeTheme = (detail) => {
         this.dispatchEvent(new CustomEvent("change", { detail }));
       };
