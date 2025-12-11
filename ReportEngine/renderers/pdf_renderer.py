@@ -1053,20 +1053,31 @@ body {{
 .swot-legend {{
     display: none !important;
 }}
+.swot-card {{
+    /* 允许卡片内容在必要时分页，避免整体被抬到下一页 */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+}}
+.swot-card__head {{
+    break-after: avoid;
+    page-break-after: avoid;
+}}
 .swot-grid {{
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: stretch;
+    break-before: avoid;
+    page-break-before: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
 }}
 .swot-grid .swot-cell {{
     flex: 1 1 320px;
     min-width: 240px;
     height: auto;
     page-break-inside: avoid;
-}}
-.swot-card {{
-    page-break-inside: avoid;
+    break-inside: avoid;
 }}
 
 {optimized_css}

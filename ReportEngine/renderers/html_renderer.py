@@ -3478,15 +3478,30 @@ blockquote {{
   }}
   .swot-card {{
     color: var(--swot-text);
+    /* 允许卡片内部分页，避免整体被抬到下一页 */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }}
-  .swot-legend {{
-    display: none !important;
+  .swot-card__head {{
+    break-after: avoid;
+    page-break-after: avoid;
   }}
   .swot-grid {{
+    break-before: avoid;
+    page-break-before: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: stretch;
+  }}
+  .swot-grid .swot-cell {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+  .swot-legend {{
+    display: none !important;
   }}
   .swot-grid .swot-cell {{
     flex: 1 1 320px;
