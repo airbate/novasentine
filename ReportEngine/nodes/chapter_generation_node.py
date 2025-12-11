@@ -307,8 +307,9 @@ class ChapterGenerationNode(BaseNode):
         chapter_plan_map = context.get("chapter_directives", {})
         chapter_plan = chapter_plan_map.get(section.chapter_id) if chapter_plan_map else {}
 
-        # 从 layout 的 tocPlan 中查找该章节是否允许使用SWOT块
+        # 从 layout 的 tocPlan 中查找该章节是否允许使用SWOT块和PEST块
         allow_swot = self._get_chapter_swot_permission(section.chapter_id, context)
+        allow_pest = self._get_chapter_pest_permission(section.chapter_id, context)
 
         payload = {
             "section": {
@@ -340,6 +341,7 @@ class ChapterGenerationNode(BaseNode):
                 "maxTokens": context.get("max_tokens", 4096),
                 "allowedBlocks": ALLOWED_BLOCK_TYPES,
                 "allowSwot": allow_swot,
+                "allowPest": allow_pest,
                 "styleHints": {
                     "expectWidgets": True,
                     "forceHeadingAnchors": True,
@@ -391,6 +393,42 @@ class ChapterGenerationNode(BaseNode):
                 continue
             if entry.get("chapterId") == chapter_id:
                 return bool(entry.get("allowSwot", False))
+
+        return False
+
+    def _get_chapter_pest_permission(self, chapter_id: str, context: Dict[str, Any]) -> bool:
+        """
+        从 layout 的 tocPlan 中查找指定章节是否允许使用 PEST 块。
+
+        全文最多只有一个章节允许使用 PEST 块，由文档设计阶段在 tocPlan 中
+        通过 allowPest 字段标记。
+
+        PEST块用于宏观环境分析：
+        - Political（政治因素）
+        - Economic（经济因素）
+        - Social（社会因素）
+        - Technological（技术因素）
+
+        参数:
+            chapter_id: 当前章节ID。
+            context: 全局上下文字典。
+
+        返回:
+            bool: 如果该章节允许使用 PEST 块则返回 True，否则返回 False。
+        """
+        layout = context.get("layout")
+        if not isinstance(layout, dict):
+            return False
+
+        toc_plan = layout.get("tocPlan")
+        if not isinstance(toc_plan, list):
+            return False
+
+        for entry in toc_plan:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("chapterId") == chapter_id:
+                return bool(entry.get("allowPest", False))
 
         return False
 

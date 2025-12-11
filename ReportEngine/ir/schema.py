@@ -34,6 +34,7 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "list",
     "table",
     "swotTable",
+    "pestTable",
     "blockquote",
     "engineQuote",
     "hr",
@@ -236,6 +237,71 @@ swot_block: Dict[str, Any] = {
     "additionalProperties": True,
 }
 
+pest_item_schema: Dict[str, Any] = {
+    "title": "PestItem",
+    "oneOf": [
+        {"type": "string"},
+        {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "label": {"type": "string"},
+                "text": {"type": "string"},
+                "detail": {"type": "string"},
+                "description": {"type": "string"},
+                "source": {"type": "string"},
+                "evidence": {"type": "string"},
+                "trend": {
+                    "type": "string",
+                    "enum": ["正面利好", "负面影响", "中性", "不确定", "持续观察"],
+                    "description": "趋势/影响评估，只允许填写：正面利好/负面影响/中性/不确定/持续观察",
+                },
+                "impact": {"type": ["string", "number"]},
+            },
+            "required": [],
+            "additionalProperties": True,
+        },
+    ],
+}
+
+pest_block: Dict[str, Any] = {
+    "title": "PestTableBlock",
+    "type": "object",
+    "properties": {
+        "type": {"const": "pestTable"},
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "political": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/pestItem"},
+            "description": "政治因素：政策法规、政府态度、政治稳定性等",
+        },
+        "economic": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/pestItem"},
+            "description": "经济因素：经济周期、利率汇率、消费水平等",
+        },
+        "social": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/pestItem"},
+            "description": "社会因素：人口结构、文化趋势、生活方式等",
+        },
+        "technological": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/pestItem"},
+            "description": "技术因素：技术创新、研发投入、技术普及等",
+        },
+    },
+    "required": ["type"],
+    "anyOf": [
+        {"required": ["political"]},
+        {"required": ["economic"]},
+        {"required": ["social"]},
+        {"required": ["technological"]},
+    ],
+    "additionalProperties": True,
+}
+
 blockquote_block: Dict[str, Any] = {
     "title": "BlockquoteBlock",
     "type": "object",
@@ -429,6 +495,7 @@ block_variants: List[Dict[str, Any]] = [
     widget_block,
     toc_block,
     swot_block,
+    pest_block,
 ]
 
 CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
@@ -457,6 +524,7 @@ CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
         "inlineMark": inline_mark_schema,
         "inlineRun": inline_run_schema,
         "swotItem": swot_item_schema,
+        "pestItem": pest_item_schema,
         "block": {"oneOf": block_variants},
     },
 }

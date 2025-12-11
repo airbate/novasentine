@@ -143,6 +143,10 @@ document_layout_output_schema = {
                         "type": "boolean",
                         "description": "是否允许该章节使用SWOT分析块，全文最多只有一个章节可设为true",
                     },
+                    "allowPest": {
+                        "type": "boolean",
+                        "description": "是否允许该章节使用PEST分析块，全文最多只有一个章节可设为true",
+                    },
                 },
                 "required": ["chapterId", "display"],
             },
@@ -313,19 +317,25 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
    - 如果 constraints.allowSwot 为 false 或不存在，严禁生成任何 swotTable 类型的块，即使章节标题包含"SWOT"字样也不能使用该块类型，应改用表格（table）或列表（list）呈现相关内容；
    - 当允许使用SWOT块时，分别填写 strengths/weaknesses/opportunities/threats 数组，单项至少包含 title/label/text 之一，可附加 detail/evidence/impact 字段；title/summary 字段用于概览说明；
    - **特别注意：impact 字段只允许填写影响评级（"低"/"中低"/"中"/"中高"/"高"/"极高"）；任何关于影响的文字叙述、详细说明、佐证或扩展描述必须写入 detail 字段，禁止在 impact 字段中混入描述性文字。**
-7. 如需引用图表/交互组件，统一用widgetType表示（例如chart.js/line、chart.js/doughnut）。
-8. 鼓励结合outline中列出的子标题，生成多层heading与细粒度内容，同时可补充callout、blockquote等。
-9. engineQuote 仅用于呈现单Agent的原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph，paragraph.inlines 的 marks 仅可使用 bold/italic（可留空），禁止在 engineQuote 中放表格/图表/引用/公式等；当 reports 或 forumLogs 中有明确的文字段落、结论、数字/时间等可直接引用时，优先分别从 Query/Media/Insight 三个 Agent 摘出关键原文或文字版数据放入 engineQuote，尽量覆盖三类 Agent 而非只用单一来源，严禁臆造内容或把表格/图表改写进 engineQuote。
-10. 如果chapterPlan中包含target/min/max或sections细分预算，请尽量贴合，必要时在notes允许的范围内突破，同时在结构上体现详略；
-11. 一级标题需使用中文数字（“一、二、三”），二级标题使用阿拉伯数字（“1.1、1.2”），heading.text中直接写好编号，与outline顺序对应；
-12. 严禁输出外部图片/AI生图链接，仅可使用Chart.js图表、表格、色块、callout等HTML原生组件；如需视觉辅助请改为文字描述或数据表；
-13. 段落混排需通过marks表达粗体、斜体、下划线、颜色等样式，禁止残留Markdown语法（如**text**）；
-14. 行间公式用block.type="math"并填入math.latex，行内公式在paragraph.inlines里将文本设为Latex并加上marks.type="math"，渲染层会用MathJax处理；
-15. widget配色需与CSS变量兼容，不要硬编码背景色或文字色，legend/ticks由渲染层控制；
-16. 善用callout、kpiGrid、表格、widget等提升版面丰富度，但必须遵守模板章节范围。
-17. 输出前务必自检JSON语法：禁止出现`{{}}{{`或`][`相连缺少逗号、列表项嵌套超过一层、未闭合的括号或未转义换行，`list` block的items必须是`[[block,...], ...]`结构，若无法满足则返回错误提示而不是输出不合法JSON。
-18. 所有widget块必须在顶层提供`data`或`dataRef`（可将props中的`data`上移），确保Chart.js能够直接渲染；缺失数据时宁可输出表格或段落，绝不留空。
-19. 任何block都必须声明合法`type`（heading/paragraph/list/...）；若需要普通文本请使用`paragraph`并给出`inlines`，禁止返回`type:null`或未知值。
+7. **PEST块使用限制（重要！）**：
+   - 只有在 constraints.allowPest 为 true 时才允许使用 block.type="pestTable"；
+   - 如果 constraints.allowPest 为 false 或不存在，严禁生成任何 pestTable 类型的块，即使章节标题包含"PEST"、"宏观环境"等字样也不能使用该块类型，应改用表格（table）或列表（list）呈现相关内容；
+   - 当允许使用PEST块时，分别填写 political/economic/social/technological 数组，单项至少包含 title/label/text 之一，可附加 detail/source/trend 字段；title/summary 字段用于概览说明；
+   - **PEST四维度说明**：political（政治因素：政策法规、政府态度、监管环境）、economic（经济因素：经济周期、利率汇率、市场需求）、social（社会因素：人口结构、文化趋势、消费习惯）、technological（技术因素：技术创新、研发趋势、数字化程度）；
+   - **特别注意：trend 字段只允许填写趋势评估（"正面利好"/"负面影响"/"中性"/"不确定"/"持续观察"）；任何关于趋势的文字叙述、详细说明、来源或扩展描述必须写入 detail 字段，禁止在 trend 字段中混入描述性文字。**
+8. 如需引用图表/交互组件，统一用widgetType表示（例如chart.js/line、chart.js/doughnut）。
+9. 鼓励结合outline中列出的子标题，生成多层heading与细粒度内容，同时可补充callout、blockquote等。
+10. engineQuote 仅用于呈现单Agent的原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph，paragraph.inlines 的 marks 仅可使用 bold/italic（可留空），禁止在 engineQuote 中放表格/图表/引用/公式等；当 reports 或 forumLogs 中有明确的文字段落、结论、数字/时间等可直接引用时，优先分别从 Query/Media/Insight 三个 Agent 摘出关键原文或文字版数据放入 engineQuote，尽量覆盖三类 Agent 而非只用单一来源，严禁臆造内容或把表格/图表改写进 engineQuote。
+11. 如果chapterPlan中包含target/min/max或sections细分预算，请尽量贴合，必要时在notes允许的范围内突破，同时在结构上体现详略；
+12. 一级标题需使用中文数字（“一、二、三”），二级标题使用阿拉伯数字（“1.1、1.2”），heading.text中直接写好编号，与outline顺序对应；
+13. 严禁输出外部图片/AI生图链接，仅可使用Chart.js图表、表格、色块、callout等HTML原生组件；如需视觉辅助请改为文字描述或数据表；
+14. 段落混排需通过marks表达粗体、斜体、下划线、颜色等样式，禁止残留Markdown语法（如**text**）；
+15. 行间公式用block.type="math"并填入math.latex，行内公式在paragraph.inlines里将文本设为Latex并加上marks.type="math"，渲染层会用MathJax处理；
+16. widget配色需与CSS变量兼容，不要硬编码背景色或文字色，legend/ticks由渲染层控制；
+17. 善用callout、kpiGrid、表格、widget等提升版面丰富度，但必须遵守模板章节范围。
+18. 输出前务必自检JSON语法：禁止出现`{{}}{{`或`][`相连缺少逗号、列表项嵌套超过一层、未闭合的括号或未转义换行，`list` block的items必须是`[[block,...], ...]`结构，若无法满足则返回错误提示而不是输出不合法JSON。
+19. 所有widget块必须在顶层提供`data`或`dataRef`（可将props中的`data`上移），确保Chart.js能够直接渲染；缺失数据时宁可输出表格或段落，绝不留空。
+20. 任何block都必须声明合法`type`（heading/paragraph/list/...）；若需要普通文本请使用`paragraph`并给出`inlines`，禁止返回`type:null`或未知值。
 
 <CHAPTER JSON SCHEMA>
 {CHAPTER_JSON_SCHEMA_TEXT}
@@ -390,6 +400,13 @@ SYSTEM_PROMPT_DOCUMENT_LAYOUT = f"""
    - 其他章节必须设置 `allowSwot: false` 或省略该字段；
    - SWOT块适合出现在"结论与建议"、"综合评估"、"战略分析"等总结性章节；
    - 如果报告内容不适合使用SWOT分析（如纯数据监测报告），则所有章节都不设置 `allowSwot: true`。
+8. **PEST块使用规则**：在 tocPlan 中决定是否以及在哪一章使用PEST宏观环境分析块（pestTable）：
+   - 全文最多只允许一个章节使用PEST块，该章节需设置 `allowPest: true`；
+   - 其他章节必须设置 `allowPest: false` 或省略该字段；
+   - PEST块用于分析宏观环境因素（政治Political、经济Economic、社会Social、技术Technological）；
+   - PEST块适合出现在"行业环境分析"、"宏观背景"、"外部环境研判"等分析宏观因素的章节；
+   - 如果报告主题与宏观环境分析无关（如具体事件危机公关报告），则所有章节都不设置 `allowPest: true`；
+   - SWOT和PEST不应出现在同一章节，二者分别侧重内部能力与外部环境。
 
 **tocPlan的description字段特别要求：**
 - description字段必须是纯文本描述，用于在目录中展示章节简介
