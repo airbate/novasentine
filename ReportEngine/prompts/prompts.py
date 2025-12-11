@@ -304,7 +304,7 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
 3. 所有段落都放入paragraph.inlines，混排样式通过marks表示（bold/italic/color/link等）。
 4. 所有heading必须包含anchor，锚点与编号保持模板一致，比如section-2-1。
 5. 表格需给出rows/cells/align，KPI卡请使用kpiGrid，分割线用hr。
-6. SWOT分析必须优先使用 block.type="swotTable"：分别填写 strengths/weaknesses/opportunities/threats 数组，单项至少包含 title/label/text 之一，可附加 detail/evidence/impact/score 字段；title/summary 字段用于概览说明。
+6. SWOT分析必须优先使用 block.type="swotTable"：分别填写 strengths/weaknesses/opportunities/threats 数组，单项至少包含 title/label/text 之一，可附加 detail/evidence/impact/score 字段；title/summary 字段用于概览说明。**特别注意：impact 字段只允许填写影响评级（"低"/"中低"/"中"/"中高"/"高"/"极高"），score 字段只允许填写 0-10 的数字；任何关于影响的文字叙述、详细说明、佐证或扩展描述必须写入 detail 字段，禁止在 impact 字段中混入描述性文字。**
 7. 如需引用图表/交互组件，统一用widgetType表示（例如chart.js/line、chart.js/doughnut）。
 8. 鼓励结合outline中列出的子标题，生成多层heading与细粒度内容，同时可补充callout、blockquote等。
 9. engineQuote 仅用于呈现单Agent的原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph，paragraph.inlines 的 marks 仅可使用 bold/italic（可留空），禁止在 engineQuote 中放表格/图表/引用/公式等；当 reports 或 forumLogs 中有明确的文字段落、结论、数字/时间等可直接引用时，优先分别从 Query/Media/Insight 三个 Agent 摘出关键原文或文字版数据放入 engineQuote，尽量覆盖三类 Agent 而非只用单一来源，严禁臆造内容或把表格/图表改写进 engineQuote。

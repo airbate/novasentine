@@ -147,6 +147,9 @@ class IRValidator:
             for idx, entry in enumerate(entries):
                 self._validate_swot_item(entry, f"{path}.{name}[{idx}]", errors)
 
+    # SWOT impact 字段允许的评级值
+    ALLOWED_IMPACT_VALUES = {"低", "中低", "中", "中高", "高", "极高"}
+
     def _validate_swot_item(self, item: Any, path: str, errors: List[str]):
         """单个SWOT条目支持字符串或带字段的对象"""
         if isinstance(item, str):
@@ -164,6 +167,33 @@ class IRValidator:
                 break
         if title is None:
             errors.append(f"{path} 缺少 title/label/text/description 等文字字段")
+
+        # 校验 impact 字段：只允许评级值
+        impact = item.get("impact")
+        if impact is not None:
+            if not isinstance(impact, str) or impact not in self.ALLOWED_IMPACT_VALUES:
+                errors.append(
+                    f"{path}.impact 只允许填写影响评级（低/中低/中/中高/高/极高），"
+                    f"当前值: {impact}；如需详细说明请写入 detail 字段"
+                )
+
+        # 校验 score 字段：只允许 0-10 的数字
+        score = item.get("score")
+        if score is not None:
+            valid_score = False
+            if isinstance(score, (int, float)):
+                valid_score = 0 <= score <= 10
+            elif isinstance(score, str):
+                # 兼容字符串形式的数字
+                try:
+                    numeric_score = float(score)
+                    valid_score = 0 <= numeric_score <= 10
+                except ValueError:
+                    valid_score = False
+            if not valid_score:
+                errors.append(
+                    f"{path}.score 只允许填写 0-10 的数字，当前值: {score}"
+                )
 
     def _validate_blockquote_block(
         self, block: Dict[str, Any], path: str, errors: List[str]
