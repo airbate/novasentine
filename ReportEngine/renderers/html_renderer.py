@@ -488,7 +488,14 @@ class HTMLRenderer:
   </div>
   <div class="header-actions">
     <theme-button value="light" id="theme-toggle" size="1.5"></theme-button>
-    <button id="print-btn" class="action-btn" type="button">打印页面</button>
+    <button id="print-btn" class="action-btn print-btn" type="button">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      <span>打印页面</span>
+    </button>
     <button id="export-btn" class="action-btn" type="button" style="display: none;">⬇️ 导出PDF</button>
   </div>
 </header>
@@ -3235,22 +3242,72 @@ theme-button {{
   margin: 0;
 }}
 .action-btn {{
+  --mouse-x: 50%;
+  --mouse-y: 50%;
   border: none;
-  border-radius: 6px;
-  background: var(--primary-color);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: #fff;
-  padding: 10px 16px;
+  padding: 11px 22px;
   cursor: pointer;
-  font-size: 0.95rem;
-  transition: transform 0.2s ease;
-  min-width: 160px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 140px;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}}
+.action-btn::before {{
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.12), transparent);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}}
+.action-btn::after {{
+  content: '';
+  position: absolute;
+  top: var(--mouse-y);
+  left: var(--mouse-x);
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.45s ease-out, height 0.45s ease-out;
+  pointer-events: none;
 }}
 .action-btn:hover {{
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18), 0 4px 10px rgba(0, 0, 0, 0.1);
+}}
+.action-btn:hover::before {{
+  opacity: 1;
+}}
+.action-btn:hover::after {{
+  width: 280%;
+  height: 280%;
+}}
+.action-btn:active {{
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}}
+.action-btn .btn-icon {{
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
 }}
 body.exporting {{
   cursor: progress;
@@ -6015,6 +6072,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (printBtn) {
     printBtn.addEventListener('click', () => window.print());
   }
+  // 为所有 action-btn 添加鼠标追踪光晕效果
+  document.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('mousemove', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      btn.style.setProperty('--mouse-x', x + '%');
+      btn.style.setProperty('--mouse-y', y + '%');
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.setProperty('--mouse-x', '50%');
+      btn.style.setProperty('--mouse-y', '50%');
+    });
+  });
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn) {
     exportBtn.addEventListener('click', exportPdf);
