@@ -520,7 +520,26 @@ class HTMLRenderer:
     {self._render_tagline()}
   </div>
   <div class="header-actions">
+    <!-- 旧版日夜模式切换按钮（Web Component 风格）：
     <theme-button value="light" id="theme-toggle" size="1.5"></theme-button>
+    -->
+    <button id="theme-toggle-btn" class="action-btn theme-toggle-btn" type="button">
+      <svg class="btn-icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="btn-icon moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+      <span class="theme-label">切换模式</span>
+    </button>
     <button id="print-btn" class="action-btn print-btn" type="button">
       <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -3345,6 +3364,24 @@ theme-button {{ /* 含义：主题切换组件；设置：在本块内调整相�
   flex-shrink: 0; /* 含义：flex-shrink 样式属性；设置：按需调整数值/颜色/变量 */
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15)); /* 含义：滤镜效果；设置：按需调整数值/颜色/变量 */
 }} /* 结束 .action-btn .btn-icon */
+.theme-toggle-btn .sun-icon,
+.theme-toggle-btn .moon-icon {{ /* 含义：主题切换按钮图标样式；设置：在本块内调整相关属性 */
+  transition: transform 0.3s ease, opacity 0.3s ease; /* 含义：过渡动画时长/属性；设置：按需调整数值/颜色/变量 */
+}} /* 结束 .theme-toggle-btn 图标 */
+.theme-toggle-btn .sun-icon {{ /* 含义：太阳图标样式；设置：在本块内调整相关属性 */
+  color: #F59E0B; /* 含义：太阳图标颜色；设置：按需调整数值/颜色/变量 */
+  stroke: #F59E0B; /* 含义：太阳图标描边颜色；设置：按需调整数值/颜色/变量 */
+}} /* 结束 .theme-toggle-btn .sun-icon */
+.theme-toggle-btn .moon-icon {{ /* 含义：月亮图标样式；设置：在本块内调整相关属性 */
+  color: #6366F1; /* 含义：月亮图标颜色；设置：按需调整数值/颜色/变量 */
+  stroke: #6366F1; /* 含义：月亮图标描边颜色；设置：按需调整数值/颜色/变量 */
+}} /* 结束 .theme-toggle-btn .moon-icon */
+.theme-toggle-btn:hover .sun-icon {{ /* 含义：悬停时太阳图标效果；设置：在本块内调整相关属性 */
+  transform: rotate(15deg); /* 含义：旋转变换；设置：按需调整数值/颜色/变量 */
+}} /* 结束 .theme-toggle-btn:hover .sun-icon */
+.theme-toggle-btn:hover .moon-icon {{ /* 含义：悬停时月亮图标效果；设置：在本块内调整相关属性 */
+  transform: rotate(-15deg) scale(1.1); /* 含义：旋转和缩放变换；设置：按需调整数值/颜色/变量 */
+}} /* 结束 .theme-toggle-btn:hover .moon-icon */
 body.exporting {{ /* 含义：body.exporting 样式区域；设置：在本块内调整相关属性 */
   cursor: progress; /* 含义：鼠标指针样式；设置：按需调整数值/颜色/变量 */
 }} /* 结束 body.exporting */
@@ -4546,7 +4583,8 @@ img, canvas, svg {{ /* 含义：媒体元素尺寸限制；设置：在本块内
 document.documentElement.classList.remove('no-js');
 document.documentElement.classList.add('js-ready');
 
-/* ========== Theme Button Web Component ========== */
+/* ========== Theme Button Web Component (已注释，改用 action-btn 风格) ========== */
+/*
 (() => {
   const themeButtonFunc = (root, initTheme, changeTheme) => {
     const checkbox = root.querySelector('.theme-checkbox');
@@ -4642,7 +4680,8 @@ document.documentElement.classList.add('js-ready');
   }
   customElements.define("theme-button", ThemeButton);
 })();
- /* ========== End Theme Button Web Component ========== */
+*/
+/* ========== End Theme Button Web Component ========== */
  
  const chartRegistry = [];
 const wordCloudRegistry = new Map();
@@ -5782,15 +5821,46 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }, 260);
-  const themeBtn = document.getElementById('theme-toggle');
-  if (themeBtn) {
-    // 主题按钮：detail = 'light'/'dark'，同步 body class 与图表/词云配色
-    themeBtn.addEventListener('change', (e) => {
-      if (e.detail === 'dark') {
+  // 旧版 Web Component 主题按钮（已注释）
+  // const themeBtn = document.getElementById('theme-toggle');
+  // if (themeBtn) {
+  //   themeBtn.addEventListener('change', (e) => {
+  //     if (e.detail === 'dark') {
+  //       document.body.classList.add('dark-mode');
+  //     } else {
+  //       document.body.classList.remove('dark-mode');
+  //     }
+  //     chartRegistry.forEach(applyChartTheme);
+  //     rerenderWordclouds();
+  //   });
+  // }
+
+  // 新版 action-btn 风格主题按钮
+  const themeBtnNew = document.getElementById('theme-toggle-btn');
+  if (themeBtnNew) {
+    const sunIcon = themeBtnNew.querySelector('.sun-icon');
+    const moonIcon = themeBtnNew.querySelector('.moon-icon');
+    let isDark = document.body.classList.contains('dark-mode');
+
+    const updateThemeUI = () => {
+      if (isDark) {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      } else {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      }
+    };
+    updateThemeUI();
+
+    themeBtnNew.addEventListener('click', () => {
+      isDark = !isDark;
+      if (isDark) {
         document.body.classList.add('dark-mode');
       } else {
         document.body.classList.remove('dark-mode');
       }
+      updateThemeUI();
       chartRegistry.forEach(applyChartTheme);
       rerenderWordclouds();
     });
