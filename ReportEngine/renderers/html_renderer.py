@@ -2536,6 +2536,32 @@ class HTMLRenderer:
   --engine-query-border: #c7ebd6;
   --engine-query-text: #1d6b3f;
   --engine-quote-shadow: 0 12px 30px rgba(0,0,0,0.04);
+  --swot-strength: #1c7f6e;
+  --swot-weakness: #c0392b;
+  --swot-opportunity: #1f5ab3;
+  --swot-threat: #b36b16;
+  --swot-on-light: #0f1b2b;
+  --swot-on-dark: #f7fbff;
+  --swot-text: #0f1b2b;
+  --swot-muted: rgba(0,0,0,0.65);
+  --swot-surface: rgba(255,255,255,0.86);
+  --swot-chip-bg: rgba(0,0,0,0.06);
+  --swot-tag-border: rgba(0,0,0,0.08);
+  --swot-card-bg: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.08)), var(--card-bg);
+  --swot-card-border: var(--border-color);
+  --swot-card-shadow: 0 12px 30px var(--shadow-color);
+  --swot-card-blur: none;
+  --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+  --swot-cell-border: rgba(0,0,0,0.05);
+  --swot-cell-strength-bg: linear-gradient(135deg, rgba(28,127,110,0.08), rgba(255,255,255,0.75)), var(--card-bg);
+  --swot-cell-weakness-bg: linear-gradient(135deg, rgba(192,57,43,0.08), rgba(255,255,255,0.75)), var(--card-bg);
+  --swot-cell-opportunity-bg: linear-gradient(135deg, rgba(31,90,179,0.08), rgba(255,255,255,0.75)), var(--card-bg);
+  --swot-cell-threat-bg: linear-gradient(135deg, rgba(179,107,22,0.08), rgba(255,255,255,0.75)), var(--card-bg);
+  --swot-cell-strength-border: rgba(28,127,110,0.35);
+  --swot-cell-weakness-border: rgba(192,57,43,0.35);
+  --swot-cell-opportunity-border: rgba(31,90,179,0.35);
+  --swot-cell-threat-border: rgba(179,107,22,0.35);
+  --swot-item-border: rgba(0,0,0,0.06);
 }}
 .dark-mode {{
   --bg-color: #121212;
@@ -2560,13 +2586,31 @@ class HTMLRenderer:
   --engine-query-text: #a7e2ba;
   --engine-quote-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
   --swot-strength: #1c7f6e;
-  --swot-weakness: #c0392b;
-  --swot-opportunity: #1f5ab3;
-  --swot-threat: #b36b16;
+  --swot-weakness: #e06754;
+  --swot-opportunity: #5a8cff;
+  --swot-threat: #d48a2c;
   --swot-on-light: #0f1b2b;
-  --swot-on-dark: #f7fbff;
-  --swot-muted: rgba(0,0,0,0.65);
-  --swot-surface: rgba(255,255,255,0.86);
+  --swot-on-dark: #e6f0ff;
+  --swot-text: #e6f0ff;
+  --swot-muted: rgba(230,240,255,0.75);
+  --swot-surface: rgba(255,255,255,0.08);
+  --swot-chip-bg: rgba(255,255,255,0.14);
+  --swot-tag-border: rgba(255,255,255,0.24);
+  --swot-card-bg: radial-gradient(140% 140% at 18% 18%, rgba(110,168,254,0.18), transparent 55%), radial-gradient(120% 140% at 82% 0%, rgba(28,127,110,0.16), transparent 52%), linear-gradient(160deg, #0b1424 0%, #0b1f31 52%, #0a1626 100%);
+  --swot-card-border: rgba(255,255,255,0.14);
+  --swot-card-shadow: 0 24px 60px rgba(0, 0, 0, 0.58);
+  --swot-card-blur: blur(12px);
+  --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  --swot-cell-border: rgba(255,255,255,0.2);
+  --swot-cell-strength-bg: linear-gradient(150deg, rgba(28,127,110,0.28), rgba(28,127,110,0.12)), var(--swot-cell-base);
+  --swot-cell-weakness-bg: linear-gradient(150deg, rgba(192,57,43,0.32), rgba(192,57,43,0.14)), var(--swot-cell-base);
+  --swot-cell-opportunity-bg: linear-gradient(150deg, rgba(31,90,179,0.28), rgba(31,90,179,0.12)), var(--swot-cell-base);
+  --swot-cell-threat-bg: linear-gradient(150deg, rgba(179,107,22,0.32), rgba(179,107,22,0.14)), var(--swot-cell-base);
+  --swot-cell-strength-border: rgba(28,127,110,0.65);
+  --swot-cell-weakness-border: rgba(192,57,43,0.68);
+  --swot-cell-opportunity-border: rgba(31,90,179,0.68);
+  --swot-cell-threat-border: rgba(179,107,22,0.68);
+  --swot-item-border: rgba(255,255,255,0.14);
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -3011,10 +3055,13 @@ table th {{
   margin: 26px 0;
   padding: 18px 18px 14px;
   border-radius: 16px;
-  border: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(76,132,255,0.06), rgba(28,127,110,0.08)), var(--card-bg);
-  box-shadow: 0 12px 30px var(--shadow-color);
-  color: var(--swot-on-light);
+  border: 1px solid var(--swot-card-border);
+  background: var(--swot-card-bg);
+  box-shadow: var(--swot-card-shadow);
+  color: var(--swot-text);
+  backdrop-filter: var(--swot-card-blur);
+  position: relative;
+  overflow: hidden;
 }}
 .swot-card__head {{
   display: flex;
@@ -3030,8 +3077,8 @@ table th {{
 }}
 .swot-card__summary {{
   margin: 0;
-  color: var(--text-color);
-  opacity: 0.85;
+  color: var(--swot-text);
+  opacity: 0.82;
 }}
 .swot-legend {{
   display: flex;
@@ -3043,9 +3090,10 @@ table th {{
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
-  color: var(--swot-on-light);
-  border: 1px solid rgba(255,255,255,0.18);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+  color: var(--swot-on-dark);
+  border: 1px solid var(--swot-tag-border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.16);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
 }}
 .swot-legend__item.strength {{ background: var(--swot-strength); }}
 .swot-legend__item.weakness {{ background: var(--swot-weakness); }}
@@ -3059,15 +3107,15 @@ table th {{
 }}
 .swot-cell {{
   border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid var(--swot-cell-border);
   padding: 12px 12px 10px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  background: var(--swot-cell-base);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
 }}
-.swot-cell.strength {{ border-color: rgba(28,127,110,0.35); background: linear-gradient(135deg, rgba(28,127,110,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
-.swot-cell.weakness {{ border-color: rgba(192,57,43,0.35); background: linear-gradient(135deg, rgba(192,57,43,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
-.swot-cell.opportunity {{ border-color: rgba(31,90,179,0.35); background: linear-gradient(135deg, rgba(31,90,179,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
-.swot-cell.threat {{ border-color: rgba(179,107,22,0.35); background: linear-gradient(135deg, rgba(179,107,22,0.08), rgba(255,255,255,0.75)), var(--card-bg); }}
+.swot-cell.strength {{ border-color: var(--swot-cell-strength-border); background: var(--swot-cell-strength-bg); }}
+.swot-cell.weakness {{ border-color: var(--swot-cell-weakness-border); background: var(--swot-cell-weakness-bg); }}
+.swot-cell.opportunity {{ border-color: var(--swot-cell-opportunity-border); background: var(--swot-cell-opportunity-bg); }}
+.swot-cell.threat {{ border-color: var(--swot-cell-threat-border); background: var(--swot-cell-threat-bg); }}
 .swot-cell__meta {{
   display: flex;
   gap: 10px;
@@ -3082,9 +3130,9 @@ table th {{
   height: 36px;
   border-radius: 12px;
   font-weight: 800;
-  color: var(--swot-on-light);
-  border: 1px solid rgba(255,255,255,0.2);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+  color: var(--swot-on-dark);
+  border: 1px solid var(--swot-tag-border);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
 }}
 .swot-pill.strength {{ background: var(--swot-strength); }}
 .swot-pill.weakness {{ background: var(--swot-weakness); }}
@@ -3093,10 +3141,11 @@ table th {{
 .swot-cell__title {{
   font-weight: 750;
   letter-spacing: 0.01em;
+  color: var(--swot-text);
 }}
 .swot-cell__caption {{
   font-size: 0.9rem;
-  color: var(--text-color);
+  color: var(--swot-text);
   opacity: 0.7;
 }}
 .swot-list {{
@@ -3111,13 +3160,15 @@ table th {{
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--swot-surface);
-  border: 1px dashed rgba(0,0,0,0.06);
+  border: 1px solid var(--swot-item-border);
+  box-shadow: 0 12px 22px rgba(0,0,0,0.08);
 }}
 .swot-item-title {{
   display: flex;
   justify-content: space-between;
   gap: 8px;
   font-weight: 650;
+  color: var(--swot-text);
 }}
 .swot-item-tags {{
   display: inline-flex;
@@ -3129,27 +3180,30 @@ table th {{
   display: inline-block;
   padding: 4px 8px;
   border-radius: 10px;
-  background: rgba(0,0,0,0.06);
-  color: var(--swot-on-light);
+  background: var(--swot-chip-bg);
+  color: var(--swot-text);
+  border: 1px solid var(--swot-tag-border);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
   line-height: 1.2;
 }}
 .swot-tag.neutral {{
-  background: rgba(0,0,0,0.04);
+  opacity: 0.9;
 }}
 .swot-item-desc {{
   margin-top: 4px;
-  color: var(--text-color);
-  opacity: 0.94;
+  color: var(--swot-text);
+  opacity: 0.92;
 }}
 .swot-item-evidence {{
   margin-top: 4px;
   font-size: 0.9rem;
   color: var(--secondary-color);
+  opacity: 0.94;
 }}
 .swot-empty {{
   padding: 12px;
   border-radius: 12px;
-  border: 1px dashed var(--border-color);
+  border: 1px dashed var(--swot-card-border);
   text-align: center;
   color: var(--swot-muted);
   opacity: 0.7;
@@ -3408,7 +3462,7 @@ blockquote {{
     page-break-inside: avoid;
   }}
   .swot-card {{
-    color: var(--swot-on-dark);
+    color: var(--swot-text);
   }}
 .table-wrap {{
   overflow-x: auto;
@@ -3436,37 +3490,34 @@ img, canvas, svg {{
 }}
 }}
 
-/* 颜色模式自适应：在暗色环境下提升SWOT文本对比度 */
+/* 深色系统偏好下，同步SWOT的玻璃态配色与文字对比度 */
 @media (prefers-color-scheme: dark) {{
-  .swot-card {{
-    color: var(--swot-on-dark);
-    background: linear-gradient(135deg, rgba(36,64,110,0.52), rgba(19,88,73,0.48));
-    border-color: rgba(255,255,255,0.1);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
-  }}
-  .swot-legend__item,
-  .swot-pill,
-  .swot-item,
-  .swot-tag {{
-    color: var(--swot-on-dark);
-  }}
-  .swot-cell {{
-    background: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.14);
-  }}
-  .swot-cell.strength {{ background: linear-gradient(135deg, rgba(28,127,110,0.28), rgba(28,127,110,0.12)); border-color: rgba(28,127,110,0.65); }}
-  .swot-cell.weakness {{ background: linear-gradient(135deg, rgba(192,57,43,0.28), rgba(192,57,43,0.12)); border-color: rgba(192,57,43,0.65); }}
-  .swot-cell.opportunity {{ background: linear-gradient(135deg, rgba(31,90,179,0.28), rgba(31,90,179,0.12)); border-color: rgba(31,90,179,0.65); }}
-  .swot-cell.threat {{ background: linear-gradient(135deg, rgba(179,107,22,0.28), rgba(179,107,22,0.12)); border-color: rgba(179,107,22,0.65); }}
-  .swot-item {{
-    background: rgba(255,255,255,0.06);
-    border-color: rgba(255,255,255,0.16);
-  }}
-  .swot-tag {{
-    background: rgba(255,255,255,0.12);
-  }}
-  .swot-item-evidence {{
-    color: color-mix(in srgb, var(--secondary-color) 75%, #ffffff 25%);
+  :root {{
+    --swot-strength: #1c7f6e;
+    --swot-weakness: #e06754;
+    --swot-opportunity: #5a8cff;
+    --swot-threat: #d48a2c;
+    --swot-on-dark: #e6f0ff;
+    --swot-text: #e6f0ff;
+    --swot-muted: rgba(230,240,255,0.75);
+    --swot-surface: rgba(255,255,255,0.08);
+    --swot-chip-bg: rgba(255,255,255,0.14);
+    --swot-tag-border: rgba(255,255,255,0.24);
+    --swot-card-bg: radial-gradient(140% 140% at 18% 18%, rgba(110,168,254,0.18), transparent 55%), radial-gradient(120% 140% at 82% 0%, rgba(28,127,110,0.16), transparent 52%), linear-gradient(160deg, #0b1424 0%, #0b1f31 52%, #0a1626 100%);
+    --swot-card-border: rgba(255,255,255,0.14);
+    --swot-card-shadow: 0 24px 60px rgba(0, 0, 0, 0.58);
+    --swot-card-blur: blur(12px);
+    --swot-cell-base: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    --swot-cell-border: rgba(255,255,255,0.2);
+    --swot-cell-strength-bg: linear-gradient(150deg, rgba(28,127,110,0.28), rgba(28,127,110,0.12)), var(--swot-cell-base);
+    --swot-cell-weakness-bg: linear-gradient(150deg, rgba(192,57,43,0.32), rgba(192,57,43,0.14)), var(--swot-cell-base);
+    --swot-cell-opportunity-bg: linear-gradient(150deg, rgba(31,90,179,0.28), rgba(31,90,179,0.12)), var(--swot-cell-base);
+    --swot-cell-threat-bg: linear-gradient(150deg, rgba(179,107,22,0.32), rgba(179,107,22,0.14)), var(--swot-cell-base);
+    --swot-cell-strength-border: rgba(28,127,110,0.65);
+    --swot-cell-weakness-border: rgba(192,57,43,0.68);
+    --swot-cell-opportunity-border: rgba(31,90,179,0.68);
+    --swot-cell-threat-border: rgba(179,107,22,0.68);
+    --swot-item-border: rgba(255,255,255,0.14);
   }}
 }}
 """
