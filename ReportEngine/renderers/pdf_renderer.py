@@ -1049,6 +1049,26 @@ body {{
     min-height: 400px;
 }}
 
+/* SWOT：PDF导出隐藏四象限标注，并使用自适应布局避免重叠 */
+.swot-legend {{
+    display: none !important;
+}}
+.swot-grid {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: stretch;
+}}
+.swot-grid .swot-cell {{
+    flex: 1 1 320px;
+    min-width: 240px;
+    height: auto;
+    page-break-inside: avoid;
+}}
+.swot-card {{
+    page-break-inside: avoid;
+}}
+
 {optimized_css}
 </style>
 """

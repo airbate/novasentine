@@ -3208,6 +3208,21 @@ table th {{
   color: var(--swot-muted);
   opacity: 0.7;
 }}
+/* PDF/导出时的SWOT专用布局，避免圆角框重叠 */
+body.exporting .swot-legend {{
+  display: none !important;
+}}
+body.exporting .swot-grid {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+}}
+body.exporting .swot-cell {{
+  flex: 1 1 320px;
+  min-width: 240px;
+  height: auto;
+}}
 .callout {{
   border-left: 4px solid var(--primary-color);
   padding: 16px;
@@ -3463,6 +3478,20 @@ blockquote {{
   }}
   .swot-card {{
     color: var(--swot-text);
+  }}
+  .swot-legend {{
+    display: none !important;
+  }}
+  .swot-grid {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: stretch;
+  }}
+  .swot-grid .swot-cell {{
+    flex: 1 1 320px;
+    min-width: 240px;
+    height: auto;
   }}
 .table-wrap {{
   overflow-x: auto;
