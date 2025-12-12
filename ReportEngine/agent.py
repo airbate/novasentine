@@ -31,6 +31,7 @@ from .nodes import (
     ChapterGenerationNode,
     ChapterJsonParseError,
     ChapterContentError,
+    ChapterValidationError,
     DocumentLayoutNode,
     WordBudgetNode,
 )
@@ -601,11 +602,16 @@ class ReportAgent:
                             stream_callback=chunk_callback
                         )
                         break
-                    except (ChapterJsonParseError, ChapterContentError) as structured_error:
-                        error_kind = (
-                            "content_sparse" if isinstance(structured_error, ChapterContentError) else "json_parse"
-                        )
-                        readable_label = "内容密度异常" if error_kind == "content_sparse" else "JSON解析失败"
+                    except (ChapterJsonParseError, ChapterContentError, ChapterValidationError) as structured_error:
+                        if isinstance(structured_error, ChapterContentError):
+                            error_kind = "content_sparse"
+                            readable_label = "内容密度异常"
+                        elif isinstance(structured_error, ChapterValidationError):
+                            error_kind = "validation"
+                            readable_label = "结构校验失败"
+                        else:
+                            error_kind = "json_parse"
+                            readable_label = "JSON解析失败"
                         if isinstance(structured_error, ChapterContentError):
                             candidate = getattr(structured_error, "chapter_payload", None)
                             candidate_score = getattr(structured_error, "body_characters", 0) or 0
@@ -636,6 +642,10 @@ class ReportAgent:
                             'error': str(structured_error),
                             'reason': error_kind,
                         }
+                        if isinstance(structured_error, ChapterValidationError):
+                            validation_errors = getattr(structured_error, "errors", None)
+                            if validation_errors:
+                                status_payload['errors'] = validation_errors
                         if will_fallback:
                             status_payload['warning'] = 'content_sparse_fallback_pending'
                         emit('chapter_status', status_payload)

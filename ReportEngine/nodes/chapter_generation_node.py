@@ -77,6 +77,18 @@ class ChapterContentError(ValueError):
         self.non_heading_blocks: int = int(non_heading_blocks or 0)
 
 
+class ChapterValidationError(ValueError):
+    """
+    章节结构在本地和LLM修复后仍无法通过校验时抛出。
+
+    该异常用于在Agent层触发针对单章的重试，而无需重启整本报告。
+    """
+
+    def __init__(self, message: str, errors: Optional[List[str]] | None = None):
+        super().__init__(message)
+        self.errors: List[str] = list(errors or [])
+
+
 class ChapterGenerationNode(BaseNode):
     """
     负责按章节调用LLM并校验JSON结构。
@@ -268,8 +280,9 @@ class ChapterGenerationNode(BaseNode):
         )
 
         if not valid:
-            raise ValueError(
-                f"{section.title} 章节JSON校验失败: {'; '.join(errors[:5])}"
+            raise ChapterValidationError(
+                f"{section.title} 章节JSON校验失败: {'; '.join(errors[:5])}",
+                errors=errors,
             )
         if content_error:
             raise content_error
@@ -293,6 +306,11 @@ class ChapterGenerationNode(BaseNode):
         # 章节篇幅规划（来自WordBudgetNode），用于指导字数与强调点
         chapter_plan_map = context.get("chapter_directives", {})
         chapter_plan = chapter_plan_map.get(section.chapter_id) if chapter_plan_map else {}
+
+        # 从 layout 的 tocPlan 中查找该章节是否允许使用SWOT块和PEST块
+        allow_swot = self._get_chapter_swot_permission(section.chapter_id, context)
+        allow_pest = self._get_chapter_pest_permission(section.chapter_id, context)
+
         payload = {
             "section": {
                 "chapterId": section.chapter_id,
@@ -322,6 +340,8 @@ class ChapterGenerationNode(BaseNode):
                 "language": "zh-CN",
                 "maxTokens": context.get("max_tokens", 4096),
                 "allowedBlocks": ALLOWED_BLOCK_TYPES,
+                "allowSwot": allow_swot,
+                "allowPest": allow_pest,
                 "styleHints": {
                     "expectWidgets": True,
                     "forceHeadingAnchors": True,
@@ -345,6 +365,72 @@ class ChapterGenerationNode(BaseNode):
                 constraints["sectionBudgets"] = chapter_plan["sections"]
                 payload["globalContext"]["sectionBudgets"] = chapter_plan["sections"]
         return payload
+
+    def _get_chapter_swot_permission(self, chapter_id: str, context: Dict[str, Any]) -> bool:
+        """
+        从 layout 的 tocPlan 中查找指定章节是否允许使用 SWOT 块。
+
+        全文最多只有一个章节允许使用 SWOT 块，由文档设计阶段在 tocPlan 中
+        通过 allowSwot 字段标记。
+
+        参数:
+            chapter_id: 当前章节ID。
+            context: 全局上下文字典。
+
+        返回:
+            bool: 如果该章节允许使用 SWOT 块则返回 True，否则返回 False。
+        """
+        layout = context.get("layout")
+        if not isinstance(layout, dict):
+            return False
+
+        toc_plan = layout.get("tocPlan")
+        if not isinstance(toc_plan, list):
+            return False
+
+        for entry in toc_plan:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("chapterId") == chapter_id:
+                return bool(entry.get("allowSwot", False))
+
+        return False
+
+    def _get_chapter_pest_permission(self, chapter_id: str, context: Dict[str, Any]) -> bool:
+        """
+        从 layout 的 tocPlan 中查找指定章节是否允许使用 PEST 块。
+
+        全文最多只有一个章节允许使用 PEST 块，由文档设计阶段在 tocPlan 中
+        通过 allowPest 字段标记。
+
+        PEST块用于宏观环境分析：
+        - Political（政治因素）
+        - Economic（经济因素）
+        - Social（社会因素）
+        - Technological（技术因素）
+
+        参数:
+            chapter_id: 当前章节ID。
+            context: 全局上下文字典。
+
+        返回:
+            bool: 如果该章节允许使用 PEST 块则返回 True，否则返回 False。
+        """
+        layout = context.get("layout")
+        if not isinstance(layout, dict):
+            return False
+
+        toc_plan = layout.get("tocPlan")
+        if not isinstance(toc_plan, list):
+            return False
+
+        for entry in toc_plan:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("chapterId") == chapter_id:
+                return bool(entry.get("allowPest", False))
+
+        return False
 
     def _stream_llm(
         self,
@@ -1555,4 +1641,9 @@ class ChapterGenerationNode(BaseNode):
         raise last_exc
 
 
-__all__ = ["ChapterGenerationNode", "ChapterJsonParseError"]
+__all__ = [
+    "ChapterGenerationNode",
+    "ChapterJsonParseError",
+    "ChapterContentError",
+    "ChapterValidationError",
+]

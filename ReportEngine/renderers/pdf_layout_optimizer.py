@@ -915,16 +915,17 @@ p {{
     height: auto;
     display: flex;
     flex-direction: column;
+    align-items: stretch !important;
     gap: 8px;
 }}
 
 .kpi-card .kpi-value {{
     font-size: {body_kpi_value}px !important;
     line-height: 1.25;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    max-width: 100%;
+    white-space: nowrap;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
@@ -1158,8 +1159,8 @@ td {{
 
 .hero-kpi .value {{
     font-size: {overview_kpi_value}px !important;
-    word-break: break-word;
-    overflow-wrap: break-word;
+    white-space: nowrap;
+    width: 100%;
     max-width: 100%;
     line-height: 1.1;
     display: block;

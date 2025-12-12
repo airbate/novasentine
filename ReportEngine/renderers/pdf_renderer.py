@@ -1000,6 +1000,133 @@ body {{
     background: white !important;
 }}
 
+/* ========== 修复 WeasyPrint CSS 变量渐变兼容性问题 ========== */
+/* WeasyPrint 不支持在 linear-gradient 中使用 var()，需要用静态值覆盖 */
+
+/* 覆盖按钮渐变 */
+.action-btn {{
+    background: linear-gradient(135deg, #4a90e2 0%, #17a2b8 100%) !important;
+}}
+
+/* 覆盖进度条渐变 */
+.export-progress::after {{
+    background: linear-gradient(90deg, #4a90e2, #17a2b8) !important;
+}}
+
+/* 覆盖 PEST 卡片标题渐变 */
+.pest-card__title {{
+    background: linear-gradient(135deg, #8e44ad, #2980b9) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}}
+
+/* 覆盖 PEST 条带指示器渐变 */
+.pest-strip__indicator.political {{
+    background: linear-gradient(180deg, #8e44ad, rgba(142,68,173,0.8)) !important;
+}}
+.pest-strip__indicator.economic {{
+    background: linear-gradient(180deg, #16a085, rgba(22,160,133,0.8)) !important;
+}}
+.pest-strip__indicator.social {{
+    background: linear-gradient(180deg, #e84393, rgba(232,67,147,0.8)) !important;
+}}
+.pest-strip__indicator.technological {{
+    background: linear-gradient(180deg, #2980b9, rgba(41,128,185,0.8)) !important;
+}}
+
+/* 覆盖 PEST 条带背景（原来使用 var(--pest-strip-*-bg)，包含渐变和变量） */
+.pest-strip {{
+    background: #ffffff !important;
+}}
+.pest-strip.political {{
+    background: linear-gradient(90deg, rgba(142,68,173,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(142,68,173,0.4) !important;
+}}
+.pest-strip.economic {{
+    background: linear-gradient(90deg, rgba(22,160,133,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(22,160,133,0.4) !important;
+}}
+.pest-strip.social {{
+    background: linear-gradient(90deg, rgba(232,67,147,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(232,67,147,0.4) !important;
+}}
+.pest-strip.technological {{
+    background: linear-gradient(90deg, rgba(41,128,185,0.08), rgba(255,255,255,0.85)), #ffffff !important;
+    border-color: rgba(41,128,185,0.4) !important;
+}}
+
+/* 覆盖 SWOT 卡片背景（原来使用 var(--swot-card-bg)，包含渐变和变量） */
+.swot-card {{
+    background: linear-gradient(135deg, rgba(76,132,255,0.04), rgba(28,127,110,0.06)), #ffffff !important;
+}}
+
+/* 覆盖 SWOT 单元格背景（原来使用 var(--swot-cell-*-bg)，包含渐变和变量） */
+.swot-cell {{
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5)) !important;
+}}
+.swot-cell.strength {{
+    background: linear-gradient(135deg, rgba(28,127,110,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(28,127,110,0.35) !important;
+}}
+.swot-cell.weakness {{
+    background: linear-gradient(135deg, rgba(192,57,43,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(192,57,43,0.35) !important;
+}}
+.swot-cell.opportunity {{
+    background: linear-gradient(135deg, rgba(31,90,179,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(31,90,179,0.35) !important;
+}}
+.swot-cell.threat {{
+    background: linear-gradient(135deg, rgba(179,107,22,0.07), rgba(255,255,255,0.78)), #ffffff !important;
+    border-color: rgba(179,107,22,0.35) !important;
+}}
+
+/* 覆盖 SWOT 图例项和药丸（使用静态颜色） */
+.swot-legend__item.strength, .swot-pill.strength {{
+    background: #1c7f6e !important;
+}}
+.swot-legend__item.weakness, .swot-pill.weakness {{
+    background: #c0392b !important;
+}}
+.swot-legend__item.opportunity, .swot-pill.opportunity {{
+    background: #1f5ab3 !important;
+}}
+.swot-legend__item.threat, .swot-pill.threat {{
+    background: #b36b16 !important;
+}}
+
+/* 覆盖其他使用 var() 的元素 */
+.swot-item {{
+    background: rgba(255,255,255,0.92) !important;
+}}
+.swot-tag {{
+    background: rgba(0,0,0,0.04) !important;
+}}
+.swot-empty {{
+    border-color: #e0e0e0 !important;
+}}
+
+/* 覆盖 PEST 卡片背景 */
+.pest-card {{
+    background: linear-gradient(145deg, rgba(142,68,173,0.03), rgba(22,160,133,0.04)), #ffffff !important;
+}}
+
+/* 覆盖图表卡片错误状态渐变 */
+.chart-card.chart-card--error {{
+    background: linear-gradient(135deg, rgba(0,0,0,0.015), rgba(0,0,0,0.04)) !important;
+}}
+
+/* 覆盖词云徽章渐变 */
+.wordcloud-badge {{
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.14) 0%, rgba(74, 144, 226, 0.24) 100%) !important;
+}}
+
+/* 覆盖英雄区域渐变 */
+.hero-section {{
+    background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.1)) !important;
+}}
+
 /* SVG图表容器样式 */
 .chart-svg-container {{
     width: 100%;
@@ -1047,6 +1174,379 @@ body {{
 .chart-container {{
     display: block !important;
     min-height: 400px;
+}}
+
+/* ========== SWOT PDF表格布局 ========== */
+/* 核心策略：PDF中使用表格形式而非卡片形式，更适合分页 */
+
+/* 隐藏HTML卡片布局，显示PDF表格布局 */
+.swot-card--html {{
+    display: none !important;
+}}
+
+.swot-pdf-wrapper {{
+    display: block !important;
+    margin: 24px 0;
+}}
+
+/* PDF表格整体样式 */
+.swot-pdf-table {{
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    table-layout: fixed !important;
+    background: white;
+}}
+
+/* 表格标题 */
+.swot-pdf-caption {{
+    caption-side: top !important;
+    text-align: left !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    padding: 12px 0 !important;
+    color: #1a1a1a !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 表头样式 */
+.swot-pdf-thead {{
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+}}
+
+.swot-pdf-thead th {{
+    background: #f0f0f0 !important;
+    padding: 10px 8px !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+    font-size: 11px !important;
+}}
+
+.swot-pdf-th-quadrant {{ width: 70px !important; }}
+.swot-pdf-th-num {{ width: 40px !important; text-align: center !important; }}
+.swot-pdf-th-title {{ width: 20% !important; }}
+.swot-pdf-th-detail {{ width: auto !important; }}
+.swot-pdf-th-tags {{ width: 80px !important; text-align: center !important; }}
+
+/* 摘要行 */
+.swot-pdf-summary {{
+    padding: 10px 12px !important;
+    background: #f8f8f8 !important;
+    color: #555 !important;
+    font-style: italic !important;
+    border: 1px solid #ccc !important;
+    font-size: 11px !important;
+}}
+
+/* 每个象限区块 - 核心分页控制 */
+.swot-pdf-quadrant {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}}
+
+/* 允许在不同象限之间分页 */
+.swot-pdf-quadrant + .swot-pdf-quadrant {{
+    break-before: auto;
+    page-break-before: auto;
+}}
+
+/* 象限标签单元格 */
+.swot-pdf-quadrant-label {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 12px 6px !important;
+    font-weight: 700 !important;
+    border: 1px solid #ccc !important;
+    width: 70px !important;
+}}
+
+/* 四个象限的颜色主题 */
+.swot-pdf-quadrant-label.swot-pdf-strength {{
+    background: #e8f5f2 !important;
+    color: #1c7f6e !important;
+    border-left: 4px solid #1c7f6e !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-weakness {{
+    background: #fdeaea !important;
+    color: #c0392b !important;
+    border-left: 4px solid #c0392b !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-opportunity {{
+    background: #e8f0fa !important;
+    color: #1f5ab3 !important;
+    border-left: 4px solid #1f5ab3 !important;
+}}
+.swot-pdf-quadrant-label.swot-pdf-threat {{
+    background: #fdf3e6 !important;
+    color: #b36b16 !important;
+    border-left: 4px solid #b36b16 !important;
+}}
+
+/* 象限代码字母 */
+.swot-pdf-code {{
+    display: block !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    margin-bottom: 2px !important;
+}}
+
+/* 象限标签文字 */
+.swot-pdf-label-text {{
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}}
+
+/* 数据行 */
+.swot-pdf-item-row td {{
+    padding: 8px 6px !important;
+    border: 1px solid #ddd !important;
+    vertical-align: top !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}}
+
+/* 行背景色 */
+.swot-pdf-item-row.swot-pdf-strength td {{ background: #f7fbfa !important; }}
+.swot-pdf-item-row.swot-pdf-weakness td {{ background: #fef9f9 !important; }}
+.swot-pdf-item-row.swot-pdf-opportunity td {{ background: #f7f9fc !important; }}
+.swot-pdf-item-row.swot-pdf-threat td {{ background: #fdfbf7 !important; }}
+
+/* 序号单元格 */
+.swot-pdf-item-num {{
+    text-align: center !important;
+    font-weight: 600 !important;
+    color: #888 !important;
+    width: 40px !important;
+}}
+
+/* 要点标题 */
+.swot-pdf-item-title {{
+    font-weight: 600 !important;
+    color: #222 !important;
+}}
+
+/* 详情说明 */
+.swot-pdf-item-detail {{
+    color: #444 !important;
+    line-height: 1.5 !important;
+}}
+
+/* 标签单元格 */
+.swot-pdf-item-tags {{
+    text-align: center !important;
+}}
+
+/* 标签样式 */
+.swot-pdf-tag {{
+    display: inline-block !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 9px !important;
+    background: #e9ecef !important;
+    color: #495057 !important;
+    margin: 1px !important;
+}}
+
+.swot-pdf-tag--score {{
+    background: #fff3cd !important;
+    color: #856404 !important;
+}}
+
+/* 空数据提示 */
+.swot-pdf-empty {{
+    text-align: center !important;
+    color: #999 !important;
+    font-style: italic !important;
+}}
+
+/* ========== PEST PDF表格布局 ========== */
+/* 核心策略：PDF中使用表格形式而非卡片形式，更适合分页 */
+
+/* 隐藏HTML卡片布局，显示PDF表格布局 */
+.pest-card--html {{
+    display: none !important;
+}}
+
+.pest-pdf-wrapper {{
+    display: block !important;
+    margin: 24px 0;
+}}
+
+/* PDF表格整体样式 */
+.pest-pdf-table {{
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    table-layout: fixed !important;
+    background: white;
+}}
+
+/* 表格标题 */
+.pest-pdf-caption {{
+    caption-side: top !important;
+    text-align: left !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    padding: 12px 0 !important;
+    color: #333 !important;
+    border-bottom: 2px solid #333 !important;
+    margin-bottom: 8px !important;
+}}
+
+/* 表头样式 */
+.pest-pdf-thead {{
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+}}
+
+.pest-pdf-thead th {{
+    background: #f5f3f7 !important;
+    padding: 10px 8px !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    border: 1px solid #ccc !important;
+    color: #4a4458 !important;
+    font-size: 11px !important;
+}}
+
+.pest-pdf-th-dimension {{ width: 70px !important; }}
+.pest-pdf-th-num {{ width: 40px !important; text-align: center !important; }}
+.pest-pdf-th-title {{ width: 20% !important; }}
+.pest-pdf-th-detail {{ width: auto !important; }}
+.pest-pdf-th-tags {{ width: 80px !important; text-align: center !important; }}
+
+/* 摘要行 */
+.pest-pdf-summary {{
+    padding: 10px 12px !important;
+    background: #f8f6fa !important;
+    color: #555 !important;
+    font-style: italic !important;
+    border: 1px solid #ccc !important;
+    font-size: 11px !important;
+}}
+
+/* 每个维度区块 - 核心分页控制 */
+.pest-pdf-dimension {{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+}}
+
+/* 允许在不同维度之间分页 */
+.pest-pdf-dimension + .pest-pdf-dimension {{
+    break-before: auto;
+    page-break-before: auto;
+}}
+
+/* 维度标签单元格 */
+.pest-pdf-dimension-label {{
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 12px 6px !important;
+    font-weight: 700 !important;
+    border: 1px solid #ccc !important;
+    width: 70px !important;
+}}
+
+/* 四个维度的颜色主题 */
+.pest-pdf-dimension-label.pest-pdf-political {{
+    background: #f5eef8 !important;
+    color: #8e44ad !important;
+    border-left: 4px solid #8e44ad !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-economic {{
+    background: #e8f6f3 !important;
+    color: #16a085 !important;
+    border-left: 4px solid #16a085 !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-social {{
+    background: #fdecf4 !important;
+    color: #e84393 !important;
+    border-left: 4px solid #e84393 !important;
+}}
+.pest-pdf-dimension-label.pest-pdf-technological {{
+    background: #ebf3f9 !important;
+    color: #2980b9 !important;
+    border-left: 4px solid #2980b9 !important;
+}}
+
+/* 维度代码字母 */
+.pest-pdf-code {{
+    display: block !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    margin-bottom: 2px !important;
+}}
+
+/* 维度标签文字 */
+.pest-pdf-label-text {{
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}}
+
+/* 数据行 */
+.pest-pdf-item-row td {{
+    padding: 8px 6px !important;
+    border: 1px solid #ddd !important;
+    vertical-align: top !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}}
+
+/* 行背景色 */
+.pest-pdf-item-row.pest-pdf-political td {{ background: #faf7fc !important; }}
+.pest-pdf-item-row.pest-pdf-economic td {{ background: #f5fbfa !important; }}
+.pest-pdf-item-row.pest-pdf-social td {{ background: #fef8fb !important; }}
+.pest-pdf-item-row.pest-pdf-technological td {{ background: #f7fafd !important; }}
+
+/* 序号单元格 */
+.pest-pdf-item-num {{
+    text-align: center !important;
+    font-weight: 600 !important;
+    color: #888 !important;
+    width: 40px !important;
+}}
+
+/* 要点标题 */
+.pest-pdf-item-title {{
+    font-weight: 600 !important;
+    color: #222 !important;
+}}
+
+/* 详情说明 */
+.pest-pdf-item-detail {{
+    color: #444 !important;
+    line-height: 1.5 !important;
+}}
+
+/* 标签单元格 */
+.pest-pdf-item-tags {{
+    text-align: center !important;
+}}
+
+/* 标签样式 */
+.pest-pdf-tag {{
+    display: inline-block !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 9px !important;
+    background: #ece9f1 !important;
+    color: #5a4f6a !important;
+    margin: 1px !important;
+}}
+
+/* 空数据提示 */
+.pest-pdf-empty {{
+    text-align: center !important;
+    color: #999 !important;
+    font-style: italic !important;
 }}
 
 {optimized_css}
