@@ -483,7 +483,8 @@ class ReportAgent:
                     query,
                     template_overview,
                 ),
-                expected_keys=["title", "hero", "toc", "tocPlan"],
+                # toc 字段已被 tocPlan 取代，这里按最新Schema挑选/校验
+                expected_keys=["title", "hero", "tocPlan", "tocTitle"],
             )
             emit('stage', {
                 'stage': 'layout_designed',
