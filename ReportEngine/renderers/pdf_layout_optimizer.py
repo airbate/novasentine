@@ -813,8 +813,10 @@ class PDFLayoutOptimizer:
     display: inline-flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    background: transparent !important;
-    border: 1px solid rgba(0, 0, 0, 0.22) !important;
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
     border-radius: 999px !important;
     padding: 8px 16px !important;
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
@@ -1292,8 +1294,10 @@ td {{
     white-space: normal;
     overflow: visible;
     box-sizing: border-box;
-    background: transparent !important;
-    border: 1px solid rgba(0, 0, 0, 0.22) !important;
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
     border-radius: 999px !important;
     color: #222 !important;
     line-height: 1.4;

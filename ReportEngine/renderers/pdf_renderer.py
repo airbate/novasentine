@@ -1127,8 +1127,7 @@ body {{
     background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.1)) !important;
 }}
 
-/* ========== 覆盖 hero-actions 按钮样式（解决双层边框问题） ========== */
-/* 完全重置 button 和 ghost-btn 样式，避免浏览器默认样式干扰 */
+/* ========== 覆盖 hero-actions 按钮样式（无边框样式） ========== */
 .hero-actions {{
     display: flex !important;
     flex-wrap: wrap !important;
@@ -1143,33 +1142,28 @@ button.ghost-btn {{
     display: inline-flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    background: transparent !important;
-    border: 1px solid rgba(0, 0, 0, 0.22) !important;
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
     border-radius: 999px !important;
     padding: 8px 16px !important;
     font-size: 12px !important;
     color: #222 !important;
-    width: auto !important;
-    height: auto !important;
     white-space: normal !important;
     line-height: 1.4 !important;
     text-align: left !important;
     box-shadow: none !important;
-    cursor: default !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     appearance: none !important;
     outline: none !important;
     outline-width: 0 !important;
-    outline-style: none !important;
     word-break: break-word !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
     margin: 0 !important;
     font-family: inherit !important;
-    text-decoration: none !important;
-    border-width: 1px !important;
-    border-style: solid !important;
 }}
 
 /* SVG图表容器样式 */
