@@ -828,6 +828,7 @@ class PDFLayoutOptimizer:
     cursor: default !important;
     -webkit-appearance: none !important;
     appearance: none !important;
+    outline: none !important;
     word-break: break-word !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
@@ -1299,6 +1300,10 @@ td {{
     display: inline-flex !important;
     align-items: center;
     justify-content: flex-start;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    box-shadow: none !important;
 }}
 
 /* 防止标题孤行 */
