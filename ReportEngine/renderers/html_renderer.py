@@ -3570,10 +3570,10 @@ img, canvas, svg {{ /* 含义：媒体元素尺寸限制；设置：在本块内
   padding-top: 0; /* 含义：padding-top 样式属性；设置：按需调整数值/颜色/变量 */
 }} /* 结束 .chapter:first-of-type */
 blockquote {{ /* 含义：引用块 - PDF基础样式；设置：在本块内调整相关属性 */
-  border-left: 4px solid var(--primary-color); /* 含义：border-left 样式属性；设置：按需调整数值/颜色/变量 */
   padding: 12px 16px; /* 含义：内边距，控制内容与容器边缘的距离；设置：按需调整数值/颜色/变量 */
   background: rgba(0,0,0,0.04); /* 含义：背景色或渐变效果；设置：按需调整数值/颜色/变量 */
-  border-radius: 0 8px 8px 0; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+  border-radius: 8px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+  border-left: none; /* 含义：移除左侧色条；设置：按需调整数值/颜色/变量 */
 }} /* 结束 blockquote */
 /* ==================== Blockquote 液态玻璃效果 - 仅屏幕显示 ==================== */
 @media screen {{
@@ -3604,17 +3604,6 @@ blockquote {{ /* 含义：引用块 - PDF基础样式；设置：在本块内调
       inset 0 0 0 1px rgba(255, 255, 255, 0.25),
       inset 0 2px 6px rgba(255, 255, 255, 0.2); /* 含义：增强阴影；设置：按需调整数值/颜色/变量 */
   }} /* 结束 blockquote:hover */
-  blockquote::before {{ /* 含义：左侧发光指示条；设置：在本块内调整相关属性 */
-    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
-    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
-    left: 0; /* 含义：左对齐；设置：按需调整数值/颜色/变量 */
-    top: 12px; /* 含义：顶部间距；设置：按需调整数值/颜色/变量 */
-    bottom: 12px; /* 含义：底部间距；设置：按需调整数值/颜色/变量 */
-    width: 4px; /* 含义：宽度；设置：按需调整数值/颜色/变量 */
-    background: linear-gradient(180deg, var(--primary-color), var(--primary-color-light)); /* 含义：渐变主色条；设置：按需调整数值/颜色/变量 */
-    border-radius: 4px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
-    box-shadow: 0 0 16px var(--primary-color), 0 0 32px rgba(0,123,255,0.3); /* 含义：发光效果；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 blockquote::before */
   blockquote::after {{ /* 含义：顶部高光反射；设置：在本块内调整相关属性 */
     content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
     position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
@@ -3643,9 +3632,6 @@ blockquote {{ /* 含义：引用块 - PDF基础样式；设置：在本块内调
       inset 0 0 0 1px rgba(255, 255, 255, 0.15),
       inset 0 2px 6px rgba(255, 255, 255, 0.08); /* 含义：暗色增强阴影；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .dark-mode blockquote:hover */
-  .dark-mode blockquote::before {{ /* 含义：暗色左侧发光条；设置：在本块内调整相关属性 */
-    box-shadow: 0 0 20px var(--primary-color), 0 0 40px rgba(110,168,254,0.4); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 .dark-mode blockquote::before */
   .dark-mode blockquote::after {{ /* 含义：暗色顶部高光；设置：在本块内调整相关属性 */
     background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%); /* 含义：暗色高光；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .dark-mode blockquote::after */
@@ -4304,11 +4290,11 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
   }} /* 结束 .pest-strip */
 }} /* 结束 @media print */
 .callout {{ /* 含义：高亮提示框 - PDF基础样式；设置：在本块内调整相关属性 */
-  border-left: 4px solid var(--primary-color); /* 含义：border-left 样式属性；设置：按需调整数值/颜色/变量 */
   padding: 16px; /* 含义：内边距，控制内容与容器边缘的距离；设置：按需调整数值/颜色/变量 */
   border-radius: 8px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
   margin: 20px 0; /* 含义：外边距，控制与周围元素的距离；设置：按需调整数值/颜色/变量 */
   background: rgba(0,0,0,0.02); /* 含义：背景色或渐变效果；设置：按需调整数值/颜色/变量 */
+  border-left: none; /* 含义：移除左侧色条；设置：按需调整数值/颜色/变量 */
 }} /* 结束 .callout */
 .callout.tone-warning {{ border-color: #ff9800; }} /* 含义：.callout.tone-warning  border-color 样式属性；设置：按需调整数值/颜色/变量 */
 .callout.tone-success {{ border-color: #2ecc71; }} /* 含义：.callout.tone-success  border-color 样式属性；设置：按需调整数值/颜色/变量 */
@@ -4320,7 +4306,7 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
     --callout-glow-color: rgba(0, 123, 255, 0.35); /* 含义：callout 发光色；设置：按需调整数值/颜色/变量 */
     position: relative; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
     margin: 24px 0; /* 含义：增加外边距强化悬浮感；设置：按需调整数值/颜色/变量 */
-    padding: 20px 24px 20px 28px; /* 含义：内边距；设置：按需调整数值/颜色/变量 */
+    padding: 20px 24px; /* 含义：内边距；设置：按需调整数值/颜色/变量 */
     border: none; /* 含义：移除默认边框；设置：按需调整数值/颜色/变量 */
     border-radius: 24px; /* 含义：大圆角增强液态感；设置：按需调整数值/颜色/变量 */
     background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%); /* 含义：极淡透明渐变；设置：按需调整数值/颜色/变量 */
@@ -4344,21 +4330,6 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
       inset 0 0 0 1.5px rgba(255, 255, 255, 0.22),
       inset 0 3px 8px rgba(255, 255, 255, 0.15); /* 含义：增强阴影；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .callout:hover */
-  .callout::before {{ /* 含义：左侧发光指示条；设置：在本块内调整相关属性 */
-    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
-    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
-    left: 0; /* 含义：左对齐；设置：按需调整数值/颜色/变量 */
-    top: 16px; /* 含义：顶部间距；设置：按需调整数值/颜色/变量 */
-    bottom: 16px; /* 含义：底部间距；设置：按需调整数值/颜色/变量 */
-    width: 5px; /* 含义：宽度；设置：按需调整数值/颜色/变量 */
-    background: linear-gradient(180deg, var(--callout-accent), color-mix(in srgb, var(--callout-accent), white 30%)); /* 含义：渐变主色条；设置：按需调整数值/颜色/变量 */
-    border-radius: 5px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
-    box-shadow: 0 0 20px var(--callout-glow-color), 0 0 40px var(--callout-glow-color); /* 含义：发光效果；设置：按需调整数值/颜色/变量 */
-    transition: box-shadow 0.4s ease; /* 含义：发光过渡；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 .callout::before */
-  .callout:hover::before {{ /* 含义：悬停时增强发光；设置：在本块内调整相关属性 */
-    box-shadow: 0 0 28px var(--callout-glow-color), 0 0 56px var(--callout-glow-color); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 .callout:hover::before */
   .callout::after {{ /* 含义：顶部弧形高光反射；设置：在本块内调整相关属性 */
     content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
     position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
@@ -4404,12 +4375,6 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
       inset 0 0 0 1.5px rgba(255, 255, 255, 0.12),
       inset 0 3px 8px rgba(255, 255, 255, 0.06); /* 含义：暗色增强阴影；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .dark-mode .callout:hover */
-  .dark-mode .callout::before {{ /* 含义：暗色左侧发光条；设置：在本块内调整相关属性 */
-    box-shadow: 0 0 24px var(--callout-glow-color), 0 0 48px var(--callout-glow-color); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 .dark-mode .callout::before */
-  .dark-mode .callout:hover::before {{ /* 含义：暗色悬停增强发光；设置：在本块内调整相关属性 */
-    box-shadow: 0 0 32px var(--callout-glow-color), 0 0 64px var(--callout-glow-color); /* 含义：更强发光；设置：按需调整数值/颜色/变量 */
-  }} /* 结束 .dark-mode .callout:hover::before */
   .dark-mode .callout::after {{ /* 含义：暗色顶部高光；设置：在本块内调整相关属性 */
     background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 50%, transparent 100%); /* 含义：暗色高光；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .dark-mode .callout::after */
