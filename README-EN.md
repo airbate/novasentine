@@ -8,7 +8,8 @@
 <a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
-<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>
+<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>&ensp;
+<a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -86,6 +87,12 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 <details>
 <summary>Provider of core agent capabilities including AI web search, file parsing, and web content scraping: <span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></span></summary>
 Anspire Open is a leading infrastructure provider for the agent era. We offer developers the core capability stack needed to build powerful agents. Currently available services include AI web search (multiple versions, highly competitive pricing), file parsing (limited-time free), web content scraping (limited-time free), cloud browser automation (Anspire Browser Agent, in beta), multi-turn rewriting, and more. We continue to provide a solid foundation for agents to connect and operate in complex digital worlds. Seamlessly integrates with mainstream agent platforms such as Dify, Coze, and Yuanqi. Through a transparent credit-based billing system and modular design, we provide enterprises with efficient, low-cost customized support to accelerate intelligent transformation.
+</details>
+
+<details>
+<summary>Claim 1GB free trial, enterprise-grade global proxy IP and Scraper API solution provider, register now: <span style="margin-left: 10px"><a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
+<img src="static/image/banner_thordata.png" height="250" alt="banner">
+Thordata helps enterprises easily access publicly available web data through highly reliable proxy networks and automated scraping solutions, with a commitment to 99.9% uptime and 99.7% success rate.
 </details>
 
 ## 🏗️ System Architecture
@@ -571,16 +578,14 @@ The system supports any LLM provider that follows the OpenAI request format. You
 >```python
 >from openai import OpenAI
 >
->client = OpenAI(api_key="your_api_key",
->                base_url="https://api.siliconflow.cn/v1")
+>client = OpenAI(api_key="your_api_key", 
+>                base_url="https://aihubmix.com/v1")
 >
 >response = client.chat.completions.create(
->    model="Qwen/Qwen2.5-72B-Instruct",
+>    model="gpt-4o-mini",
 >    messages=[
->        {
->            'role': 'user',
->            'content': "What new opportunities will reasoning models bring to the market?"
->        }
+>        {'role': 'user', 
+>         'content': "What new opportunities will reasoning models bring to the market?"}
 >    ],
 >)
 >

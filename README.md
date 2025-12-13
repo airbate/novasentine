@@ -8,7 +8,8 @@
 <a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
-<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>
+<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>&ensp;
+<a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -80,12 +81,19 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 
 <details>
 <summary>按用量付费的企业级AI资源平台，提供市场上全面的AI模型和API，以及多种在线AI应用：</a><span style="margin-left: 10px"><a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></summary>
-<img src="static/image/banner_302ai_ch.jpg" alt="banner">302.AI是一个按用量付费的企业级AI资源平台，提供市场上最新、最全面的AI模型和API，以及多种开箱即用的在线AI应用。
+<img src="static/image/banner_302ai_ch.jpg" alt="banner">
+302.AI是一个按用量付费的企业级AI资源平台，提供市场上最新、最全面的AI模型和API，以及多种开箱即用的在线AI应用。
 </details>
 
 <details>
 <summary>AI联网搜索、文件解析及网页内容抓取等智能体核心能力提供商：</a><span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></summary>
 安思派开放平台(Anspire Open)是面向智能体时代的领先的基础设施提供商。我们为开发者提供构建强大智能体所需的核心能力栈，现已上线AI联网搜索【多版本，极具竞争力的价格】、文件解析【限免】及网页内容抓取【限免】、云端浏览器自动化（Anspire Browser Agent）【内测】、多轮改写等服务，持续为智能体连接并操作复杂的数字世界提供坚实基础。可无缝集成至Dify、Coze、元器等主流智能体平台。通过透明点数计费体系与模块化设计，为企业提供高效、低成本的定制化支持，加速智能化升级进程。
+</details>
+
+<details>
+<summary>免费领取1GB免费试用，企业级全球代理IP与Scraper API解决方案提供商，立即注册：</a><span style="margin-left: 10px"><a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></summary>
+<img src="static/image/banner_thordata.png" height="250" alt="banner">
+Thordata通过高可靠性的代理网络和自动化抓取解决方案，帮助企业轻松获取网络公开数据，并承诺99.9%的正常运行时间与99.7%的成功率。
 </details>
 
 ## 🏗️ 系统架构
