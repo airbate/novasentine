@@ -1127,6 +1127,45 @@ body {{
     background: linear-gradient(135deg, rgba(0,123,255,0.1), rgba(23,162,184,0.1)) !important;
 }}
 
+/* ========== 覆盖 hero-actions 按钮样式（无边框样式） ========== */
+.hero-actions {{
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
+    padding: 0 !important;
+}}
+
+.hero-actions button,
+.hero-actions .ghost-btn,
+button.ghost-btn {{
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    background: rgba(0, 0, 0, 0.04) !important;
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
+    border-radius: 999px !important;
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    color: #222 !important;
+    white-space: normal !important;
+    line-height: 1.4 !important;
+    text-align: left !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    outline: none !important;
+    outline-width: 0 !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    font-family: inherit !important;
+}}
+
 /* SVG图表容器样式 */
 .chart-svg-container {{
     width: 100%;
