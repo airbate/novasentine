@@ -3569,12 +3569,87 @@ img, canvas, svg {{ /* 含义：媒体元素尺寸限制；设置：在本块内
   border-top: none; /* 含义：border-top 样式属性；设置：按需调整数值/颜色/变量 */
   padding-top: 0; /* 含义：padding-top 样式属性；设置：按需调整数值/颜色/变量 */
 }} /* 结束 .chapter:first-of-type */
-blockquote {{ /* 含义：引用块；设置：在本块内调整相关属性 */
+blockquote {{ /* 含义：引用块 - PDF基础样式；设置：在本块内调整相关属性 */
   border-left: 4px solid var(--primary-color); /* 含义：border-left 样式属性；设置：按需调整数值/颜色/变量 */
   padding: 12px 16px; /* 含义：内边距，控制内容与容器边缘的距离；设置：按需调整数值/颜色/变量 */
   background: rgba(0,0,0,0.04); /* 含义：背景色或渐变效果；设置：按需调整数值/颜色/变量 */
   border-radius: 0 8px 8px 0; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
 }} /* 结束 blockquote */
+/* ==================== Blockquote 液态玻璃效果 - 仅屏幕显示 ==================== */
+@media screen {{
+  blockquote {{ /* 含义：引用块液态玻璃 - 透明悬浮设计；设置：在本块内调整相关属性 */
+    position: relative; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    margin: 20px 0; /* 含义：外边距增加悬浮空间；设置：按需调整数值/颜色/变量 */
+    padding: 18px 22px; /* 含义：内边距；设置：按需调整数值/颜色/变量 */
+    border: none; /* 含义：移除默认边框；设置：按需调整数值/颜色/变量 */
+    border-radius: 20px; /* 含义：大圆角增强液态感；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%); /* 含义：极淡透明渐变；设置：按需调整数值/颜色/变量 */
+    backdrop-filter: blur(24px) saturate(180%); /* 含义：强背景模糊实现玻璃透视；设置：按需调整数值/颜色/变量 */
+    -webkit-backdrop-filter: blur(24px) saturate(180%); /* 含义：Safari 背景模糊；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+      inset 0 2px 4px rgba(255, 255, 255, 0.15); /* 含义：多层阴影营造悬浮感；设置：按需调整数值/颜色/变量 */
+    transform: translateY(0); /* 含义：初始位置；设置：按需调整数值/颜色/变量 */
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease; /* 含义：弹性过渡动画；设置：按需调整数值/颜色/变量 */
+    overflow: visible; /* 含义：允许光效溢出；设置：按需调整数值/颜色/变量 */
+    isolation: isolate; /* 含义：创建层叠上下文；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 blockquote 液态玻璃基础 */
+  blockquote:hover {{ /* 含义：悬停时增强悬浮效果；设置：在本块内调整相关属性 */
+    transform: translateY(-3px); /* 含义：上浮效果；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 16px 48px rgba(0, 0, 0, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+      inset 0 2px 6px rgba(255, 255, 255, 0.2); /* 含义：增强阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 blockquote:hover */
+  blockquote::before {{ /* 含义：左侧发光指示条；设置：在本块内调整相关属性 */
+    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
+    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    left: 0; /* 含义：左对齐；设置：按需调整数值/颜色/变量 */
+    top: 12px; /* 含义：顶部间距；设置：按需调整数值/颜色/变量 */
+    bottom: 12px; /* 含义：底部间距；设置：按需调整数值/颜色/变量 */
+    width: 4px; /* 含义：宽度；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(180deg, var(--primary-color), var(--primary-color-light)); /* 含义：渐变主色条；设置：按需调整数值/颜色/变量 */
+    border-radius: 4px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+    box-shadow: 0 0 16px var(--primary-color), 0 0 32px rgba(0,123,255,0.3); /* 含义：发光效果；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 blockquote::before */
+  blockquote::after {{ /* 含义：顶部高光反射；设置：在本块内调整相关属性 */
+    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
+    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    top: 0; /* 含义：顶部位置；设置：按需调整数值/颜色/变量 */
+    left: 0; /* 含义：左边位置；设置：按需调整数值/颜色/变量 */
+    right: 0; /* 含义：右边位置；设置：按需调整数值/颜色/变量 */
+    height: 50%; /* 含义：覆盖上半部分；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%); /* 含义：顶部高光渐变；设置：按需调整数值/颜色/变量 */
+    border-radius: 20px 20px 0 0; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+    pointer-events: none; /* 含义：不响应鼠标；设置：按需调整数值/颜色/变量 */
+    z-index: -1; /* 含义：置于内容下方；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 blockquote::after */
+  /* 暗色模式 blockquote 液态玻璃 */
+  .dark-mode blockquote {{ /* 含义：暗色模式引用块液态玻璃；设置：在本块内调整相关属性 */
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); /* 含义：暗色透明渐变；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 2px 4px rgba(255, 255, 255, 0.05); /* 含义：暗色阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode blockquote */
+  .dark-mode blockquote:hover {{ /* 含义：暗色悬停效果；设置：在本块内调整相关属性 */
+    box-shadow: 
+      0 20px 56px rgba(0, 0, 0, 0.5),
+      0 6px 20px rgba(0, 0, 0, 0.25),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.15),
+      inset 0 2px 6px rgba(255, 255, 255, 0.08); /* 含义：暗色增强阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode blockquote:hover */
+  .dark-mode blockquote::before {{ /* 含义：暗色左侧发光条；设置：在本块内调整相关属性 */
+    box-shadow: 0 0 20px var(--primary-color), 0 0 40px rgba(110,168,254,0.4); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode blockquote::before */
+  .dark-mode blockquote::after {{ /* 含义：暗色顶部高光；设置：在本块内调整相关属性 */
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%); /* 含义：暗色高光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode blockquote::after */
+}} /* 结束 @media screen blockquote 液态玻璃 */
 .engine-quote {{ /* 含义：引擎发言块；设置：在本块内调整相关属性 */
   --engine-quote-bg: var(--engine-insight-bg); /* 含义：主题变量 engine-quote-bg；设置：在 themeTokens 中覆盖或改此默认值 */
   --engine-quote-border: var(--engine-insight-border); /* 含义：主题变量 engine-quote-border；设置：在 themeTokens 中覆盖或改此默认值 */
@@ -4228,7 +4303,7 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
     page-break-inside: avoid; /* 含义：page-break-inside 样式属性；设置：按需调整数值/颜色/变量 */
   }} /* 结束 .pest-strip */
 }} /* 结束 @media print */
-.callout {{ /* 含义：高亮提示框；设置：在本块内调整相关属性 */
+.callout {{ /* 含义：高亮提示框 - PDF基础样式；设置：在本块内调整相关属性 */
   border-left: 4px solid var(--primary-color); /* 含义：border-left 样式属性；设置：按需调整数值/颜色/变量 */
   padding: 16px; /* 含义：内边距，控制内容与容器边缘的距离；设置：按需调整数值/颜色/变量 */
   border-radius: 8px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
@@ -4238,6 +4313,120 @@ table th {{ /* 含义：table th 样式区域；设置：在本块内调整相�
 .callout.tone-warning {{ border-color: #ff9800; }} /* 含义：.callout.tone-warning  border-color 样式属性；设置：按需调整数值/颜色/变量 */
 .callout.tone-success {{ border-color: #2ecc71; }} /* 含义：.callout.tone-success  border-color 样式属性；设置：按需调整数值/颜色/变量 */
 .callout.tone-danger {{ border-color: #e74c3c; }} /* 含义：.callout.tone-danger  border-color 样式属性；设置：按需调整数值/颜色/变量 */
+/* ==================== Callout 液态玻璃效果 - 仅屏幕显示 ==================== */
+@media screen {{
+  .callout {{ /* 含义：高亮提示框液态玻璃 - 透明悬浮设计；设置：在本块内调整相关属性 */
+    --callout-accent: var(--primary-color); /* 含义：callout 主色调；设置：按需调整数值/颜色/变量 */
+    --callout-glow-color: rgba(0, 123, 255, 0.35); /* 含义：callout 发光色；设置：按需调整数值/颜色/变量 */
+    position: relative; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    margin: 24px 0; /* 含义：增加外边距强化悬浮感；设置：按需调整数值/颜色/变量 */
+    padding: 20px 24px 20px 28px; /* 含义：内边距；设置：按需调整数值/颜色/变量 */
+    border: none; /* 含义：移除默认边框；设置：按需调整数值/颜色/变量 */
+    border-radius: 24px; /* 含义：大圆角增强液态感；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%); /* 含义：极淡透明渐变；设置：按需调整数值/颜色/变量 */
+    backdrop-filter: blur(28px) saturate(200%); /* 含义：强背景模糊实现玻璃透视；设置：按需调整数值/颜色/变量 */
+    -webkit-backdrop-filter: blur(28px) saturate(200%); /* 含义：Safari 背景模糊；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.05),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.18),
+      inset 0 2px 6px rgba(255, 255, 255, 0.12); /* 含义：多层阴影营造悬浮感；设置：按需调整数值/颜色/变量 */
+    transform: translateY(0); /* 含义：初始位置；设置：按需调整数值/颜色/变量 */
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.45s ease; /* 含义：弹性过渡动画；设置：按需调整数值/颜色/变量 */
+    overflow: hidden; /* 含义：隐藏溢出内容；设置：按需调整数值/颜色/变量 */
+    isolation: isolate; /* 含义：创建层叠上下文；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout 液态玻璃基础 */
+  .callout:hover {{ /* 含义：悬停时增强悬浮效果；设置：在本块内调整相关属性 */
+    transform: translateY(-4px); /* 含义：上浮效果；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 20px 56px rgba(0, 0, 0, 0.12),
+      0 8px 20px rgba(0, 0, 0, 0.06),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.22),
+      inset 0 3px 8px rgba(255, 255, 255, 0.15); /* 含义：增强阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout:hover */
+  .callout::before {{ /* 含义：左侧发光指示条；设置：在本块内调整相关属性 */
+    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
+    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    left: 0; /* 含义：左对齐；设置：按需调整数值/颜色/变量 */
+    top: 16px; /* 含义：顶部间距；设置：按需调整数值/颜色/变量 */
+    bottom: 16px; /* 含义：底部间距；设置：按需调整数值/颜色/变量 */
+    width: 5px; /* 含义：宽度；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(180deg, var(--callout-accent), color-mix(in srgb, var(--callout-accent), white 30%)); /* 含义：渐变主色条；设置：按需调整数值/颜色/变量 */
+    border-radius: 5px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+    box-shadow: 0 0 20px var(--callout-glow-color), 0 0 40px var(--callout-glow-color); /* 含义：发光效果；设置：按需调整数值/颜色/变量 */
+    transition: box-shadow 0.4s ease; /* 含义：发光过渡；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout::before */
+  .callout:hover::before {{ /* 含义：悬停时增强发光；设置：在本块内调整相关属性 */
+    box-shadow: 0 0 28px var(--callout-glow-color), 0 0 56px var(--callout-glow-color); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout:hover::before */
+  .callout::after {{ /* 含义：顶部弧形高光反射；设置：在本块内调整相关属性 */
+    content: ''; /* 含义：伪元素内容；设置：按需调整数值/颜色/变量 */
+    position: absolute; /* 含义：定位方式；设置：按需调整数值/颜色/变量 */
+    top: 0; /* 含义：顶部位置；设置：按需调整数值/颜色/变量 */
+    left: 0; /* 含义：左边位置；设置：按需调整数值/颜色/变量 */
+    right: 0; /* 含义：右边位置；设置：按需调整数值/颜色/变量 */
+    height: 55%; /* 含义：覆盖上半部分；设置：按需调整数值/颜色/变量 */
+    background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 60%, transparent 100%); /* 含义：顶部高光渐变；设置：按需调整数值/颜色/变量 */
+    border-radius: 24px 24px 0 0; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
+    pointer-events: none; /* 含义：不响应鼠标；设置：按需调整数值/颜色/变量 */
+    z-index: -1; /* 含义：置于内容下方；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout::after */
+  /* Callout tone 变体 - 不同颜色发光 */
+  .callout.tone-info {{ /* 含义：信息类型 callout；设置：在本块内调整相关属性 */
+    --callout-accent: #3b82f6; /* 含义：信息蓝色调；设置：按需调整数值/颜色/变量 */
+    --callout-glow-color: rgba(59, 130, 246, 0.4); /* 含义：信息蓝发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout.tone-info */
+  .callout.tone-warning {{ /* 含义：警告类型 callout；设置：在本块内调整相关属性 */
+    --callout-accent: #f59e0b; /* 含义：警告橙色调；设置：按需调整数值/颜色/变量 */
+    --callout-glow-color: rgba(245, 158, 11, 0.4); /* 含义：警告橙发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout.tone-warning */
+  .callout.tone-success {{ /* 含义：成功类型 callout；设置：在本块内调整相关属性 */
+    --callout-accent: #10b981; /* 含义：成功绿色调；设置：按需调整数值/颜色/变量 */
+    --callout-glow-color: rgba(16, 185, 129, 0.4); /* 含义：成功绿发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout.tone-success */
+  .callout.tone-danger {{ /* 含义：危险类型 callout；设置：在本块内调整相关属性 */
+    --callout-accent: #ef4444; /* 含义：危险红色调；设置：按需调整数值/颜色/变量 */
+    --callout-glow-color: rgba(239, 68, 68, 0.4); /* 含义：危险红发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .callout.tone-danger */
+  /* 暗色模式 callout 液态玻璃 */
+  .dark-mode .callout {{ /* 含义：暗色模式 callout 液态玻璃；设置：在本块内调整相关属性 */
+    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%); /* 含义：暗色透明渐变；设置：按需调整数值/颜色/变量 */
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.35),
+      0 4px 12px rgba(0, 0, 0, 0.18),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.08),
+      inset 0 2px 6px rgba(255, 255, 255, 0.04); /* 含义：暗色阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout */
+  .dark-mode .callout:hover {{ /* 含义：暗色悬停效果；设置：在本块内调整相关属性 */
+    box-shadow: 
+      0 24px 64px rgba(0, 0, 0, 0.45),
+      0 10px 28px rgba(0, 0, 0, 0.22),
+      inset 0 0 0 1.5px rgba(255, 255, 255, 0.12),
+      inset 0 3px 8px rgba(255, 255, 255, 0.06); /* 含义：暗色增强阴影；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout:hover */
+  .dark-mode .callout::before {{ /* 含义：暗色左侧发光条；设置：在本块内调整相关属性 */
+    box-shadow: 0 0 24px var(--callout-glow-color), 0 0 48px var(--callout-glow-color); /* 含义：增强发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout::before */
+  .dark-mode .callout:hover::before {{ /* 含义：暗色悬停增强发光；设置：在本块内调整相关属性 */
+    box-shadow: 0 0 32px var(--callout-glow-color), 0 0 64px var(--callout-glow-color); /* 含义：更强发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout:hover::before */
+  .dark-mode .callout::after {{ /* 含义：暗色顶部高光；设置：在本块内调整相关属性 */
+    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 50%, transparent 100%); /* 含义：暗色高光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout::after */
+  /* 暗色模式发光颜色增强 */
+  .dark-mode .callout.tone-info {{ /* 含义：暗色信息类型；设置：在本块内调整相关属性 */
+    --callout-glow-color: rgba(96, 165, 250, 0.5); /* 含义：暗色信息发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout.tone-info */
+  .dark-mode .callout.tone-warning {{ /* 含义：暗色警告类型；设置：在本块内调整相关属性 */
+    --callout-glow-color: rgba(251, 191, 36, 0.5); /* 含义：暗色警告发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout.tone-warning */
+  .dark-mode .callout.tone-success {{ /* 含义：暗色成功类型；设置：在本块内调整相关属性 */
+    --callout-glow-color: rgba(52, 211, 153, 0.5); /* 含义：暗色成功发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout.tone-success */
+  .dark-mode .callout.tone-danger {{ /* 含义：暗色危险类型；设置：在本块内调整相关属性 */
+    --callout-glow-color: rgba(248, 113, 113, 0.5); /* 含义：暗色危险发光；设置：按需调整数值/颜色/变量 */
+  }} /* 结束 .dark-mode .callout.tone-danger */
+}} /* 结束 @media screen callout 液态玻璃 */
 .kpi-grid {{ /* 含义：KPI 栅格容器；设置：在本块内调整相关属性 */
   display: grid; /* 含义：布局展示方式；设置：按需调整数值/颜色/变量 */
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* 含义：网格列模板；设置：按需调整数值/颜色/变量 */
