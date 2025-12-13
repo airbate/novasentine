@@ -3170,6 +3170,11 @@ body {{ /* 含义：全局排版与背景设置；设置：在本块内调整相
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); /* 含义：网格列模板；设置：按需调整数值/颜色/变量 */
   gap: 12px; /* 含义：子元素间距；设置：按需调整数值/颜色/变量 */
 }} /* 结束 .hero-side */
+@media screen {{
+  .hero-side {{
+    margin-top: 28px; /* 含义：仅在屏幕显示时下移，避免遮挡；设置：按需调整数值 */
+  }}
+}}
 .hero-kpi {{ /* 含义：封面 KPI 卡片；设置：在本块内调整相关属性 */
   background: var(--card-bg); /* 含义：背景色或渐变效果；设置：按需调整数值/颜色/变量 */
   border-radius: 14px; /* 含义：圆角；设置：按需调整数值/颜色/变量 */
