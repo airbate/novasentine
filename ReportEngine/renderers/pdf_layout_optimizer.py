@@ -813,20 +813,18 @@ class PDFLayoutOptimizer:
     display: inline-flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    background: none !important;
-    background-color: #f3f4f6 !important;
-    background-image: none !important;
+    background: rgba(0, 0, 0, 0.04) !important;
     border: none !important;
     border-width: 0 !important;
     border-style: none !important;
     border-radius: 999px !important;
-    padding: 10px 18px !important;
+    padding: 8px 16px !important;
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
     color: #222 !important;
     width: auto !important;
     height: auto !important;
     white-space: normal !important;
-    line-height: 1.5 !important;
+    line-height: 1.4 !important;
     text-align: left !important;
     box-shadow: none !important;
     cursor: default !important;
@@ -1290,21 +1288,19 @@ td {{
 .hero-actions button,
 .hero-actions .ghost-btn {{
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
-    padding: 10px 18px !important;
+    padding: 8px 16px !important;
     max-width: 100%;
     word-break: break-word;
     white-space: normal;
     overflow: visible;
     box-sizing: border-box;
-    background: none !important;
-    background-color: #f3f4f6 !important;
-    background-image: none !important;
+    background: rgba(0, 0, 0, 0.04) !important;
     border: none !important;
     border-width: 0 !important;
     border-style: none !important;
     border-radius: 999px !important;
     color: #222 !important;
-    line-height: 1.5;
+    line-height: 1.4;
     display: inline-flex !important;
     align-items: center;
     justify-content: flex-start;
