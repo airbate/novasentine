@@ -820,7 +820,7 @@ class PDFLayoutOptimizer:
     border-width: 0 !important;
     border-style: none !important;
     border-radius: 999px !important;
-    padding: 6px 12px !important;
+    padding: 5px 10px !important;
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
     color: #222 !important;
     width: auto !important;
@@ -1290,7 +1290,7 @@ td {{
 .hero-actions button,
 .hero-actions .ghost-btn {{
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
-    padding: 6px 12px !important;
+    padding: 5px 10px !important;
     max-width: 100%;
     word-break: break-word;
     white-space: normal;
