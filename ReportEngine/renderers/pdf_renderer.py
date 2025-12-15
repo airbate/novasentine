@@ -71,6 +71,7 @@ from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
 from .chart_to_svg import create_chart_converter
 from .math_to_svg import MathToSVG
+from .markdown_renderer import MarkdownRenderer
 try:
     from wordcloud import WordCloud
     WORDCLOUD_AVAILABLE = True
@@ -102,6 +103,7 @@ class PDFRenderer:
         """
         self.config = config or {}
         self.html_renderer = HTMLRenderer(config)
+        self.markdown_renderer = MarkdownRenderer()
         self.layout_optimizer = layout_optimizer or PDFLayoutOptimizer()
 
         if not WEASYPRINT_AVAILABLE:
@@ -886,6 +888,36 @@ class PDFRenderer:
 
         return html
 
+    def _build_markdown_filename(self, document_ir: Dict[str, Any]) -> str:
+        """根据元数据生成Markdown文件名"""
+        metadata = document_ir.get("metadata") or {}
+        title = metadata.get("title") or metadata.get("query") or metadata.get("reportId") or "report"
+        safe = "".join(ch for ch in str(title) if ch.isalnum() or ch in (" ", "-", "_")).strip()
+        safe = safe.replace(" ", "_")[:80] or "report"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{safe}_{timestamp}.md"
+
+    def _export_markdown(self, document_ir: Dict[str, Any]) -> None:
+        """
+        使用检查/修复后的IR生成Markdown版本。
+
+        - 图表/词云等交互组件降级为原始表格数据；
+        - 遇到异常时仅记录警告，不阻断PDF/HTML流程。
+        """
+        try:
+            markdown_content = self.markdown_renderer.render(document_ir)
+            if not markdown_content.strip():
+                logger.debug("Markdown渲染结果为空，跳过落盘")
+                return
+
+            output_dir = Path("final_reports/markdown")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            file_path = output_dir / self._build_markdown_filename(document_ir)
+            file_path.write_text(markdown_content, encoding="utf-8")
+            logger.info(f"已静默生成Markdown报告: {file_path}")
+        except Exception as exc:
+            logger.warning(f"生成Markdown报告失败（已忽略，不影响PDF/HTML）: {exc}")
+
     def _get_pdf_html(
         self,
         document_ir: Dict[str, Any],
@@ -942,6 +974,9 @@ class PDFRenderer:
         # 转换数学公式为SVG
         logger.info("开始转换数学公式为SVG矢量图形...")
         math_svg_map = self._convert_math_to_svg(preprocessed_ir)
+
+        # 在渲染HTML前静默导出Markdown版本
+        self._export_markdown(preprocessed_ir)
 
         # 使用HTML渲染器生成基础HTML（使用预处理后的IR，以便复用mathId等标记）
         html = self.html_renderer.render(preprocessed_ir)
