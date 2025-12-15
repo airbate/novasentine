@@ -116,7 +116,7 @@ class MarkdownRenderer:
         heading_line = f"{hashes} {self._escape_text(text)}{subtitle_text}"
         # 章节内的一级标题前额外插入一个空行（不影响文档题目）
         if level == 1:
-            return f"\n{heading_line}"
+            return f"\n\n\n\n\n{heading_line}"
         return heading_line
 
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
