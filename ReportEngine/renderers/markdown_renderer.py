@@ -113,7 +113,11 @@ class MarkdownRenderer:
         text = block.get("text") or ""
         subtitle = block.get("subtitle")
         subtitle_text = f" _{self._escape_text(subtitle)}_" if subtitle else ""
-        return f"{hashes} {self._escape_text(text)}{subtitle_text}"
+        heading_line = f"{hashes} {self._escape_text(text)}{subtitle_text}"
+        # 章节内的一级标题前额外插入一个空行（不影响文档题目）
+        if level == 1:
+            return f"\n{heading_line}"
+        return heading_line
 
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
         return self._render_inlines(block.get("inlines", []))
