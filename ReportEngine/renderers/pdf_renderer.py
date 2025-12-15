@@ -71,6 +71,7 @@ from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
 from .chart_to_svg import create_chart_converter
 from .math_to_svg import MathToSVG
+from ReportEngine.utils.chart_review_service import get_chart_review_service
 try:
     from wordcloud import WordCloud
     WORDCLOUD_AVAILABLE = True
@@ -153,27 +154,34 @@ class PDFRenderer:
 
         raise FileNotFoundError(f"未找到字体文件，请检查 {fonts_dir} 目录")
 
-    def _preprocess_charts(self, document_ir: Dict[str, Any]) -> Dict[str, Any]:
+    def _preprocess_charts(
+        self,
+        document_ir: Dict[str, Any],
+        ir_file_path: str | None = None
+    ) -> Dict[str, Any]:
         """
-        预处理图表：验证并修复所有图表数据，结果回写原始IR。
+        预处理图表：使用 ChartReviewService 验证并修复所有图表数据。
 
-        先统一审查并修复图表，把修复结果直接写回传入的 IR，
-        然后返回修复后的深拷贝供后续 SVG/词云转换使用，避免
-        HTML 和 PDF 分别重复触发 ChartRepairer。
+        使用统一的 ChartReviewService 进行图表审查，修复结果直接写回传入的 IR。
+        如果提供 ir_file_path，修复后会自动保存到文件。
 
         参数:
             document_ir: Document IR数据
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             Dict[str, Any]: 修复后的Document IR（深拷贝）
         """
-        reviewed_ir = self.html_renderer.review_and_patch_document(
+        # 使用统一的 ChartReviewService
+        chart_service = get_chart_review_service()
+        chart_service.review_document(
             document_ir,
+            ir_file_path=ir_file_path,
             reset_stats=True,
-            clone=False
+            save_on_repair=bool(ir_file_path)
         )
 
-        stats = self.html_renderer.chart_validation_stats
+        stats = chart_service.stats
         if stats.get('total', 0) > 0:
             repaired_count = stats.get('repaired_locally', 0) + stats.get('repaired_api', 0)
             logger.info(
@@ -184,7 +192,7 @@ class PDFRenderer:
             )
 
         # 返回深拷贝，避免后续 SVG 转换过程影响回写后的原始 IR
-        return copy.deepcopy(reviewed_ir)
+        return copy.deepcopy(document_ir)
 
     def _convert_charts_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -813,7 +821,8 @@ class PDFRenderer:
     def _get_pdf_html(
         self,
         document_ir: Dict[str, Any],
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> str:
         """
         生成适用于PDF的HTML内容
@@ -827,6 +836,7 @@ class PDFRenderer:
         参数:
             document_ir: Document IR数据
             optimize_layout: 是否启用布局优化
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             str: 优化后的HTML内容
@@ -853,7 +863,7 @@ class PDFRenderer:
 
         # 关键修复：先预处理图表，确保数据有效
         logger.info("预处理图表数据...")
-        preprocessed_ir = self._preprocess_charts(document_ir)
+        preprocessed_ir = self._preprocess_charts(document_ir, ir_file_path)
 
         # 转换图表为SVG（使用预处理后的IR）
         logger.info("开始转换图表为SVG矢量图形...")
@@ -1527,7 +1537,8 @@ button.ghost-btn {{
         self,
         document_ir: Dict[str, Any],
         output_path: str | Path,
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> Path:
         """
         将Document IR渲染为PDF文件
@@ -1536,6 +1547,7 @@ button.ghost-btn {{
             document_ir: Document IR数据
             output_path: PDF输出路径
             optimize_layout: 是否启用布局优化（默认True）
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             Path: 生成的PDF文件路径
@@ -1545,7 +1557,7 @@ button.ghost-btn {{
         logger.info(f"开始生成PDF: {output_path}")
 
         # 生成HTML内容
-        html_content = self._get_pdf_html(document_ir, optimize_layout)
+        html_content = self._get_pdf_html(document_ir, optimize_layout, ir_file_path)
 
         # 配置字体
         font_config = FontConfiguration()
@@ -1570,7 +1582,8 @@ button.ghost-btn {{
     def render_to_bytes(
         self,
         document_ir: Dict[str, Any],
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> bytes:
         """
         将Document IR渲染为PDF字节流
@@ -1578,11 +1591,12 @@ button.ghost-btn {{
         参数:
             document_ir: Document IR数据
             optimize_layout: 是否启用布局优化（默认True）
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             bytes: PDF文件的字节内容
         """
-        html_content = self._get_pdf_html(document_ir, optimize_layout)
+        html_content = self._get_pdf_html(document_ir, optimize_layout, ir_file_path)
         font_config = FontConfiguration()
         html_doc = HTML(string=html_content, base_url=str(Path.cwd()))
 

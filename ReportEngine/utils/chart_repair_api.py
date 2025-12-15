@@ -169,10 +169,11 @@ def create_llm_repair_functions() -> List:
                 return repaired
 
             except Exception as e:
-                logger.error(f"ReportEngine图表修复失败: {e}")
+                logger.exception(f"ReportEngine图表修复失败: {e}")
                 return None
 
         repair_functions.append(repair_with_report_engine)
+        logger.debug("已添加ReportEngine图表修复函数")
 
     # 2. ForumEngine修复函数
     if settings.FORUM_HOST_API_KEY and settings.FORUM_HOST_BASE_URL:
@@ -202,10 +203,11 @@ def create_llm_repair_functions() -> List:
                 return repaired
 
             except Exception as e:
-                logger.error(f"ForumEngine图表修复失败: {e}")
+                logger.exception(f"ForumEngine图表修复失败: {e}")
                 return None
 
         repair_functions.append(repair_with_forum_engine)
+        logger.debug("已添加ForumEngine图表修复函数")
 
     # 3. InsightEngine修复函数
     if settings.INSIGHT_ENGINE_API_KEY and settings.INSIGHT_ENGINE_BASE_URL:
@@ -235,10 +237,11 @@ def create_llm_repair_functions() -> List:
                 return repaired
 
             except Exception as e:
-                logger.error(f"InsightEngine图表修复失败: {e}")
+                logger.exception(f"InsightEngine图表修复失败: {e}")
                 return None
 
         repair_functions.append(repair_with_insight_engine)
+        logger.debug("已添加InsightEngine图表修复函数")
 
     # 4. MediaEngine修复函数
     if settings.MEDIA_ENGINE_API_KEY and settings.MEDIA_ENGINE_BASE_URL:
@@ -268,12 +271,15 @@ def create_llm_repair_functions() -> List:
                 return repaired
 
             except Exception as e:
-                logger.error(f"MediaEngine图表修复失败: {e}")
+                logger.exception(f"MediaEngine图表修复失败: {e}")
                 return None
 
         repair_functions.append(repair_with_media_engine)
+        logger.debug("已添加MediaEngine图表修复函数")
 
     if not repair_functions:
         logger.warning("未配置任何Engine API，图表API修复功能将不可用")
+    else:
+        logger.info(f"图表API修复功能已启用，共 {len(repair_functions)} 个Engine可用")
 
     return repair_functions

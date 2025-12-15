@@ -338,12 +338,13 @@ def save_pdf(document_ir_path: str, query: str) -> Optional[str]:
         pdf_filename = f"final_report_{query_safe}_{timestamp}.pdf"
         pdf_path = pdf_dir / pdf_filename
 
-        # 使用 render_to_pdf 方法直接生成PDF文件（与regenerate_latest_pdf.py一致）
+        # 使用 render_to_pdf 方法直接生成PDF文件，传入 IR 文件路径用于修复后保存
         logger.info(f"开始渲染PDF: {pdf_path}")
         result_path = renderer.render_to_pdf(
             document_ir,
             pdf_path,
-            optimize_layout=True
+            optimize_layout=True,
+            ir_file_path=document_ir_path
         )
 
         # 显示文件大小
@@ -378,7 +379,8 @@ def save_markdown(document_ir_path: str, query: str) -> Optional[str]:
 
         from ReportEngine.renderers import MarkdownRenderer
         renderer = MarkdownRenderer()
-        markdown_content = renderer.render(document_ir)
+        # 传入 IR 文件路径用于修复后保存
+        markdown_content = renderer.render(document_ir, ir_file_path=document_ir_path)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         query_safe = "".join(

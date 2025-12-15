@@ -5,6 +5,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+from ReportEngine.utils.chart_review_service import get_chart_review_service
+
 
 class MarkdownRenderer:
     """
@@ -19,9 +21,33 @@ class MarkdownRenderer:
         self.document: Dict[str, Any] = {}
         self.metadata: Dict[str, Any] = {}
 
-    def render(self, document_ir: Dict[str, Any]) -> str:
-        """入口：将IR转换为Markdown字符串"""
+    def render(
+        self,
+        document_ir: Dict[str, Any],
+        ir_file_path: str | None = None
+    ) -> str:
+        """
+        入口：将IR转换为Markdown字符串。
+
+        参数:
+            document_ir: Document IR 数据
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
+
+        返回:
+            str: Markdown 字符串
+        """
         self.document = document_ir or {}
+
+        # 使用统一的 ChartReviewService 进行图表审查与修复
+        # 虽然 Markdown 渲染时图表会降级为表格，但仍需确保数据有效
+        chart_service = get_chart_review_service()
+        chart_service.review_document(
+            self.document,
+            ir_file_path=ir_file_path,
+            reset_stats=True,
+            save_on_repair=bool(ir_file_path)
+        )
+
         self.metadata = self.document.get("metadata", {}) or {}
 
         parts: List[str] = []

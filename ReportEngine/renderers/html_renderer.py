@@ -29,6 +29,7 @@ from ReportEngine.utils.chart_validator import (
     create_chart_repairer
 )
 from ReportEngine.utils.chart_repair_api import create_llm_repair_functions
+from ReportEngine.utils.chart_review_service import get_chart_review_service
 
 
 class HTMLRenderer:
@@ -117,6 +118,12 @@ class HTMLRenderer:
             validator=self.chart_validator,
             llm_repair_fns=llm_repair_fns
         )
+        # 打印LLM修复函数状态
+        self._llm_repair_count = len(llm_repair_fns)
+        if not llm_repair_fns:
+            logger.warning("HTMLRenderer: 未配置任何LLM API，图表API修复功能不可用")
+        else:
+            logger.info(f"HTMLRenderer: 已配置 {len(llm_repair_fns)} 个LLM修复函数")
         # 记录修复失败的图表，避免多次触发LLM循环修复
         self._chart_failure_notes: Dict[str, str] = {}
         self._chart_failure_recorded: set[str] = set()
@@ -268,19 +275,36 @@ class HTMLRenderer:
 
     # ====== 公共入口 ======
 
-    def render(self, document_ir: Dict[str, Any]) -> str:
+    def render(
+        self,
+        document_ir: Dict[str, Any],
+        ir_file_path: str | None = None
+    ) -> str:
         """
         接收Document IR，重置内部状态并输出完整HTML。
 
         参数:
             document_ir: 由 DocumentComposer 生成的整本报告数据。
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存。
 
         返回:
             str: 可直接写入磁盘的完整HTML文档。
         """
         self.document = document_ir or {}
-        # 先对图表做统一审查与修复，并将结果回写，供后续PDF/HTML共用
-        self.review_and_patch_document(self.document, reset_stats=True)
+
+        # 使用统一的 ChartReviewService 进行图表审查与修复
+        # 修复结果会直接回写到 document_ir，避免多次渲染重复修复
+        chart_service = get_chart_review_service()
+        chart_service.review_document(
+            self.document,
+            ir_file_path=ir_file_path,
+            reset_stats=True,
+            save_on_repair=bool(ir_file_path)
+        )
+        # 同步统计信息到本地（用于兼容旧的 _log_chart_validation_stats）
+        service_stats = chart_service.stats
+        self.chart_validation_stats.update(service_stats)
+
         self.widget_scripts = []
         self.chart_counter = 0
         self.heading_counter = 0
