@@ -42,10 +42,17 @@ class MarkdownRenderer:
     def _render_chapter(self, chapter: Dict[str, Any]) -> str:
         lines: List[str] = []
         title = chapter.get("title") or chapter.get("chapterId")
+        blocks = chapter.get("blocks", []) if isinstance(chapter.get("blocks"), list) else []
+
+        # 章节标题使用一级标题格式，并避免与首个heading重复
         if title:
-            lines.append(f"## {self._escape_text(title)}")
+            lines.append(f"# {self._escape_text(title)}")
             lines.append("")
-        body = self._render_blocks(chapter.get("blocks", []))
+
+        if blocks and self._is_heading_duplicate(blocks[0], title):
+            blocks = blocks[1:]
+
+        body = self._render_blocks(blocks)
         if body:
             lines.append(body)
         return "\n".join(lines).strip()
@@ -455,6 +462,43 @@ class MarkdownRenderer:
                 result = f"${latex}$" if latex else result
             # 颜色/字体等非通用标记直接降级为纯文本
         return result
+
+    def _is_heading_duplicate(self, block: Dict[str, Any], chapter_title: str | None) -> bool:
+        """判断首个heading是否与章节标题重复"""
+        if not isinstance(block, dict) or block.get("type") != "heading":
+            return False
+        if not chapter_title:
+            return False
+        heading_text = block.get("text") or ""
+        return self._normalize_heading_text(heading_text) == self._normalize_heading_text(chapter_title)
+
+    def _normalize_heading_text(self, text: Any) -> str:
+        """去除序号前缀并统一空白"""
+        if not isinstance(text, str):
+            return ""
+        stripped = text.strip()
+        # 去掉类似“1.”、“1.1”、“一、”
+        for sep in (" ", "、"):
+            if sep in stripped:
+                maybe_prefix, rest = stripped.split(sep, 1)
+                if self._looks_like_prefix(maybe_prefix):
+                    stripped = rest.strip()
+                    break
+        else:
+            parts = stripped.split(".", 1)
+            if len(parts) == 2 and self._looks_like_prefix(parts[0]):
+                stripped = parts[1].strip()
+        return stripped
+
+    @staticmethod
+    def _looks_like_prefix(token: str) -> bool:
+        """判断token是否像序号前缀"""
+        if not token:
+            return False
+        if token.isdigit():
+            return True
+        chinese_numerals = set("一二三四五六七八九十零〇壹贰叁肆伍陆柒捌玖拾")
+        return all(ch in chinese_numerals or ch == "." for ch in token)
 
     def _quote_lines(self, text: str) -> str:
         if not text:
