@@ -182,6 +182,18 @@ class HTMLRenderer:
         self._pdf_font_base64 = ""
         return self._pdf_font_base64
 
+    def _reset_chart_validation_stats(self) -> None:
+        """重置图表校验统计并清除失败计数标记"""
+        self.chart_validation_stats = {
+            'total': 0,
+            'valid': 0,
+            'repaired_locally': 0,
+            'repaired_api': 0,
+            'failed': 0
+        }
+        # 保留失败原因缓存，但重置本次渲染的计数
+        self._chart_failure_recorded = set()
+
     def _build_script_with_fallback(
         self,
         inline_code: str,
@@ -267,6 +279,8 @@ class HTMLRenderer:
             str: 可直接写入磁盘的完整HTML文档。
         """
         self.document = document_ir or {}
+        # 先对图表做统一审查与修复，并将结果回写，供后续PDF/HTML共用
+        self.review_and_patch_document(self.document, reset_stats=True)
         self.widget_scripts = []
         self.chart_counter = 0
         self.heading_counter = 0
@@ -281,17 +295,6 @@ class HTMLRenderer:
         }
         self.heading_label_map = self._compute_heading_labels(self.chapters)
         self.toc_entries = self._collect_toc_entries(self.chapters)
-
-        # 重置图表验证统计
-        self.chart_validation_stats = {
-            'total': 0,
-            'valid': 0,
-            'repaired_locally': 0,
-            'repaired_api': 0,
-            'failed': 0
-        }
-        # 每次渲染重新统计失败计数，但保留失败原因，避免重复LLM调用
-        self._chart_failure_recorded = set()
 
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
@@ -2087,6 +2090,31 @@ class HTMLRenderer:
         if cache_key:
             self._chart_failure_recorded.add(cache_key)
 
+    def _apply_cached_review_stats(self, block: Dict[str, Any]) -> None:
+        """
+        在已审查过的图表上重新累计统计信息，避免重复修复。
+
+        当渲染流程重置了统计但图表已经审查过（_chart_reviewed=True），
+        直接根据记录的状态累加各项计数，防止再次触发 ChartRepairer。
+        """
+        if not isinstance(block, dict):
+            return
+
+        status = block.get("_chart_review_status") or "valid"
+        method = (block.get("_chart_review_method") or "none").lower()
+        cache_key = self._chart_cache_key(block)
+
+        self.chart_validation_stats['total'] += 1
+        if status == "failed":
+            self._record_chart_failure_stat(cache_key)
+        elif status == "repaired":
+            if method == "api":
+                self.chart_validation_stats['repaired_api'] += 1
+            else:
+                self.chart_validation_stats['repaired_locally'] += 1
+        else:
+            self.chart_validation_stats['valid'] += 1
+
     def _format_chart_error_reason(
         self,
         validation_result: ValidationResult | None = None,
@@ -2211,6 +2239,177 @@ class HTMLRenderer:
                     if labels_from_data:
                         data_ref["labels"] = labels_from_data
 
+    def _ensure_chart_reviewed(
+        self,
+        block: Dict[str, Any],
+        chapter_context: Dict[str, Any] | None = None,
+        *,
+        increment_stats: bool = True
+    ) -> tuple[bool, str | None]:
+        """
+        确保图表已完成审查/修复，并将结果回写到原始block。
+
+        返回:
+            (renderable, fail_reason)
+        """
+        if not isinstance(block, dict):
+            return True, None
+
+        widget_type = block.get('widgetType', '')
+        is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
+        if not is_chart:
+            return True, None
+
+        is_wordcloud = 'wordcloud' in widget_type.lower() if isinstance(widget_type, str) else False
+        cache_key = self._chart_cache_key(block)
+
+        # 已有失败记录或显式标记为不可渲染，直接复用结果
+        if block.get("_chart_renderable") is False:
+            if increment_stats:
+                self.chart_validation_stats['total'] += 1
+                self._record_chart_failure_stat(cache_key)
+            reason = block.get("_chart_error_reason")
+            block["_chart_reviewed"] = True
+            block["_chart_review_status"] = block.get("_chart_review_status") or "failed"
+            block["_chart_review_method"] = block.get("_chart_review_method") or "none"
+            if reason:
+                self._note_chart_failure(cache_key, reason)
+            return False, reason
+
+        if block.get("_chart_reviewed"):
+            if increment_stats:
+                self._apply_cached_review_stats(block)
+            failed, cached_reason = self._has_chart_failure(block)
+            renderable = not failed and block.get("_chart_renderable", True) is not False
+            return renderable, block.get("_chart_error_reason") or cached_reason
+
+        # 首次审查：先补全结构，再验证/修复
+        self._normalize_chart_block(block, chapter_context)
+
+        if increment_stats:
+            self.chart_validation_stats['total'] += 1
+
+        if is_wordcloud:
+            if increment_stats:
+                self.chart_validation_stats['valid'] += 1
+            block["_chart_reviewed"] = True
+            block["_chart_review_status"] = "valid"
+            block["_chart_review_method"] = "none"
+            return True, None
+
+        validation_result = self.chart_validator.validate(block)
+
+        if not validation_result.is_valid:
+            logger.warning(
+                f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
+            )
+
+            repair_result = self.chart_repairer.repair(block, validation_result)
+
+            if repair_result.success and repair_result.repaired_block:
+                # 修复成功，回写修复后的数据
+                repaired_block = repair_result.repaired_block
+                block.clear()
+                block.update(repaired_block)
+                method = repair_result.method or "local"
+                logger.info(
+                    f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
+                    f"(方法: {method}): {repair_result.changes}"
+                )
+
+                if increment_stats:
+                    if method == 'local':
+                        self.chart_validation_stats['repaired_locally'] += 1
+                    elif method == 'api':
+                        self.chart_validation_stats['repaired_api'] += 1
+                block["_chart_review_status"] = "repaired"
+                block["_chart_review_method"] = method
+                block["_chart_reviewed"] = True
+                return True, None
+
+            # 修复失败，记录失败并输出占位提示
+            fail_reason = self._format_chart_error_reason(validation_result)
+            block["_chart_renderable"] = False
+            block["_chart_error_reason"] = fail_reason
+            block["_chart_review_status"] = "failed"
+            block["_chart_review_method"] = "none"
+            block["_chart_reviewed"] = True
+            self._note_chart_failure(cache_key, fail_reason)
+            if increment_stats:
+                self._record_chart_failure_stat(cache_key)
+            logger.warning(
+                f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
+            )
+            return False, fail_reason
+
+        # 验证通过
+        if increment_stats:
+            self.chart_validation_stats['valid'] += 1
+            if validation_result.warnings:
+                logger.info(
+                    f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
+                    f"但有警告: {validation_result.warnings}"
+                )
+        block["_chart_review_status"] = "valid"
+        block["_chart_review_method"] = "none"
+        block["_chart_reviewed"] = True
+        return True, None
+
+    def review_and_patch_document(
+        self,
+        document_ir: Dict[str, Any],
+        *,
+        reset_stats: bool = True,
+        clone: bool = False
+    ) -> Dict[str, Any]:
+        """
+        全局审查并修复图表，将修复结果回写到原始 IR，避免多次渲染重复修复。
+
+        参数:
+            document_ir: 原始 Document IR
+            reset_stats: 是否重置统计数据
+            clone: 是否返回修复后的深拷贝（原始 IR 仍会被回写修复结果）
+
+        返回:
+            修复后的 IR（可能是原对象或其深拷贝）
+        """
+        if reset_stats:
+            self._reset_chart_validation_stats()
+
+        target_ir = document_ir or {}
+
+        def _walk_blocks(blocks: list, chapter_ctx: Dict[str, Any] | None = None) -> None:
+            for blk in blocks or []:
+                if not isinstance(blk, dict):
+                    continue
+                if blk.get("type") == "widget":
+                    self._ensure_chart_reviewed(blk, chapter_ctx, increment_stats=True)
+
+                nested_blocks = blk.get("blocks")
+                if isinstance(nested_blocks, list):
+                    _walk_blocks(nested_blocks, chapter_ctx)
+
+                if blk.get("type") == "list":
+                    for item in blk.get("items", []):
+                        if isinstance(item, list):
+                            _walk_blocks(item, chapter_ctx)
+
+                if blk.get("type") == "table":
+                    for row in blk.get("rows", []):
+                        cells = row.get("cells", [])
+                        for cell in cells:
+                            if isinstance(cell, dict):
+                                cell_blocks = cell.get("blocks", [])
+                                if isinstance(cell_blocks, list):
+                                    _walk_blocks(cell_blocks, chapter_ctx)
+
+        for chapter in target_ir.get("chapters", []) or []:
+            if not isinstance(chapter, dict):
+                continue
+            _walk_blocks(chapter.get("blocks", []), chapter)
+
+        return copy.deepcopy(target_ir) if clone else target_ir
+
     def _render_widget(self, block: Dict[str, Any]) -> str:
         """
         渲染Chart.js等交互组件的占位容器，并记录配置JSON。
@@ -2230,75 +2429,28 @@ class HTMLRenderer:
         返回:
             str: 含canvas与配置脚本的HTML。
         """
-        # 先在block层面做一次容错补全（scales、章节级数据等）
-        self._normalize_chart_block(block, getattr(self, "_current_chapter", None))
-
-        # 统计
+        # 统一的审查/修复入口，避免后续重复修复
         widget_type = block.get('widgetType', '')
         is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
         is_wordcloud = isinstance(widget_type, str) and 'wordcloud' in widget_type.lower()
+        reviewed = bool(block.get("_chart_reviewed"))
+        renderable = True
+        fail_reason = None
+
+        if is_chart:
+            renderable, fail_reason = self._ensure_chart_reviewed(
+                block,
+                getattr(self, "_current_chapter", None),
+                increment_stats=not reviewed
+            )
+
         widget_id = block.get('widgetId')
-        cache_key = self._chart_cache_key(block) if is_chart else ""
         props_snapshot = block.get("props") if isinstance(block.get("props"), dict) else {}
         display_title = props_snapshot.get("title") or block.get("title") or widget_id or "图表"
 
-        if is_chart:
-            self.chart_validation_stats['total'] += 1
-
-            # 词云使用专用渲染逻辑，不按Chart.js规则验证，直接跳过防止误判
-            if is_wordcloud:
-                self.chart_validation_stats['valid'] += 1
-            else:
-                # 如果此前已记录失败，直接使用占位提示，避免重复修复
-                has_failed, cached_reason = self._has_chart_failure(block)
-                if has_failed:
-                    self._record_chart_failure_stat(cache_key)
-                    reason = cached_reason or "LLM返回的图表信息格式有误，无法正常显示"
-                    return self._render_chart_error_placeholder(display_title, reason, widget_id)
-
-                # 验证图表数据
-                validation_result = self.chart_validator.validate(block)
-
-                if not validation_result.is_valid:
-                    logger.warning(
-                        f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
-                    )
-
-                    # 尝试修复
-                    repair_result = self.chart_repairer.repair(block, validation_result)
-
-                    if repair_result.success and repair_result.repaired_block:
-                        # 修复成功，使用修复后的数据
-                        block = repair_result.repaired_block
-                        logger.info(
-                            f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
-                            f"(方法: {repair_result.method}): {repair_result.changes}"
-                        )
-
-                        # 更新统计
-                        if repair_result.method == 'local':
-                            self.chart_validation_stats['repaired_locally'] += 1
-                        elif repair_result.method == 'api':
-                            self.chart_validation_stats['repaired_api'] += 1
-                    else:
-                        # 修复失败，记录失败并输出占位提示
-                        fail_reason = self._format_chart_error_reason(validation_result)
-                        block["_chart_renderable"] = False
-                        block["_chart_error_reason"] = fail_reason
-                        self._note_chart_failure(cache_key, fail_reason)
-                        self._record_chart_failure_stat(cache_key)
-                        logger.warning(
-                            f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
-                        )
-                        return self._render_chart_error_placeholder(display_title, fail_reason, widget_id)
-                else:
-                    # 验证通过
-                    self.chart_validation_stats['valid'] += 1
-                    if validation_result.warnings:
-                        logger.info(
-                            f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
-                            f"但有警告: {validation_result.warnings}"
-                        )
+        if is_chart and not renderable:
+            reason = fail_reason or "LLM返回的图表信息格式有误，无法正常显示"
+            return self._render_chart_error_placeholder(display_title, reason, widget_id)
 
         # 渲染图表HTML
         self.chart_counter += 1

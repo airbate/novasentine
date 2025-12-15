@@ -157,10 +157,11 @@ class PDFRenderer:
 
     def _preprocess_charts(self, document_ir: Dict[str, Any]) -> Dict[str, Any]:
         """
-        预处理图表：验证和修复所有图表数据
+        预处理图表：验证并修复所有图表数据，结果回写原始IR。
 
-        这个方法确保在转换为SVG之前，所有图表数据都是有效的。
-        使用与HTMLRenderer相同的验证和修复逻辑，保证PDF和HTML的一致性。
+        先统一审查并修复图表，把修复结果直接写回传入的 IR，
+        然后返回修复后的深拷贝供后续 SVG/词云转换使用，避免
+        HTML 和 PDF 分别重复触发 ChartRepairer。
 
         参数:
             document_ir: Document IR数据
@@ -168,101 +169,24 @@ class PDFRenderer:
         返回:
             Dict[str, Any]: 修复后的Document IR（深拷贝）
         """
-        # 深拷贝以避免修改原始IR
-        ir_copy = copy.deepcopy(document_ir)
+        reviewed_ir = self.html_renderer.review_and_patch_document(
+            document_ir,
+            reset_stats=True,
+            clone=False
+        )
 
-        repair_stats = {
-            'total': 0,
-            'repaired': 0,
-            'failed': 0
-        }
-
-        def repair_widgets_in_blocks(blocks: list, chapter_context: Dict[str, Any] | None = None) -> None:
-            """递归修复blocks中的所有widget"""
-            for block in blocks:
-                if not isinstance(block, dict):
-                    continue
-
-                # 处理widget类型
-                if block.get('type') == 'widget':
-                    # 先用HTML渲染器的容错逻辑补全字段
-                    try:
-                        self.html_renderer._normalize_chart_block(block, chapter_context)
-                    except Exception as exc:  # 防御性处理，避免单个图表阻断流程
-                        logger.debug(f"预处理图表 {block.get('widgetId')} 时出错: {exc}")
-
-                    widget_type = block.get('widgetType', '')
-                    if widget_type.startswith('chart.js'):
-                        repair_stats['total'] += 1
-
-                        # 使用HTMLRenderer的验证器和修复器
-                        validation = self.html_renderer.chart_validator.validate(block)
-
-                        if not validation.is_valid:
-                            logger.debug(f"图表 {block.get('widgetId')} 需要修复: {validation.errors}")
-
-                            # 尝试修复
-                            repair_result = self.html_renderer.chart_repairer.repair(block, validation)
-
-                            if repair_result.success and repair_result.repaired_block:
-                                # 更新block内容（在副本中）
-                                block.update(repair_result.repaired_block)
-                                repair_stats['repaired'] += 1
-                                logger.debug(
-                                    f"图表 {block.get('widgetId')} 已修复 "
-                                    f"(方法: {repair_result.method})"
-                                )
-                            else:
-                                repair_stats['failed'] += 1
-                                reason = self.html_renderer._format_chart_error_reason(validation)
-                                block["_chart_renderable"] = False
-                                block["_chart_error_reason"] = reason
-                                self.html_renderer._note_chart_failure(
-                                    self.html_renderer._chart_cache_key(block),
-                                    reason
-                                )
-                                logger.warning(
-                                    f"图表 {block.get('widgetId')} 修复失败，将使用占位提示: {reason}"
-                                )
-
-                # 递归处理嵌套的blocks
-            nested_blocks = block.get('blocks')
-            if isinstance(nested_blocks, list):
-                repair_widgets_in_blocks(nested_blocks, chapter_context)
-
-                # 处理列表项
-            if block.get('type') == 'list':
-                items = block.get('items', [])
-                for item in items:
-                    if isinstance(item, list):
-                        repair_widgets_in_blocks(item, chapter_context)
-
-                # 处理表格单元格
-            if block.get('type') == 'table':
-                rows = block.get('rows', [])
-                for row in rows:
-                    cells = row.get('cells', [])
-                    for cell in cells:
-                        cell_blocks = cell.get('blocks', [])
-                        if isinstance(cell_blocks, list):
-                            repair_widgets_in_blocks(cell_blocks, chapter_context)
-
-        # 处理所有章节
-        chapters = ir_copy.get('chapters', [])
-        for chapter in chapters:
-            blocks = chapter.get('blocks', [])
-            repair_widgets_in_blocks(blocks, chapter)
-
-        # 输出统计信息
-        if repair_stats['total'] > 0:
+        stats = self.html_renderer.chart_validation_stats
+        if stats.get('total', 0) > 0:
+            repaired_count = stats.get('repaired_locally', 0) + stats.get('repaired_api', 0)
             logger.info(
                 f"PDF图表预处理完成: "
-                f"总计 {repair_stats['total']} 个图表, "
-                f"修复 {repair_stats['repaired']} 个, "
-                f"失败 {repair_stats['failed']} 个"
+                f"总计 {stats.get('total', 0)} 个图表, "
+                f"修复 {repaired_count} 个, "
+                f"失败 {stats.get('failed', 0)} 个"
             )
 
-        return ir_copy
+        # 返回深拷贝，避免后续 SVG 转换过程影响回写后的原始 IR
+        return copy.deepcopy(reviewed_ir)
 
     def _convert_charts_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
         """
