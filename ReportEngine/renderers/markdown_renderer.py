@@ -254,12 +254,13 @@ class MarkdownRenderer:
             """获取单元格的文本内容"""
             blocks = cell.get("blocks", [])
             for block in blocks:
-                if block.get("type") == "paragraph":
+                if isinstance(block, dict) and block.get("type") == "paragraph":
                     inlines = block.get("inlines", [])
                     for inline in inlines:
-                        text = inline.get("text", "")
-                        if text:
-                            return text.strip()
+                        if isinstance(inline, dict):
+                            text = inline.get("text", "")
+                            if text:
+                                return str(text).strip()
             return ""
 
         def _is_placeholder_cell(cell: Dict[str, Any]) -> bool:
@@ -273,21 +274,31 @@ class MarkdownRenderer:
         if len(all_cells) <= 2:
             return rows
 
-        # 检测表头列数：查找带有 bold 标记的单元格
+        # 检测表头列数：查找带有 bold 标记或典型表头词的单元格
         def _is_header_cell(cell: Dict[str, Any]) -> bool:
-            """判断单元格是否像表头（通常有加粗标记）"""
+            """判断单元格是否像表头（有加粗标记或是典型表头词）"""
             blocks = cell.get("blocks", [])
             for block in blocks:
-                if block.get("type") == "paragraph":
+                if isinstance(block, dict) and block.get("type") == "paragraph":
                     inlines = block.get("inlines", [])
                     for inline in inlines:
-                        marks = inline.get("marks", [])
-                        if any(m.get("type") == "bold" for m in marks):
-                            return True
-            return False
+                        if isinstance(inline, dict):
+                            marks = inline.get("marks", [])
+                            if any(isinstance(m, dict) and m.get("type") == "bold" for m in marks):
+                                return True
+            # 也检查典型的表头词
+            text = _get_cell_text(cell)
+            header_keywords = {
+                "时间", "日期", "名称", "类型", "状态", "数量", "金额", "比例", "指标",
+                "平台", "渠道", "来源", "描述", "说明", "备注", "序号", "编号",
+                "事件", "关键", "数据", "支撑", "反应", "市场", "情感", "节点",
+                "维度", "要点", "详情", "标签", "影响", "趋势", "权重", "类别",
+                "信息", "内容", "风格", "偏好", "主要", "用户", "核心", "特征",
+                "分类", "范围", "对象", "项目", "阶段", "周期", "频率", "等级",
+            }
+            return any(kw in text for kw in header_keywords) and len(text) <= 20
 
-        # 计算表头列数：统计连续的加粗单元格数量
-        # 占位符已经在前面被过滤掉了
+        # 计算表头列数：统计连续的表头单元格数量
         header_count = 0
         for cell in all_cells:
             if _is_header_cell(cell):
@@ -300,13 +311,13 @@ class MarkdownRenderer:
         if header_count == 0:
             # 假设列数为 4 或 5（常见的表格列数）
             total = len(all_cells)
-            for possible_cols in [4, 5, 3, 6]:
+            for possible_cols in [4, 5, 3, 6, 2]:
                 if total % possible_cols == 0:
                     header_count = possible_cols
                     break
             else:
                 # 尝试找到最接近的能整除的列数
-                for possible_cols in [4, 5, 3, 6]:
+                for possible_cols in [4, 5, 3, 6, 2]:
                     remainder = total % possible_cols
                     # 允许最多3个多余的单元格（可能是尾部的总结或注释）
                     if remainder <= 3:
