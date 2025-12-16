@@ -297,30 +297,58 @@ class ChartReviewService:
         chapter_context: Dict[str, Any] | None = None
     ) -> None:
         """
-        规范化图表数据，从章节上下文补充缺失数据。
+        规范化图表数据，补全缺失字段（如props、scales、datasets），提升容错性。
+
+        与 HTMLRenderer._normalize_chart_block() 保持一致：
+        - 确保 props 存在
+        - 将顶层 scales 合并进 props.options
+        - 确保 data 存在
+        - 尝试使用章节级 data 作为兜底
+        - 自动生成 labels
         """
         if not isinstance(block, dict):
             return
 
-        data = block.get("data")
-        if not isinstance(data, dict):
+        if block.get("type") != "widget":
             return
 
-        # 尝试从章节上下文补充 datasets
-        datasets = data.get("datasets")
-        if not datasets or (isinstance(datasets, list) and len(datasets) == 0):
-            if isinstance(chapter_context, dict):
-                chapter_data = chapter_context.get("data")
-                if isinstance(chapter_data, dict):
-                    fallback_ds = chapter_data.get("datasets")
-                    if isinstance(fallback_ds, list) and len(fallback_ds) > 0:
-                        merged_data = copy.deepcopy(data)
-                        merged_data["datasets"] = copy.deepcopy(fallback_ds)
-                        if not merged_data.get("labels") and isinstance(chapter_data.get("labels"), list):
-                            merged_data["labels"] = copy.deepcopy(chapter_data["labels"])
-                        block["data"] = merged_data
+        widget_type = block.get("widgetType", "")
+        if not (isinstance(widget_type, str) and widget_type.startswith("chart.js")):
+            return
 
-        # 如果缺少 labels 且数据点包含 x 值，自动生成
+        # 确保 props 存在
+        props = block.get("props")
+        if not isinstance(props, dict):
+            block["props"] = {}
+            props = block["props"]
+
+        # 将顶层 scales 合并进 options，避免配置丢失
+        scales = block.get("scales")
+        if isinstance(scales, dict):
+            options = props.get("options") if isinstance(props.get("options"), dict) else {}
+            props["options"] = self._merge_dicts(options, {"scales": scales})
+
+        # 确保 data 存在
+        data = block.get("data")
+        if not isinstance(data, dict):
+            data = {}
+            block["data"] = data
+
+        # 如果 datasets 为空，尝试使用章节级 data 填充
+        if chapter_context and self._is_chart_data_empty(data):
+            chapter_data = chapter_context.get("data") if isinstance(chapter_context, dict) else None
+            if isinstance(chapter_data, dict):
+                fallback_ds = chapter_data.get("datasets")
+                if isinstance(fallback_ds, list) and len(fallback_ds) > 0:
+                    merged_data = copy.deepcopy(data)
+                    merged_data["datasets"] = copy.deepcopy(fallback_ds)
+
+                    if not merged_data.get("labels") and isinstance(chapter_data.get("labels"), list):
+                        merged_data["labels"] = copy.deepcopy(chapter_data["labels"])
+
+                    block["data"] = merged_data
+
+        # 若仍缺少 labels 且数据点包含 x 值，自动生成便于 fallback 和坐标刻度
         data_ref = block.get("data")
         if isinstance(data_ref, dict) and not data_ref.get("labels"):
             datasets_ref = data_ref.get("datasets")
@@ -335,8 +363,45 @@ class ChartReviewService:
                         else:
                             label_text = f"点{idx + 1}"
                         labels_from_data.append(str(label_text))
+
                     if labels_from_data:
                         data_ref["labels"] = labels_from_data
+
+    @staticmethod
+    def _is_chart_data_empty(data: Dict[str, Any] | None) -> bool:
+        """检查图表数据是否为空或缺少有效 datasets"""
+        if not isinstance(data, dict):
+            return True
+
+        datasets = data.get("datasets")
+        if not isinstance(datasets, list) or len(datasets) == 0:
+            return True
+
+        for ds in datasets:
+            if not isinstance(ds, dict):
+                continue
+            series = ds.get("data")
+            if isinstance(series, list) and len(series) > 0:
+                return False
+
+        return True
+
+    @staticmethod
+    def _merge_dicts(
+        base: Dict[str, Any] | None, override: Dict[str, Any] | None
+    ) -> Dict[str, Any]:
+        """
+        递归合并两个字典，override 覆盖 base，均为新副本，避免副作用。
+        """
+        result = copy.deepcopy(base) if isinstance(base, dict) else {}
+        if not isinstance(override, dict):
+            return result
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = ChartReviewService._merge_dicts(result[key], value)
+            else:
+                result[key] = copy.deepcopy(value)
+        return result
 
     def _format_error_reason(self, validation_result: ValidationResult | None) -> str:
         """格式化错误原因"""
