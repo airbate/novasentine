@@ -427,13 +427,80 @@ class ChartReviewService:
             f"失败 {self._stats['failed']} 个"
         )
 
+    # 内部元数据键，不应保存到 IR 文件
+    _INTERNAL_METADATA_KEYS = frozenset([
+        "_chart_reviewed",
+        "_chart_renderable",
+        "_chart_review_status",
+        "_chart_review_method",
+        "_chart_error_reason",
+    ])
+
+    def _strip_internal_metadata(self, document_ir: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        移除文档中所有内部元数据键，返回干净的副本用于持久化。
+
+        这些内部标记仅用于渲染过程的状态跟踪，不应保存到 IR 文件中，
+        以避免污染文档结构和导致重复使用时的不一致行为。
+        """
+        cleaned = copy.deepcopy(document_ir)
+
+        def strip_from_block(block: Dict[str, Any]) -> None:
+            """递归移除 block 及其嵌套结构中的内部元数据"""
+            if not isinstance(block, dict):
+                return
+
+            # 移除当前 block 的内部键
+            for key in self._INTERNAL_METADATA_KEYS:
+                block.pop(key, None)
+
+            # 递归处理嵌套的 blocks
+            nested_blocks = block.get("blocks")
+            if isinstance(nested_blocks, list):
+                for nested in nested_blocks:
+                    strip_from_block(nested)
+
+            # 处理 list 类型的 items
+            if block.get("type") == "list":
+                for item in block.get("items", []):
+                    if isinstance(item, list):
+                        for sub_block in item:
+                            strip_from_block(sub_block)
+
+            # 处理 table 类型的 cells
+            if block.get("type") == "table":
+                for row in block.get("rows", []):
+                    if not isinstance(row, dict):
+                        continue
+                    for cell in row.get("cells", []):
+                        if isinstance(cell, dict):
+                            cell_blocks = cell.get("blocks", [])
+                            if isinstance(cell_blocks, list):
+                                for cell_block in cell_blocks:
+                                    strip_from_block(cell_block)
+
+        # 处理所有章节
+        for chapter in cleaned.get("chapters", []) or []:
+            if not isinstance(chapter, dict):
+                continue
+            blocks = chapter.get("blocks", [])
+            if isinstance(blocks, list):
+                for block in blocks:
+                    strip_from_block(block)
+
+        return cleaned
+
     def _save_ir_to_file(self, document_ir: Dict[str, Any], file_path: str | Path) -> None:
-        """保存 IR 到文件"""
+        """保存 IR 到文件（移除内部元数据后）"""
         try:
             path = Path(file_path)
             path.parent.mkdir(parents=True, exist_ok=True)
+
+            # 移除内部元数据键，保持 IR 文件干净
+            cleaned_ir = self._strip_internal_metadata(document_ir)
+
             path.write_text(
-                json.dumps(document_ir, ensure_ascii=False, indent=2),
+                json.dumps(cleaned_ir, ensure_ascii=False, indent=2),
                 encoding="utf-8"
             )
             logger.info(f"ChartReviewService: 修复后的 IR 已保存到 {path}")
