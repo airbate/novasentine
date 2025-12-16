@@ -228,7 +228,7 @@ def save_document_ir(document_ir, base_name, timestamp):
     return ir_path
 
 
-def render_markdown(document_ir, base_name, timestamp):
+def render_markdown(document_ir, base_name, timestamp, ir_path=None):
     """
     使用 MarkdownRenderer 将 Document IR 渲染为 Markdown 并保存。
 
@@ -239,12 +239,14 @@ def render_markdown(document_ir, base_name, timestamp):
         document_ir: 装订完成的整本 IR
         base_name: 文件名片段（来源于报告主题/标题）
         timestamp: 时间戳字符串
+        ir_path: 可选，IR 文件路径，提供时修复后会自动保存
 
     返回:
         Path: 生成的 Markdown 文件路径
     """
     renderer = MarkdownRenderer()
-    markdown_content = renderer.render(document_ir)
+    # 传入 ir_file_path，修复后自动保存
+    markdown_content = renderer.render(document_ir, ir_file_path=str(ir_path) if ir_path else None)
 
     output_dir = Path(settings.OUTPUT_DIR) / "md"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -315,7 +317,8 @@ def main():
     )
 
     ir_path = save_document_ir(document_ir, base_name, timestamp)
-    md_path = render_markdown(document_ir, base_name, timestamp)
+    # 传入 ir_path，修复后的图表会自动保存到 IR 文件
+    md_path = render_markdown(document_ir, base_name, timestamp, ir_path=ir_path)
 
     logger.info("")
     logger.info("🎉 Markdown装订与渲染完成")
