@@ -647,11 +647,29 @@ class MarkdownRenderer:
 
     def _render_inline_run(self, run: Any, for_table: bool = False) -> str:
         if isinstance(run, dict):
+            # 处理 inlineRun 类型：嵌套的 inlines 数组
+            if run.get("type") == "inlineRun":
+                inner_inlines = run.get("inlines") or []
+                outer_marks = run.get("marks") or []
+                # 递归渲染内部的 inlines
+                inner_text = self._render_inlines(inner_inlines, for_table=for_table)
+                # 应用外层的 marks
+                result = inner_text
+                for mark in outer_marks:
+                    result = self._apply_mark(result, mark)
+                return result
             text = run.get("text", "")
             marks = run.get("marks") or []
         else:
             text = run if isinstance(run, str) else ""
             marks = []
+        
+        # 尝试检测并解析被错误序列化为字符串的 inlineRun JSON
+        if isinstance(text, str) and text.startswith('{"type": "inlineRun"'):
+            parsed = self._try_parse_inline_run_string(text)
+            if parsed:
+                return self._render_inline_run(parsed, for_table=for_table)
+        
         result = self._escape_text(text, for_table=for_table)
         for mark in marks:
             if not isinstance(mark, dict):
@@ -682,6 +700,66 @@ class MarkdownRenderer:
                 result = f"${latex}$" if latex else result
             # 颜色/字体等非通用标记直接降级为纯文本
         return result
+
+    def _apply_mark(self, text: str, mark: Any) -> str:
+        """
+        对文本应用单个 mark 格式。
+        
+        用于处理 inlineRun 类型的外层 marks。
+        """
+        if not isinstance(mark, dict):
+            return text
+        mtype = mark.get("type")
+        if mtype == "bold":
+            return f"**{text}**"
+        elif mtype == "italic":
+            return f"*{text}*"
+        elif mtype == "underline":
+            return f"__{text}__"
+        elif mtype == "strike":
+            return f"~~{text}~~"
+        elif mtype == "code":
+            return f"`{text}`"
+        elif mtype == "link":
+            href = mark.get("href") or mark.get("value")
+            href = str(href) if href else ""
+            return f"[{text}]({href})" if href else text
+        elif mtype == "highlight":
+            return f"=={text}=="
+        elif mtype == "subscript":
+            return f"~{text}~"
+        elif mtype == "superscript":
+            return f"^{text}^"
+        elif mtype == "math":
+            latex = self._normalize_math(mark.get("value") or text)
+            return f"${latex}$" if latex else text
+        return text
+
+    def _try_parse_inline_run_string(self, text: str) -> dict | None:
+        """
+        尝试解析被错误序列化为字符串的 inlineRun JSON。
+        
+        某些 LLM 生成的内容会将 inlineRun 结构意外地作为字符串
+        存入 text 字段，本方法尝试识别并解析这种情况。
+        
+        参数:
+            text: 可能包含 JSON 的字符串
+            
+        返回:
+            dict | None: 解析成功返回 inlineRun 字典，否则返回 None
+        """
+        if not text or not isinstance(text, str):
+            return None
+        text = text.strip()
+        if not text.startswith('{"type": "inlineRun"'):
+            return None
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict) and parsed.get("type") == "inlineRun":
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        return None
 
     def _is_heading_duplicate(self, block: Dict[str, Any], chapter_title: str | None) -> bool:
         """判断首个heading是否与章节标题重复"""

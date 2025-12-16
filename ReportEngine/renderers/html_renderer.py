@@ -885,7 +885,12 @@ class HTMLRenderer:
         """粗略判断dict是否符合block结构"""
         if not isinstance(payload, dict):
             return False
-        if "type" in payload and isinstance(payload["type"], str):
+        block_type = payload.get("type")
+        if block_type and isinstance(block_type, str):
+            # 排除内联类型（inlineRun 等），它们不是块级元素
+            inline_types = {"inlineRun", "inline", "text"}
+            if block_type in inline_types:
+                return False
             return True
         structural_keys = {"blocks", "rows", "items", "widgetId", "widgetType", "data"}
         return any(key in payload for key in structural_keys)
@@ -896,6 +901,12 @@ class HTMLRenderer:
         if isinstance(payload, dict):
             block_list = payload.get("blocks")
             block_type = payload.get("type")
+            
+            # 排除内联类型，它们不是块级元素
+            inline_types = {"inlineRun", "inline", "text"}
+            if block_type in inline_types:
+                return collected
+            
             if isinstance(block_list, list) and not block_type:
                 for candidate in block_list:
                     collected.extend(self._collect_blocks_from_payload(candidate))
@@ -2933,6 +2944,19 @@ class HTMLRenderer:
         if not isinstance(run, dict):
             return ("" if run is None else str(run)), []
 
+        # 处理 inlineRun 类型：递归展开其 inlines 数组
+        if run.get("type") == "inlineRun":
+            inner_inlines = run.get("inlines") or []
+            outer_marks = run.get("marks") or []
+            # 递归合并所有内部 inlines 的文本
+            texts = []
+            all_marks = list(outer_marks)
+            for inline in inner_inlines:
+                inner_text, inner_marks = self._normalize_inline_payload(inline)
+                texts.append(inner_text)
+                all_marks.extend(inner_marks)
+            return "".join(texts), all_marks
+
         marks = list(run.get("marks") or [])
         text_value: Any = run.get("text", "")
         seen: set[int] = set()
@@ -2980,6 +3004,9 @@ class HTMLRenderer:
                     else:
                         inline_payload = self._coerce_inline_payload(payload)
                         if inline_payload:
+                            # 处理 inlineRun 类型
+                            if inline_payload.get("type") == "inlineRun":
+                                return self._normalize_inline_payload(inline_payload)
                             nested_text = inline_payload.get("text")
                             if nested_text is not None:
                                 text_value = nested_text
@@ -3073,9 +3100,12 @@ class HTMLRenderer:
         if not isinstance(payload, dict):
             return None
         inline_type = payload.get("type")
+        # 支持 inlineRun 类型：包含嵌套的 inlines 数组
+        if inline_type == "inlineRun":
+            return payload
         if inline_type and inline_type not in {"inline", "text"}:
             return None
-        if "text" not in payload and "marks" not in payload:
+        if "text" not in payload and "marks" not in payload and "inlines" not in payload:
             return None
         return payload
 
