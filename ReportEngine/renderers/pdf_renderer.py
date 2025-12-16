@@ -173,22 +173,22 @@ class PDFRenderer:
             Dict[str, Any]: 修复后的Document IR（深拷贝）
         """
         # 使用统一的 ChartReviewService
+        # review_document 返回本次会话的统计信息（线程安全）
         chart_service = get_chart_review_service()
-        chart_service.review_document(
+        review_stats = chart_service.review_document(
             document_ir,
             ir_file_path=ir_file_path,
             reset_stats=True,
             save_on_repair=bool(ir_file_path)
         )
 
-        stats = chart_service.stats
-        if stats.get('total', 0) > 0:
-            repaired_count = stats.get('repaired_locally', 0) + stats.get('repaired_api', 0)
+        # 使用返回的 ReviewStats 对象，而非共享的 chart_service.stats
+        if review_stats.total > 0:
             logger.info(
                 f"PDF图表预处理完成: "
-                f"总计 {stats.get('total', 0)} 个图表, "
-                f"修复 {repaired_count} 个, "
-                f"失败 {stats.get('failed', 0)} 个"
+                f"总计 {review_stats.total} 个图表, "
+                f"修复 {review_stats.repaired_total} 个, "
+                f"失败 {review_stats.failed} 个"
             )
 
         # 返回深拷贝，避免后续 SVG 转换过程影响回写后的原始 IR

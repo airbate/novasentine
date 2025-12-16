@@ -6,6 +6,7 @@ Report Engine工具模块。
 
 from ReportEngine.utils.chart_review_service import (
     ChartReviewService,
+    ReviewStats,
     get_chart_review_service,
     review_document_charts,
 )
@@ -21,6 +22,7 @@ from ReportEngine.utils.table_validator import (
 
 __all__ = [
     "ChartReviewService",
+    "ReviewStats",
     "get_chart_review_service",
     "review_document_charts",
     "TableValidator",

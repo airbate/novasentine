@@ -294,16 +294,17 @@ class HTMLRenderer:
 
         # 使用统一的 ChartReviewService 进行图表审查与修复
         # 修复结果会直接回写到 document_ir，避免多次渲染重复修复
+        # review_document 返回本次会话的统计信息（线程安全）
         chart_service = get_chart_review_service()
-        chart_service.review_document(
+        review_stats = chart_service.review_document(
             self.document,
             ir_file_path=ir_file_path,
             reset_stats=True,
             save_on_repair=bool(ir_file_path)
         )
         # 同步统计信息到本地（用于兼容旧的 _log_chart_validation_stats）
-        service_stats = chart_service.stats
-        self.chart_validation_stats.update(service_stats)
+        # 使用返回的 ReviewStats 对象，而非共享的 chart_service.stats
+        self.chart_validation_stats.update(review_stats.to_dict())
 
         self.widget_scripts = []
         self.chart_counter = 0
