@@ -914,7 +914,8 @@ class HTMLRenderer:
                 return collected
             if payload.get("cells") and not block_type:
                 for cell in payload["cells"]:
-                    collected.extend(self._collect_blocks_from_payload(cell.get("blocks")))
+                    if isinstance(cell, dict):
+                        collected.extend(self._collect_blocks_from_payload(cell.get("blocks")))
                 return collected
             if payload.get("items") and not block_type:
                 for item in payload["items"]:
