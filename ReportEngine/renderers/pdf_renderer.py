@@ -878,7 +878,7 @@ class PDFRenderer:
         math_svg_map = self._convert_math_to_svg(preprocessed_ir)
 
         # 使用HTML渲染器生成基础HTML（使用预处理后的IR，以便复用mathId等标记）
-        html = self.html_renderer.render(preprocessed_ir)
+        html = self.html_renderer.render(preprocessed_ir, ir_file_path=ir_file_path)
 
         # 注入图表SVG
         if svg_map:
