@@ -605,6 +605,8 @@ class MarkdownRenderer:
         elif isinstance(data_field, dict):
             if isinstance(data_field.get("items"), list):
                 candidates.append(data_field.get("items"))
+            if isinstance(data_field.get("words"), list):
+                candidates.append(data_field.get("words"))
 
         items: List[Dict[str, Any]] = []
         seen: set[str] = set()

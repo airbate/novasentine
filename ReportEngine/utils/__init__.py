@@ -10,8 +10,23 @@ from ReportEngine.utils.chart_review_service import (
     review_document_charts,
 )
 
+from ReportEngine.utils.table_validator import (
+    TableValidator,
+    TableRepairer,
+    TableValidationResult,
+    TableRepairResult,
+    create_table_validator,
+    create_table_repairer,
+)
+
 __all__ = [
     "ChartReviewService",
     "get_chart_review_service",
     "review_document_charts",
+    "TableValidator",
+    "TableRepairer",
+    "TableValidationResult",
+    "TableRepairResult",
+    "create_table_validator",
+    "create_table_repairer",
 ]

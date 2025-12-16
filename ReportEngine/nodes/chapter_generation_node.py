@@ -1270,11 +1270,59 @@ class ChapterGenerationNode(BaseNode):
 
         normalized_cells: List[Dict[str, Any]] = []
         for cell in cell_entries:
-            sanitized = self._normalize_table_cell(cell)
-            if sanitized:
-                normalized_cells.append(sanitized)
+            # 检测错误嵌套的 cells 结构：有 cells 但没有 blocks
+            # 需要展平成多个独立的 cells
+            if isinstance(cell, dict) and "cells" in cell and "blocks" not in cell:
+                flattened = self._flatten_all_nested_cells(cell)
+                normalized_cells.extend(flattened)
+            else:
+                sanitized = self._normalize_table_cell(cell)
+                if sanitized:
+                    normalized_cells.append(sanitized)
 
         return normalized_cells
+
+    def _flatten_all_nested_cells(self, cell: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        展平错误嵌套的 cells 结构，返回所有展平后的 cells。
+
+        LLM 有时会生成类似这样的错误结构：
+        { "cells": [
+            { "blocks": [...] },
+            { "cells": [
+                { "blocks": [...] },
+                { "cells": [...] }
+              ]
+            }
+          ]
+        }
+
+        应该展平为独立的 cells 列表。
+        """
+        nested_cells = cell.get("cells")
+        if not isinstance(nested_cells, list) or not nested_cells:
+            return [{"blocks": [self._as_paragraph_block("")]}]
+
+        result: List[Dict[str, Any]] = []
+        for nested in nested_cells:
+            if isinstance(nested, dict):
+                if "blocks" in nested and "cells" not in nested:
+                    # 正常的 cell，直接规范化添加
+                    sanitized = self._normalize_table_cell(nested)
+                    if sanitized:
+                        result.append(sanitized)
+                elif "cells" in nested and "blocks" not in nested:
+                    # 继续递归展平嵌套的 cells
+                    result.extend(self._flatten_all_nested_cells(nested))
+                else:
+                    # 其他情况，尝试规范化
+                    sanitized = self._normalize_table_cell(nested)
+                    if sanitized:
+                        result.append(sanitized)
+            elif isinstance(nested, (str, int, float)):
+                result.append({"blocks": [self._as_paragraph_block(str(nested))]})
+
+        return result if result else [{"blocks": [self._as_paragraph_block("")]}]
 
     def _normalize_table_cell(self, cell: Any) -> Dict[str, Any] | None:
         """把各种单元格写法规整为schema认可的形式"""
@@ -1282,6 +1330,13 @@ class ChapterGenerationNode(BaseNode):
             return {"blocks": [self._as_paragraph_block("")]}
 
         if isinstance(cell, dict):
+            # 检测错误嵌套的 cells 结构：有 cells 但没有 blocks
+            # 这是 LLM 常见的错误，把同级 cell 嵌套进了 cells 数组
+            if "cells" in cell and "blocks" not in cell:
+                # 展平嵌套的 cells 并返回第一个有效 cell
+                # 注意：其余嵌套的 cells 会在 _normalize_table_cells 中被处理
+                return self._flatten_nested_cell(cell)
+
             normalized = dict(cell)
             blocks = self._coerce_cell_blocks(normalized.get("blocks"), normalized)
         elif isinstance(cell, list):
@@ -1296,6 +1351,40 @@ class ChapterGenerationNode(BaseNode):
 
         normalized["blocks"] = blocks or [self._as_paragraph_block("")]
         return normalized
+
+    def _flatten_nested_cell(self, cell: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        展平错误嵌套的 cell 结构。
+
+        LLM 有时会生成类似这样的错误结构：
+        { "cells": [ { "blocks": [...] }, { "cells": [...] } ] }
+
+        应该返回第一个有效的 cell 内容。
+        """
+        nested_cells = cell.get("cells")
+        if not isinstance(nested_cells, list) or not nested_cells:
+            # 没有有效的嵌套内容，返回空 cell
+            return {"blocks": [self._as_paragraph_block("")]}
+
+        # 递归查找第一个包含 blocks 的有效 cell
+        for nested in nested_cells:
+            if isinstance(nested, dict):
+                if "blocks" in nested:
+                    # 找到有效 cell，递归规范化
+                    return self._normalize_table_cell(nested)
+                elif "cells" in nested:
+                    # 继续递归展平
+                    result = self._flatten_nested_cell(nested)
+                    if result:
+                        return result
+
+        # 没有找到有效内容，尝试从第一个嵌套元素提取文本
+        first_nested = nested_cells[0]
+        if isinstance(first_nested, dict):
+            text = self._extract_block_text(first_nested)
+            return {"blocks": [self._as_paragraph_block(text or "")]}
+
+        return {"blocks": [self._as_paragraph_block("")]}
 
     def _coerce_cell_blocks(
         self, blocks: Any, source: Dict[str, Any] | None
