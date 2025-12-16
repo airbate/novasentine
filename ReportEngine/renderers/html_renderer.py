@@ -1232,6 +1232,176 @@ class HTMLRenderer:
         class_attr = f' class="{extra_class}"' if extra_class else ""
         return f'<{tag}{class_attr}>{items_html}</{tag}>'
 
+    def _flatten_nested_cells(self, cells: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        展平错误嵌套的单元格结构。
+
+        某些 LLM 生成的表格数据中，单元格被错误地递归嵌套：
+        cells[0] 正常, cells[1].cells[0] 正常, cells[1].cells[1].cells[0] 正常...
+        本方法将这种嵌套结构展平为标准的平行单元格数组。
+
+        参数:
+            cells: 可能包含嵌套结构的单元格数组。
+
+        返回:
+            List[Dict]: 展平后的单元格数组。
+        """
+        if not cells:
+            return []
+
+        flattened: List[Dict[str, Any]] = []
+
+        def _extract_cells(cell_or_list: Any) -> None:
+            """递归提取所有单元格"""
+            if not isinstance(cell_or_list, dict):
+                return
+
+            # 如果当前对象有 blocks，说明它是一个有效的单元格
+            if "blocks" in cell_or_list:
+                # 创建单元格副本，移除嵌套的 cells
+                clean_cell = {
+                    k: v for k, v in cell_or_list.items()
+                    if k != "cells"
+                }
+                flattened.append(clean_cell)
+
+            # 如果当前对象有嵌套的 cells，递归处理
+            nested_cells = cell_or_list.get("cells")
+            if isinstance(nested_cells, list):
+                for nested_cell in nested_cells:
+                    _extract_cells(nested_cell)
+
+        for cell in cells:
+            _extract_cells(cell)
+
+        return flattened
+
+    def _fix_nested_table_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        修复嵌套错误的表格行结构。
+
+        某些 LLM 生成的表格数据中，所有行的单元格都被嵌套在第一行中，
+        导致表格只有1行但包含所有数据。本方法检测并修复这种情况。
+
+        参数:
+            rows: 原始的表格行数组。
+
+        返回:
+            List[Dict]: 修复后的表格行数组。
+        """
+        if not rows or len(rows) != 1:
+            # 只处理只有1行的异常情况
+            return rows
+
+        first_row = rows[0]
+        original_cells = first_row.get("cells", [])
+
+        # 检查是否存在嵌套结构
+        has_nested = any(
+            isinstance(cell.get("cells"), list)
+            for cell in original_cells
+            if isinstance(cell, dict)
+        )
+
+        if not has_nested:
+            return rows
+
+        # 展平所有单元格
+        all_cells = self._flatten_nested_cells(original_cells)
+
+        if len(all_cells) <= 2:
+            # 单元格太少，不需要重组
+            return rows
+
+        # 辅助函数：获取单元格文本
+        def _get_cell_text(cell: Dict[str, Any]) -> str:
+            """获取单元格的文本内容"""
+            blocks = cell.get("blocks", [])
+            for block in blocks:
+                if block.get("type") == "paragraph":
+                    inlines = block.get("inlines", [])
+                    for inline in inlines:
+                        text = inline.get("text", "")
+                        if text:
+                            return text.strip()
+            return ""
+
+        def _is_placeholder_cell(cell: Dict[str, Any]) -> bool:
+            """判断单元格是否是占位符（如 '--', '-', '—' 等）"""
+            text = _get_cell_text(cell)
+            return text in ("--", "-", "—", "——", "", "N/A", "n/a")
+
+        # 先过滤掉占位符单元格
+        all_cells = [c for c in all_cells if not _is_placeholder_cell(c)]
+
+        if len(all_cells) <= 2:
+            return rows
+
+        # 检测表头列数：查找带有 bold 标记的单元格
+        def _is_header_cell(cell: Dict[str, Any]) -> bool:
+            """判断单元格是否像表头（通常有加粗标记）"""
+            blocks = cell.get("blocks", [])
+            for block in blocks:
+                if block.get("type") == "paragraph":
+                    inlines = block.get("inlines", [])
+                    for inline in inlines:
+                        marks = inline.get("marks", [])
+                        if any(m.get("type") == "bold" for m in marks):
+                            return True
+            return False
+
+        # 计算表头列数：统计连续的加粗单元格数量
+        # 占位符已经在前面被过滤掉了
+        header_count = 0
+        for cell in all_cells:
+            if _is_header_cell(cell):
+                header_count += 1
+            else:
+                # 遇到第一个非表头单元格，说明数据区开始
+                break
+
+        # 如果没有检测到表头，尝试使用启发式方法
+        if header_count == 0:
+            # 假设列数为 4 或 5（常见的表格列数）
+            total = len(all_cells)
+            for possible_cols in [4, 5, 3, 6]:
+                if total % possible_cols == 0:
+                    header_count = possible_cols
+                    break
+            else:
+                # 尝试找到最接近的能整除的列数
+                for possible_cols in [4, 5, 3, 6]:
+                    remainder = total % possible_cols
+                    # 允许最多3个多余的单元格（可能是尾部的总结或注释）
+                    if remainder <= 3:
+                        header_count = possible_cols
+                        break
+                else:
+                    # 无法确定列数，返回原始数据
+                    return rows
+
+        # 计算有效的单元格数量（可能需要截断尾部多余的单元格）
+        total = len(all_cells)
+        remainder = total % header_count
+        if remainder > 0 and remainder <= 3:
+            # 截断尾部多余的单元格（可能是总结或注释）
+            all_cells = all_cells[:total - remainder]
+        elif remainder > 3:
+            # 余数太大，可能列数检测错误，返回原始数据
+            return rows
+
+        # 重新组织成多行
+        fixed_rows: List[Dict[str, Any]] = []
+        for i in range(0, len(all_cells), header_count):
+            row_cells = all_cells[i:i + header_count]
+            # 标记第一行为表头
+            if i == 0:
+                for cell in row_cells:
+                    cell["header"] = True
+            fixed_rows.append({"cells": row_cells})
+
+        return fixed_rows
+
     def _render_table(self, block: Dict[str, Any]) -> str:
         """
         渲染表格，同时保留caption与单元格属性。
@@ -1242,11 +1412,16 @@ class HTMLRenderer:
         返回:
             str: 包含<table>结构的HTML。
         """
-        rows = self._normalize_table_rows(block.get("rows") or [])
+        # 先修复可能存在的嵌套行结构问题
+        raw_rows = block.get("rows") or []
+        fixed_rows = self._fix_nested_table_rows(raw_rows)
+        rows = self._normalize_table_rows(fixed_rows)
         rows_html = ""
         for row in rows:
             row_cells = ""
-            for cell in row.get("cells", []):
+            # 展平可能存在的嵌套单元格结构（作为额外保护）
+            cells = self._flatten_nested_cells(row.get("cells", []))
+            for cell in cells:
                 cell_tag = "th" if cell.get("header") or cell.get("isHeader") else "td"
                 attr = []
                 if cell.get("rowspan"):
