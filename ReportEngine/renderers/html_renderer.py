@@ -1199,6 +1199,11 @@ class HTMLRenderer:
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
         """渲染段落，内部通过inline run保持混排样式"""
         inlines_data = block.get("inlines", [])
+        
+        # 检测并跳过包含文档元数据 JSON 的段落
+        if self._is_metadata_paragraph(inlines_data):
+            return ""
+        
         # 仅包含单个display公式时直接渲染为块，避免<p>内嵌<div>
         if len(inlines_data) == 1:
             standalone = self._render_standalone_math_inline(inlines_data[0])
@@ -1207,6 +1212,28 @@ class HTMLRenderer:
 
         inlines = "".join(self._render_inline(run) for run in inlines_data)
         return f"<p>{inlines}</p>"
+
+    def _is_metadata_paragraph(self, inlines: List[Any]) -> bool:
+        """
+        检测段落是否只包含文档元数据 JSON。
+        
+        某些 LLM 生成的内容会将元数据（如 xrefs、widgets、footnotes、metadata）
+        错误地作为段落内容输出，本方法识别并标记这种情况以便跳过渲染。
+        """
+        if not inlines or len(inlines) != 1:
+            return False
+        first = inlines[0]
+        if not isinstance(first, dict):
+            return False
+        text = first.get("text", "")
+        if not isinstance(text, str):
+            return False
+        text = text.strip()
+        if not text.startswith("{") or not text.endswith("}"):
+            return False
+        # 检测典型的元数据键
+        metadata_indicators = ['"xrefs"', '"widgets"', '"footnotes"', '"metadata"', '"sectionBudgets"']
+        return any(indicator in text for indicator in metadata_indicators)
 
     def _render_standalone_math_inline(self, run: Dict[str, Any] | str) -> str | None:
         """当段落只包含单个display公式时，转为math-block避免破坏行内布局"""
