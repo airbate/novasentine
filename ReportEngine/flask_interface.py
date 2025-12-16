@@ -1251,7 +1251,8 @@ def export_markdown(task_id: str):
 
         from .renderers import MarkdownRenderer
         renderer = MarkdownRenderer()
-        markdown_text = renderer.render(document_ir)
+        # 传入 ir_file_path，修复后的图表会自动保存到 IR 文件
+        markdown_text = renderer.render(document_ir, ir_file_path=task.ir_file_path)
 
         metadata = document_ir.get('metadata') if isinstance(document_ir, dict) else {}
         topic = (metadata or {}).get('topic') or (metadata or {}).get('title') or (metadata or {}).get('query') or task.query
