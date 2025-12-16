@@ -292,6 +292,8 @@ BettaFish/
 ├── docker-compose.yml                      # Docker多服务编排配置
 ├── Dockerfile                              # Docker镜像构建文件
 ├── requirements.txt                        # Python依赖包清单
+├── regenerate_latest_html.py               # 使用最新章节重装订并渲染HTML
+├── regenerate_latest_md.py                 # 使用最新章节重装订并渲染Markdown
 ├── regenerate_latest_pdf.py                # PDF重新生成工具脚本
 ├── report_engine_only.py                   # Report Engine命令行版本
 ├── README.md                               # 中文说明文档
@@ -500,7 +502,7 @@ python main.py --deep-sentiment --platforms xhs dy wb
 
 #### 6.4 命令行报告生成工具
 
-该工具会跳过三个分析引擎的运行阶段，直接读取它们的最新日志文件，并在无需 Web 界面的情况下生成综合报告（同时省略文件增量校验步骤）。通常用于对报告生成结果不满意、需要快速重试的场景，或在调试 Report Engine 时启用。
+该工具会跳过三个分析引擎的运行阶段，直接读取它们的最新日志文件，并在无需 Web 界面的情况下生成综合报告（同时省略文件增量校验步骤），默认会在 PDF 之后自动生成 Markdown（可用参数关闭）。通常用于对报告生成结果不满意、需要快速重试的场景，或在调试 Report Engine 时启用。
 
 ```bash
 # 基本使用（自动从文件名提取主题）
@@ -511,6 +513,9 @@ python report_engine_only.py --query "土木工程行业分析"
 
 # 跳过PDF生成（即使系统支持）
 python report_engine_only.py --skip-pdf
+
+# 跳过Markdown生成
+python report_engine_only.py --skip-markdown
 
 # 显示详细日志
 python report_engine_only.py --verbose
@@ -528,13 +533,19 @@ python report_engine_only.py --help
 5. **自动保存文件**：
    - HTML报告保存到 `final_reports/` 目录
    - PDF报告（如果有依赖）保存到 `final_reports/pdf/` 目录
-   - 文件命名格式：`final_report_{主题}_{时间戳}.html/pdf`
+   - Markdown报告（可用 `--skip-markdown` 关闭）保存到 `final_reports/md/` 目录
+   - 文件命名格式：`final_report_{主题}_{时间戳}.html/pdf/md`
 
 **注意事项：**
 
 - 确保三个引擎目录中至少有一个包含`.md`报告文件
 - 命令行工具与Web界面相互独立，不会相互影响
 - PDF生成需要安装系统依赖，详见上文"安装 PDF 导出所需系统依赖"部分
+
+**快速重渲染最新结果：**
+
+- `regenerate_latest_html.py` / `regenerate_latest_md.py`：从 `CHAPTER_OUTPUT_DIR` 中最新一次运行的章节 JSON 重装订 Document IR，并直接渲染 HTML 或 Markdown。
+- `regenerate_latest_pdf.py`：读取 `final_reports/ir` 里最新的 IR，使用 SVG 矢量图表重新导出 PDF。
 
 ## ⚙️ 高级配置（已过时，已经统一为项目根目录.env文件管理，其他子agent自动继承根目录配置）
 

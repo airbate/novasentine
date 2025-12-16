@@ -29,6 +29,7 @@ from ReportEngine.utils.chart_validator import (
     create_chart_repairer
 )
 from ReportEngine.utils.chart_repair_api import create_llm_repair_functions
+from ReportEngine.utils.chart_review_service import get_chart_review_service
 
 
 class HTMLRenderer:
@@ -117,6 +118,12 @@ class HTMLRenderer:
             validator=self.chart_validator,
             llm_repair_fns=llm_repair_fns
         )
+        # 打印LLM修复函数状态
+        self._llm_repair_count = len(llm_repair_fns)
+        if not llm_repair_fns:
+            logger.warning("HTMLRenderer: 未配置任何LLM API，图表API修复功能不可用")
+        else:
+            logger.info(f"HTMLRenderer: 已配置 {len(llm_repair_fns)} 个LLM修复函数")
         # 记录修复失败的图表，避免多次触发LLM循环修复
         self._chart_failure_notes: Dict[str, str] = {}
         self._chart_failure_recorded: set[str] = set()
@@ -181,6 +188,18 @@ class HTMLRenderer:
             logger.warning("读取PDF字体文件失败：%s (%s)", font_path, exc)
         self._pdf_font_base64 = ""
         return self._pdf_font_base64
+
+    def _reset_chart_validation_stats(self) -> None:
+        """重置图表校验统计并清除失败计数标记"""
+        self.chart_validation_stats = {
+            'total': 0,
+            'valid': 0,
+            'repaired_locally': 0,
+            'repaired_api': 0,
+            'failed': 0
+        }
+        # 保留失败原因缓存，但重置本次渲染的计数
+        self._chart_failure_recorded = set()
 
     def _build_script_with_fallback(
         self,
@@ -256,17 +275,37 @@ class HTMLRenderer:
 
     # ====== 公共入口 ======
 
-    def render(self, document_ir: Dict[str, Any]) -> str:
+    def render(
+        self,
+        document_ir: Dict[str, Any],
+        ir_file_path: str | None = None
+    ) -> str:
         """
         接收Document IR，重置内部状态并输出完整HTML。
 
         参数:
             document_ir: 由 DocumentComposer 生成的整本报告数据。
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存。
 
         返回:
             str: 可直接写入磁盘的完整HTML文档。
         """
         self.document = document_ir or {}
+
+        # 使用统一的 ChartReviewService 进行图表审查与修复
+        # 修复结果会直接回写到 document_ir，避免多次渲染重复修复
+        # review_document 返回本次会话的统计信息（线程安全）
+        chart_service = get_chart_review_service()
+        review_stats = chart_service.review_document(
+            self.document,
+            ir_file_path=ir_file_path,
+            reset_stats=True,
+            save_on_repair=bool(ir_file_path)
+        )
+        # 同步统计信息到本地（用于兼容旧的 _log_chart_validation_stats）
+        # 使用返回的 ReviewStats 对象，而非共享的 chart_service.stats
+        self.chart_validation_stats.update(review_stats.to_dict())
+
         self.widget_scripts = []
         self.chart_counter = 0
         self.heading_counter = 0
@@ -281,17 +320,6 @@ class HTMLRenderer:
         }
         self.heading_label_map = self._compute_heading_labels(self.chapters)
         self.toc_entries = self._collect_toc_entries(self.chapters)
-
-        # 重置图表验证统计
-        self.chart_validation_stats = {
-            'total': 0,
-            'valid': 0,
-            'repaired_locally': 0,
-            'repaired_api': 0,
-            'failed': 0
-        }
-        # 每次渲染重新统计失败计数，但保留失败原因，避免重复LLM调用
-        self._chart_failure_recorded = set()
 
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
@@ -858,7 +886,12 @@ class HTMLRenderer:
         """粗略判断dict是否符合block结构"""
         if not isinstance(payload, dict):
             return False
-        if "type" in payload and isinstance(payload["type"], str):
+        block_type = payload.get("type")
+        if block_type and isinstance(block_type, str):
+            # 排除内联类型（inlineRun 等），它们不是块级元素
+            inline_types = {"inlineRun", "inline", "text"}
+            if block_type in inline_types:
+                return False
             return True
         structural_keys = {"blocks", "rows", "items", "widgetId", "widgetType", "data"}
         return any(key in payload for key in structural_keys)
@@ -869,13 +902,20 @@ class HTMLRenderer:
         if isinstance(payload, dict):
             block_list = payload.get("blocks")
             block_type = payload.get("type")
+            
+            # 排除内联类型，它们不是块级元素
+            inline_types = {"inlineRun", "inline", "text"}
+            if block_type in inline_types:
+                return collected
+            
             if isinstance(block_list, list) and not block_type:
                 for candidate in block_list:
                     collected.extend(self._collect_blocks_from_payload(candidate))
                 return collected
             if payload.get("cells") and not block_type:
                 for cell in payload["cells"]:
-                    collected.extend(self._collect_blocks_from_payload(cell.get("blocks")))
+                    if isinstance(cell, dict):
+                        collected.extend(self._collect_blocks_from_payload(cell.get("blocks")))
                 return collected
             if payload.get("items") and not block_type:
                 for item in payload["items"]:
@@ -1161,6 +1201,11 @@ class HTMLRenderer:
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
         """渲染段落，内部通过inline run保持混排样式"""
         inlines_data = block.get("inlines", [])
+        
+        # 检测并跳过包含文档元数据 JSON 的段落
+        if self._is_metadata_paragraph(inlines_data):
+            return ""
+        
         # 仅包含单个display公式时直接渲染为块，避免<p>内嵌<div>
         if len(inlines_data) == 1:
             standalone = self._render_standalone_math_inline(inlines_data[0])
@@ -1169,6 +1214,28 @@ class HTMLRenderer:
 
         inlines = "".join(self._render_inline(run) for run in inlines_data)
         return f"<p>{inlines}</p>"
+
+    def _is_metadata_paragraph(self, inlines: List[Any]) -> bool:
+        """
+        检测段落是否只包含文档元数据 JSON。
+        
+        某些 LLM 生成的内容会将元数据（如 xrefs、widgets、footnotes、metadata）
+        错误地作为段落内容输出，本方法识别并标记这种情况以便跳过渲染。
+        """
+        if not inlines or len(inlines) != 1:
+            return False
+        first = inlines[0]
+        if not isinstance(first, dict):
+            return False
+        text = first.get("text", "")
+        if not isinstance(text, str):
+            return False
+        text = text.strip()
+        if not text.startswith("{") or not text.endswith("}"):
+            return False
+        # 检测典型的元数据键
+        metadata_indicators = ['"xrefs"', '"widgets"', '"footnotes"', '"metadata"', '"sectionBudgets"']
+        return any(indicator in text for indicator in metadata_indicators)
 
     def _render_standalone_math_inline(self, run: Dict[str, Any] | str) -> str | None:
         """当段落只包含单个display公式时，转为math-block避免破坏行内布局"""
@@ -1205,6 +1272,187 @@ class HTMLRenderer:
         class_attr = f' class="{extra_class}"' if extra_class else ""
         return f'<{tag}{class_attr}>{items_html}</{tag}>'
 
+    def _flatten_nested_cells(self, cells: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        展平错误嵌套的单元格结构。
+
+        某些 LLM 生成的表格数据中，单元格被错误地递归嵌套：
+        cells[0] 正常, cells[1].cells[0] 正常, cells[1].cells[1].cells[0] 正常...
+        本方法将这种嵌套结构展平为标准的平行单元格数组。
+
+        参数:
+            cells: 可能包含嵌套结构的单元格数组。
+
+        返回:
+            List[Dict]: 展平后的单元格数组。
+        """
+        if not cells:
+            return []
+
+        flattened: List[Dict[str, Any]] = []
+
+        def _extract_cells(cell_or_list: Any) -> None:
+            """递归提取所有单元格"""
+            if not isinstance(cell_or_list, dict):
+                return
+
+            # 如果当前对象有 blocks，说明它是一个有效的单元格
+            if "blocks" in cell_or_list:
+                # 创建单元格副本，移除嵌套的 cells
+                clean_cell = {
+                    k: v for k, v in cell_or_list.items()
+                    if k != "cells"
+                }
+                flattened.append(clean_cell)
+
+            # 如果当前对象有嵌套的 cells，递归处理
+            nested_cells = cell_or_list.get("cells")
+            if isinstance(nested_cells, list):
+                for nested_cell in nested_cells:
+                    _extract_cells(nested_cell)
+
+        for cell in cells:
+            _extract_cells(cell)
+
+        return flattened
+
+    def _fix_nested_table_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        修复嵌套错误的表格行结构。
+
+        某些 LLM 生成的表格数据中，所有行的单元格都被嵌套在第一行中，
+        导致表格只有1行但包含所有数据。本方法检测并修复这种情况。
+
+        参数:
+            rows: 原始的表格行数组。
+
+        返回:
+            List[Dict]: 修复后的表格行数组。
+        """
+        if not rows or len(rows) != 1:
+            # 只处理只有1行的异常情况
+            return rows
+
+        first_row = rows[0]
+        original_cells = first_row.get("cells", [])
+
+        # 检查是否存在嵌套结构
+        has_nested = any(
+            isinstance(cell.get("cells"), list)
+            for cell in original_cells
+            if isinstance(cell, dict)
+        )
+
+        if not has_nested:
+            return rows
+
+        # 展平所有单元格
+        all_cells = self._flatten_nested_cells(original_cells)
+
+        if len(all_cells) <= 2:
+            # 单元格太少，不需要重组
+            return rows
+
+        # 辅助函数：获取单元格文本
+        def _get_cell_text(cell: Dict[str, Any]) -> str:
+            """获取单元格的文本内容"""
+            blocks = cell.get("blocks", [])
+            for block in blocks:
+                if isinstance(block, dict) and block.get("type") == "paragraph":
+                    inlines = block.get("inlines", [])
+                    for inline in inlines:
+                        if isinstance(inline, dict):
+                            text = inline.get("text", "")
+                            if text:
+                                return str(text).strip()
+            return ""
+
+        def _is_placeholder_cell(cell: Dict[str, Any]) -> bool:
+            """判断单元格是否是占位符（如 '--', '-', '—' 等）"""
+            text = _get_cell_text(cell)
+            return text in ("--", "-", "—", "——", "", "N/A", "n/a")
+
+        # 先过滤掉占位符单元格
+        all_cells = [c for c in all_cells if not _is_placeholder_cell(c)]
+
+        if len(all_cells) <= 2:
+            return rows
+
+        # 检测表头列数：查找带有 bold 标记或典型表头词的单元格
+        def _is_header_cell(cell: Dict[str, Any]) -> bool:
+            """判断单元格是否像表头（有加粗标记或是典型表头词）"""
+            blocks = cell.get("blocks", [])
+            for block in blocks:
+                if isinstance(block, dict) and block.get("type") == "paragraph":
+                    inlines = block.get("inlines", [])
+                    for inline in inlines:
+                        if isinstance(inline, dict):
+                            marks = inline.get("marks", [])
+                            if any(isinstance(m, dict) and m.get("type") == "bold" for m in marks):
+                                return True
+            # 也检查典型的表头词
+            text = _get_cell_text(cell)
+            header_keywords = {
+                "时间", "日期", "名称", "类型", "状态", "数量", "金额", "比例", "指标",
+                "平台", "渠道", "来源", "描述", "说明", "备注", "序号", "编号",
+                "事件", "关键", "数据", "支撑", "反应", "市场", "情感", "节点",
+                "维度", "要点", "详情", "标签", "影响", "趋势", "权重", "类别",
+                "信息", "内容", "风格", "偏好", "主要", "用户", "核心", "特征",
+                "分类", "范围", "对象", "项目", "阶段", "周期", "频率", "等级",
+            }
+            return any(kw in text for kw in header_keywords) and len(text) <= 20
+
+        # 计算表头列数：统计连续的表头单元格数量
+        header_count = 0
+        for cell in all_cells:
+            if _is_header_cell(cell):
+                header_count += 1
+            else:
+                # 遇到第一个非表头单元格，说明数据区开始
+                break
+
+        # 如果没有检测到表头，尝试使用启发式方法
+        if header_count == 0:
+            # 假设列数为 4 或 5（常见的表格列数）
+            total = len(all_cells)
+            for possible_cols in [4, 5, 3, 6, 2]:
+                if total % possible_cols == 0:
+                    header_count = possible_cols
+                    break
+            else:
+                # 尝试找到最接近的能整除的列数
+                for possible_cols in [4, 5, 3, 6, 2]:
+                    remainder = total % possible_cols
+                    # 允许最多3个多余的单元格（可能是尾部的总结或注释）
+                    if remainder <= 3:
+                        header_count = possible_cols
+                        break
+                else:
+                    # 无法确定列数，返回原始数据
+                    return rows
+
+        # 计算有效的单元格数量（可能需要截断尾部多余的单元格）
+        total = len(all_cells)
+        remainder = total % header_count
+        if remainder > 0 and remainder <= 3:
+            # 截断尾部多余的单元格（可能是总结或注释）
+            all_cells = all_cells[:total - remainder]
+        elif remainder > 3:
+            # 余数太大，可能列数检测错误，返回原始数据
+            return rows
+
+        # 重新组织成多行
+        fixed_rows: List[Dict[str, Any]] = []
+        for i in range(0, len(all_cells), header_count):
+            row_cells = all_cells[i:i + header_count]
+            # 标记第一行为表头
+            if i == 0:
+                for cell in row_cells:
+                    cell["header"] = True
+            fixed_rows.append({"cells": row_cells})
+
+        return fixed_rows
+
     def _render_table(self, block: Dict[str, Any]) -> str:
         """
         渲染表格，同时保留caption与单元格属性。
@@ -1215,11 +1463,16 @@ class HTMLRenderer:
         返回:
             str: 包含<table>结构的HTML。
         """
-        rows = self._normalize_table_rows(block.get("rows") or [])
+        # 先修复可能存在的嵌套行结构问题
+        raw_rows = block.get("rows") or []
+        fixed_rows = self._fix_nested_table_rows(raw_rows)
+        rows = self._normalize_table_rows(fixed_rows)
         rows_html = ""
         for row in rows:
             row_cells = ""
-            for cell in row.get("cells", []):
+            # 展平可能存在的嵌套单元格结构（作为额外保护）
+            cells = self._flatten_nested_cells(row.get("cells", []))
+            for cell in cells:
                 cell_tag = "th" if cell.get("header") or cell.get("isHeader") else "td"
                 attr = []
                 if cell.get("rowspan"):
@@ -2087,6 +2340,31 @@ class HTMLRenderer:
         if cache_key:
             self._chart_failure_recorded.add(cache_key)
 
+    def _apply_cached_review_stats(self, block: Dict[str, Any]) -> None:
+        """
+        在已审查过的图表上重新累计统计信息，避免重复修复。
+
+        当渲染流程重置了统计但图表已经审查过（_chart_reviewed=True），
+        直接根据记录的状态累加各项计数，防止再次触发 ChartRepairer。
+        """
+        if not isinstance(block, dict):
+            return
+
+        status = block.get("_chart_review_status") or "valid"
+        method = (block.get("_chart_review_method") or "none").lower()
+        cache_key = self._chart_cache_key(block)
+
+        self.chart_validation_stats['total'] += 1
+        if status == "failed":
+            self._record_chart_failure_stat(cache_key)
+        elif status == "repaired":
+            if method == "api":
+                self.chart_validation_stats['repaired_api'] += 1
+            else:
+                self.chart_validation_stats['repaired_locally'] += 1
+        else:
+            self.chart_validation_stats['valid'] += 1
+
     def _format_chart_error_reason(
         self,
         validation_result: ValidationResult | None = None,
@@ -2211,6 +2489,177 @@ class HTMLRenderer:
                     if labels_from_data:
                         data_ref["labels"] = labels_from_data
 
+    def _ensure_chart_reviewed(
+        self,
+        block: Dict[str, Any],
+        chapter_context: Dict[str, Any] | None = None,
+        *,
+        increment_stats: bool = True
+    ) -> tuple[bool, str | None]:
+        """
+        确保图表已完成审查/修复，并将结果回写到原始block。
+
+        返回:
+            (renderable, fail_reason)
+        """
+        if not isinstance(block, dict):
+            return True, None
+
+        widget_type = block.get('widgetType', '')
+        is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
+        if not is_chart:
+            return True, None
+
+        is_wordcloud = 'wordcloud' in widget_type.lower() if isinstance(widget_type, str) else False
+        cache_key = self._chart_cache_key(block)
+
+        # 已有失败记录或显式标记为不可渲染，直接复用结果
+        if block.get("_chart_renderable") is False:
+            if increment_stats:
+                self.chart_validation_stats['total'] += 1
+                self._record_chart_failure_stat(cache_key)
+            reason = block.get("_chart_error_reason")
+            block["_chart_reviewed"] = True
+            block["_chart_review_status"] = block.get("_chart_review_status") or "failed"
+            block["_chart_review_method"] = block.get("_chart_review_method") or "none"
+            if reason:
+                self._note_chart_failure(cache_key, reason)
+            return False, reason
+
+        if block.get("_chart_reviewed"):
+            if increment_stats:
+                self._apply_cached_review_stats(block)
+            failed, cached_reason = self._has_chart_failure(block)
+            renderable = not failed and block.get("_chart_renderable", True) is not False
+            return renderable, block.get("_chart_error_reason") or cached_reason
+
+        # 首次审查：先补全结构，再验证/修复
+        self._normalize_chart_block(block, chapter_context)
+
+        if increment_stats:
+            self.chart_validation_stats['total'] += 1
+
+        if is_wordcloud:
+            if increment_stats:
+                self.chart_validation_stats['valid'] += 1
+            block["_chart_reviewed"] = True
+            block["_chart_review_status"] = "valid"
+            block["_chart_review_method"] = "none"
+            return True, None
+
+        validation_result = self.chart_validator.validate(block)
+
+        if not validation_result.is_valid:
+            logger.warning(
+                f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
+            )
+
+            repair_result = self.chart_repairer.repair(block, validation_result)
+
+            if repair_result.success and repair_result.repaired_block:
+                # 修复成功，回写修复后的数据
+                repaired_block = repair_result.repaired_block
+                block.clear()
+                block.update(repaired_block)
+                method = repair_result.method or "local"
+                logger.info(
+                    f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
+                    f"(方法: {method}): {repair_result.changes}"
+                )
+
+                if increment_stats:
+                    if method == 'local':
+                        self.chart_validation_stats['repaired_locally'] += 1
+                    elif method == 'api':
+                        self.chart_validation_stats['repaired_api'] += 1
+                block["_chart_review_status"] = "repaired"
+                block["_chart_review_method"] = method
+                block["_chart_reviewed"] = True
+                return True, None
+
+            # 修复失败，记录失败并输出占位提示
+            fail_reason = self._format_chart_error_reason(validation_result)
+            block["_chart_renderable"] = False
+            block["_chart_error_reason"] = fail_reason
+            block["_chart_review_status"] = "failed"
+            block["_chart_review_method"] = "none"
+            block["_chart_reviewed"] = True
+            self._note_chart_failure(cache_key, fail_reason)
+            if increment_stats:
+                self._record_chart_failure_stat(cache_key)
+            logger.warning(
+                f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
+            )
+            return False, fail_reason
+
+        # 验证通过
+        if increment_stats:
+            self.chart_validation_stats['valid'] += 1
+            if validation_result.warnings:
+                logger.info(
+                    f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
+                    f"但有警告: {validation_result.warnings}"
+                )
+        block["_chart_review_status"] = "valid"
+        block["_chart_review_method"] = "none"
+        block["_chart_reviewed"] = True
+        return True, None
+
+    def review_and_patch_document(
+        self,
+        document_ir: Dict[str, Any],
+        *,
+        reset_stats: bool = True,
+        clone: bool = False
+    ) -> Dict[str, Any]:
+        """
+        全局审查并修复图表，将修复结果回写到原始 IR，避免多次渲染重复修复。
+
+        参数:
+            document_ir: 原始 Document IR
+            reset_stats: 是否重置统计数据
+            clone: 是否返回修复后的深拷贝（原始 IR 仍会被回写修复结果）
+
+        返回:
+            修复后的 IR（可能是原对象或其深拷贝）
+        """
+        if reset_stats:
+            self._reset_chart_validation_stats()
+
+        target_ir = document_ir or {}
+
+        def _walk_blocks(blocks: list, chapter_ctx: Dict[str, Any] | None = None) -> None:
+            for blk in blocks or []:
+                if not isinstance(blk, dict):
+                    continue
+                if blk.get("type") == "widget":
+                    self._ensure_chart_reviewed(blk, chapter_ctx, increment_stats=True)
+
+                nested_blocks = blk.get("blocks")
+                if isinstance(nested_blocks, list):
+                    _walk_blocks(nested_blocks, chapter_ctx)
+
+                if blk.get("type") == "list":
+                    for item in blk.get("items", []):
+                        if isinstance(item, list):
+                            _walk_blocks(item, chapter_ctx)
+
+                if blk.get("type") == "table":
+                    for row in blk.get("rows", []):
+                        cells = row.get("cells", [])
+                        for cell in cells:
+                            if isinstance(cell, dict):
+                                cell_blocks = cell.get("blocks", [])
+                                if isinstance(cell_blocks, list):
+                                    _walk_blocks(cell_blocks, chapter_ctx)
+
+        for chapter in target_ir.get("chapters", []) or []:
+            if not isinstance(chapter, dict):
+                continue
+            _walk_blocks(chapter.get("blocks", []), chapter)
+
+        return copy.deepcopy(target_ir) if clone else target_ir
+
     def _render_widget(self, block: Dict[str, Any]) -> str:
         """
         渲染Chart.js等交互组件的占位容器，并记录配置JSON。
@@ -2230,75 +2679,28 @@ class HTMLRenderer:
         返回:
             str: 含canvas与配置脚本的HTML。
         """
-        # 先在block层面做一次容错补全（scales、章节级数据等）
-        self._normalize_chart_block(block, getattr(self, "_current_chapter", None))
-
-        # 统计
+        # 统一的审查/修复入口，避免后续重复修复
         widget_type = block.get('widgetType', '')
         is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
         is_wordcloud = isinstance(widget_type, str) and 'wordcloud' in widget_type.lower()
+        reviewed = bool(block.get("_chart_reviewed"))
+        renderable = True
+        fail_reason = None
+
+        if is_chart:
+            renderable, fail_reason = self._ensure_chart_reviewed(
+                block,
+                getattr(self, "_current_chapter", None),
+                increment_stats=not reviewed
+            )
+
         widget_id = block.get('widgetId')
-        cache_key = self._chart_cache_key(block) if is_chart else ""
         props_snapshot = block.get("props") if isinstance(block.get("props"), dict) else {}
         display_title = props_snapshot.get("title") or block.get("title") or widget_id or "图表"
 
-        if is_chart:
-            self.chart_validation_stats['total'] += 1
-
-            # 词云使用专用渲染逻辑，不按Chart.js规则验证，直接跳过防止误判
-            if is_wordcloud:
-                self.chart_validation_stats['valid'] += 1
-            else:
-                # 如果此前已记录失败，直接使用占位提示，避免重复修复
-                has_failed, cached_reason = self._has_chart_failure(block)
-                if has_failed:
-                    self._record_chart_failure_stat(cache_key)
-                    reason = cached_reason or "LLM返回的图表信息格式有误，无法正常显示"
-                    return self._render_chart_error_placeholder(display_title, reason, widget_id)
-
-                # 验证图表数据
-                validation_result = self.chart_validator.validate(block)
-
-                if not validation_result.is_valid:
-                    logger.warning(
-                        f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
-                    )
-
-                    # 尝试修复
-                    repair_result = self.chart_repairer.repair(block, validation_result)
-
-                    if repair_result.success and repair_result.repaired_block:
-                        # 修复成功，使用修复后的数据
-                        block = repair_result.repaired_block
-                        logger.info(
-                            f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
-                            f"(方法: {repair_result.method}): {repair_result.changes}"
-                        )
-
-                        # 更新统计
-                        if repair_result.method == 'local':
-                            self.chart_validation_stats['repaired_locally'] += 1
-                        elif repair_result.method == 'api':
-                            self.chart_validation_stats['repaired_api'] += 1
-                    else:
-                        # 修复失败，记录失败并输出占位提示
-                        fail_reason = self._format_chart_error_reason(validation_result)
-                        block["_chart_renderable"] = False
-                        block["_chart_error_reason"] = fail_reason
-                        self._note_chart_failure(cache_key, fail_reason)
-                        self._record_chart_failure_stat(cache_key)
-                        logger.warning(
-                            f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
-                        )
-                        return self._render_chart_error_placeholder(display_title, fail_reason, widget_id)
-                else:
-                    # 验证通过
-                    self.chart_validation_stats['valid'] += 1
-                    if validation_result.warnings:
-                        logger.info(
-                            f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
-                            f"但有警告: {validation_result.warnings}"
-                        )
+        if is_chart and not renderable:
+            reason = fail_reason or "LLM返回的图表信息格式有误，无法正常显示"
+            return self._render_chart_error_placeholder(display_title, reason, widget_id)
 
         # 渲染图表HTML
         self.chart_counter += 1
@@ -2571,6 +2973,19 @@ class HTMLRenderer:
         if not isinstance(run, dict):
             return ("" if run is None else str(run)), []
 
+        # 处理 inlineRun 类型：递归展开其 inlines 数组
+        if run.get("type") == "inlineRun":
+            inner_inlines = run.get("inlines") or []
+            outer_marks = run.get("marks") or []
+            # 递归合并所有内部 inlines 的文本
+            texts = []
+            all_marks = list(outer_marks)
+            for inline in inner_inlines:
+                inner_text, inner_marks = self._normalize_inline_payload(inline)
+                texts.append(inner_text)
+                all_marks.extend(inner_marks)
+            return "".join(texts), all_marks
+
         marks = list(run.get("marks") or [])
         text_value: Any = run.get("text", "")
         seen: set[int] = set()
@@ -2618,6 +3033,9 @@ class HTMLRenderer:
                     else:
                         inline_payload = self._coerce_inline_payload(payload)
                         if inline_payload:
+                            # 处理 inlineRun 类型
+                            if inline_payload.get("type") == "inlineRun":
+                                return self._normalize_inline_payload(inline_payload)
                             nested_text = inline_payload.get("text")
                             if nested_text is not None:
                                 text_value = nested_text
@@ -2711,9 +3129,12 @@ class HTMLRenderer:
         if not isinstance(payload, dict):
             return None
         inline_type = payload.get("type")
+        # 支持 inlineRun 类型：包含嵌套的 inlines 数组
+        if inline_type == "inlineRun":
+            return payload
         if inline_type and inline_type not in {"inline", "text"}:
             return None
-        if "text" not in payload and "marks" not in payload:
+        if "text" not in payload and "marks" not in payload and "inlines" not in payload:
             return None
         return payload
 

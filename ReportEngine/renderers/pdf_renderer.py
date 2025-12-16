@@ -71,6 +71,7 @@ from .html_renderer import HTMLRenderer
 from .pdf_layout_optimizer import PDFLayoutOptimizer, PDFLayoutConfig
 from .chart_to_svg import create_chart_converter
 from .math_to_svg import MathToSVG
+from ReportEngine.utils.chart_review_service import get_chart_review_service
 try:
     from wordcloud import WordCloud
     WORDCLOUD_AVAILABLE = True
@@ -153,114 +154,45 @@ class PDFRenderer:
 
         raise FileNotFoundError(f"未找到字体文件，请检查 {fonts_dir} 目录")
 
-    def _preprocess_charts(self, document_ir: Dict[str, Any]) -> Dict[str, Any]:
+    def _preprocess_charts(
+        self,
+        document_ir: Dict[str, Any],
+        ir_file_path: str | None = None
+    ) -> Dict[str, Any]:
         """
-        预处理图表：验证和修复所有图表数据
+        预处理图表：使用 ChartReviewService 验证并修复所有图表数据。
 
-        这个方法确保在转换为SVG之前，所有图表数据都是有效的。
-        使用与HTMLRenderer相同的验证和修复逻辑，保证PDF和HTML的一致性。
+        使用统一的 ChartReviewService 进行图表审查，修复结果直接写回传入的 IR。
+        如果提供 ir_file_path，修复后会自动保存到文件。
 
         参数:
             document_ir: Document IR数据
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             Dict[str, Any]: 修复后的Document IR（深拷贝）
         """
-        # 深拷贝以避免修改原始IR
-        ir_copy = copy.deepcopy(document_ir)
+        # 使用统一的 ChartReviewService
+        # review_document 返回本次会话的统计信息（线程安全）
+        chart_service = get_chart_review_service()
+        review_stats = chart_service.review_document(
+            document_ir,
+            ir_file_path=ir_file_path,
+            reset_stats=True,
+            save_on_repair=bool(ir_file_path)
+        )
 
-        repair_stats = {
-            'total': 0,
-            'repaired': 0,
-            'failed': 0
-        }
-
-        def repair_widgets_in_blocks(blocks: list, chapter_context: Dict[str, Any] | None = None) -> None:
-            """递归修复blocks中的所有widget"""
-            for block in blocks:
-                if not isinstance(block, dict):
-                    continue
-
-                # 处理widget类型
-                if block.get('type') == 'widget':
-                    # 先用HTML渲染器的容错逻辑补全字段
-                    try:
-                        self.html_renderer._normalize_chart_block(block, chapter_context)
-                    except Exception as exc:  # 防御性处理，避免单个图表阻断流程
-                        logger.debug(f"预处理图表 {block.get('widgetId')} 时出错: {exc}")
-
-                    widget_type = block.get('widgetType', '')
-                    if widget_type.startswith('chart.js'):
-                        repair_stats['total'] += 1
-
-                        # 使用HTMLRenderer的验证器和修复器
-                        validation = self.html_renderer.chart_validator.validate(block)
-
-                        if not validation.is_valid:
-                            logger.debug(f"图表 {block.get('widgetId')} 需要修复: {validation.errors}")
-
-                            # 尝试修复
-                            repair_result = self.html_renderer.chart_repairer.repair(block, validation)
-
-                            if repair_result.success and repair_result.repaired_block:
-                                # 更新block内容（在副本中）
-                                block.update(repair_result.repaired_block)
-                                repair_stats['repaired'] += 1
-                                logger.debug(
-                                    f"图表 {block.get('widgetId')} 已修复 "
-                                    f"(方法: {repair_result.method})"
-                                )
-                            else:
-                                repair_stats['failed'] += 1
-                                reason = self.html_renderer._format_chart_error_reason(validation)
-                                block["_chart_renderable"] = False
-                                block["_chart_error_reason"] = reason
-                                self.html_renderer._note_chart_failure(
-                                    self.html_renderer._chart_cache_key(block),
-                                    reason
-                                )
-                                logger.warning(
-                                    f"图表 {block.get('widgetId')} 修复失败，将使用占位提示: {reason}"
-                                )
-
-                # 递归处理嵌套的blocks
-            nested_blocks = block.get('blocks')
-            if isinstance(nested_blocks, list):
-                repair_widgets_in_blocks(nested_blocks, chapter_context)
-
-                # 处理列表项
-            if block.get('type') == 'list':
-                items = block.get('items', [])
-                for item in items:
-                    if isinstance(item, list):
-                        repair_widgets_in_blocks(item, chapter_context)
-
-                # 处理表格单元格
-            if block.get('type') == 'table':
-                rows = block.get('rows', [])
-                for row in rows:
-                    cells = row.get('cells', [])
-                    for cell in cells:
-                        cell_blocks = cell.get('blocks', [])
-                        if isinstance(cell_blocks, list):
-                            repair_widgets_in_blocks(cell_blocks, chapter_context)
-
-        # 处理所有章节
-        chapters = ir_copy.get('chapters', [])
-        for chapter in chapters:
-            blocks = chapter.get('blocks', [])
-            repair_widgets_in_blocks(blocks, chapter)
-
-        # 输出统计信息
-        if repair_stats['total'] > 0:
+        # 使用返回的 ReviewStats 对象，而非共享的 chart_service.stats
+        if review_stats.total > 0:
             logger.info(
                 f"PDF图表预处理完成: "
-                f"总计 {repair_stats['total']} 个图表, "
-                f"修复 {repair_stats['repaired']} 个, "
-                f"失败 {repair_stats['failed']} 个"
+                f"总计 {review_stats.total} 个图表, "
+                f"修复 {review_stats.repaired_total} 个, "
+                f"失败 {review_stats.failed} 个"
             )
 
-        return ir_copy
+        # 返回深拷贝，避免后续 SVG 转换过程影响回写后的原始 IR
+        return copy.deepcopy(document_ir)
 
     def _convert_charts_to_svg(self, document_ir: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -889,7 +821,8 @@ class PDFRenderer:
     def _get_pdf_html(
         self,
         document_ir: Dict[str, Any],
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> str:
         """
         生成适用于PDF的HTML内容
@@ -903,6 +836,7 @@ class PDFRenderer:
         参数:
             document_ir: Document IR数据
             optimize_layout: 是否启用布局优化
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             str: 优化后的HTML内容
@@ -929,7 +863,7 @@ class PDFRenderer:
 
         # 关键修复：先预处理图表，确保数据有效
         logger.info("预处理图表数据...")
-        preprocessed_ir = self._preprocess_charts(document_ir)
+        preprocessed_ir = self._preprocess_charts(document_ir, ir_file_path)
 
         # 转换图表为SVG（使用预处理后的IR）
         logger.info("开始转换图表为SVG矢量图形...")
@@ -944,7 +878,7 @@ class PDFRenderer:
         math_svg_map = self._convert_math_to_svg(preprocessed_ir)
 
         # 使用HTML渲染器生成基础HTML（使用预处理后的IR，以便复用mathId等标记）
-        html = self.html_renderer.render(preprocessed_ir)
+        html = self.html_renderer.render(preprocessed_ir, ir_file_path=ir_file_path)
 
         # 注入图表SVG
         if svg_map:
@@ -1603,7 +1537,8 @@ button.ghost-btn {{
         self,
         document_ir: Dict[str, Any],
         output_path: str | Path,
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> Path:
         """
         将Document IR渲染为PDF文件
@@ -1612,6 +1547,7 @@ button.ghost-btn {{
             document_ir: Document IR数据
             output_path: PDF输出路径
             optimize_layout: 是否启用布局优化（默认True）
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             Path: 生成的PDF文件路径
@@ -1621,7 +1557,7 @@ button.ghost-btn {{
         logger.info(f"开始生成PDF: {output_path}")
 
         # 生成HTML内容
-        html_content = self._get_pdf_html(document_ir, optimize_layout)
+        html_content = self._get_pdf_html(document_ir, optimize_layout, ir_file_path)
 
         # 配置字体
         font_config = FontConfiguration()
@@ -1646,7 +1582,8 @@ button.ghost-btn {{
     def render_to_bytes(
         self,
         document_ir: Dict[str, Any],
-        optimize_layout: bool = True
+        optimize_layout: bool = True,
+        ir_file_path: str | None = None
     ) -> bytes:
         """
         将Document IR渲染为PDF字节流
@@ -1654,11 +1591,12 @@ button.ghost-btn {{
         参数:
             document_ir: Document IR数据
             optimize_layout: 是否启用布局优化（默认True）
+            ir_file_path: 可选，IR 文件路径，提供时修复后会自动保存
 
         返回:
             bytes: PDF文件的字节内容
         """
-        html_content = self._get_pdf_html(document_ir, optimize_layout)
+        html_content = self._get_pdf_html(document_ir, optimize_layout, ir_file_path)
         font_config = FontConfiguration()
         html_doc = HTML(string=html_content, base_url=str(Path.cwd()))
 

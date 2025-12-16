@@ -291,6 +291,8 @@ BettaFish/
 ├── docker-compose.yml                      # Docker multi-service orchestration config
 ├── Dockerfile                              # Docker image build file
 ├── requirements.txt                        # Python dependency list
+├── regenerate_latest_html.py               # Rebind latest chapters and render HTML
+├── regenerate_latest_md.py                 # Rebind latest chapters and render Markdown
 ├── regenerate_latest_pdf.py                # PDF regeneration utility script
 ├── report_engine_only.py                   # Report Engine CLI version
 ├── README.md                               # Chinese documentation
@@ -495,7 +497,7 @@ python main.py --deep-sentiment --platforms xhs dy wb
 
 #### 6.4 Command-line Report Generation Tool
 
-This tool bypasses the execution phase of all three analysis engines, directly loads their most recent log files, and generates a consolidated report without requiring the Web interface (while also skipping incremental file-validation steps). It is typically used when rapid retries are needed due to unsatisfactory report outputs, or when debugging the Report Engine.
+This tool bypasses the execution phase of all three analysis engines, directly loads their most recent log files, and generates a consolidated report without requiring the Web interface (while also skipping incremental file-validation steps). It will also generate a Markdown copy after the PDF by default (toggle via CLI flag). It is typically used when rapid retries are needed due to unsatisfactory report outputs, or when debugging the Report Engine.
 
 ```bash
 # Basic usage (automatically extract topic from filename)
@@ -506,6 +508,9 @@ python report_engine_only.py --query "Civil Engineering Industry Analysis"
 
 # Skip PDF generation (even if system supports it)
 python report_engine_only.py --skip-pdf
+
+# Skip Markdown generation
+python report_engine_only.py --skip-markdown
 
 # Show verbose logging
 python report_engine_only.py --verbose
@@ -523,13 +528,19 @@ python report_engine_only.py --help
 5. **Automatic File Saving**:
    - HTML reports saved to `final_reports/` directory
    - PDF reports (if dependencies available) saved to `final_reports/pdf/` directory
-   - File naming format: `final_report_{topic}_{timestamp}.html/pdf`
+   - Markdown reports (disable with `--skip-markdown`) saved to `final_reports/md/` directory
+   - File naming format: `final_report_{topic}_{timestamp}.html/pdf/md`
 
 **Notes:**
 
 - Ensure at least one of the three engine directories contains `.md` report files
 - The command-line tool is independent of the Web interface and does not interfere with each other
 - PDF generation requires system dependencies, see "Install PDF Export System Dependencies" section above
+
+**Quickly re-render the latest outputs:**
+
+- `regenerate_latest_html.py` / `regenerate_latest_md.py`: Re-stitch the latest chapter JSON from `CHAPTER_OUTPUT_DIR` into a Document IR and render to HTML or Markdown directly.
+- `regenerate_latest_pdf.py`: Read the newest IR under `final_reports/ir` and re-export a PDF with SVG vector charts.
 
 ## ⚙️ Advanced Configuration (Deprecated: Configuration has been unified to the `.env` file in the project root directory, and other sub-agents automatically inherit the root directory configuration)
 
