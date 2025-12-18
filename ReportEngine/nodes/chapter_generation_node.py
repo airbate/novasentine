@@ -205,11 +205,15 @@ class ChapterGenerationNode(BaseNode):
         llm_payload = self._build_payload(section, context)
         user_message = build_chapter_user_prompt(llm_payload)
 
+        # 检查是否有GraphRAG结果，决定是否使用增强提示词
+        graph_enhanced = bool(context.get("graph_results"))
+
         raw_text = self._stream_llm(
             user_message,
             chapter_dir,
             stream_callback=stream_callback,
             section_meta=chapter_meta,
+            graph_enhanced=graph_enhanced,
             **kwargs,
         )
         parse_context: List[str] = []
@@ -351,6 +355,22 @@ class ChapterGenerationNode(BaseNode):
             "chapterPlan": chapter_plan,
             "wordPlan": context.get("word_plan"),
         }
+        
+        # GraphRAG 增强：如果上下文中包含图谱查询结果，添加到payload
+        graph_results = context.get("graph_results")
+        if graph_results:
+            payload["graphResults"] = {
+                "totalNodes": graph_results.get("total_nodes", 0),
+                "queryRounds": graph_results.get("query_rounds", 0),
+                "matchedSections": graph_results.get("matched_sections", []),
+                "matchedQueries": graph_results.get("matched_queries", []),
+                "matchedSources": graph_results.get("matched_sources", []),
+            }
+            # 同时添加增强提示（如果有）
+            graph_enhancement = context.get("graph_enhancement_prompt")
+            if graph_enhancement:
+                payload["graphEnhancementPrompt"] = graph_enhancement
+        
         if chapter_plan:
             constraints = payload["constraints"]
             if chapter_plan.get("targetWords"):
@@ -438,6 +458,7 @@ class ChapterGenerationNode(BaseNode):
         chapter_dir: Path,
         stream_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
         section_meta: Optional[Dict[str, Any]] = None,
+        graph_enhanced: bool = False,
         **kwargs,
     ) -> str:
         """
@@ -448,15 +469,23 @@ class ChapterGenerationNode(BaseNode):
             chapter_dir: 章节的本地缓存目录，用于存放 stream.raw。
             stream_callback: SSE流式推送的回调函数。
             section_meta: 附带的章节ID/标题，用于回调payload。
+            graph_enhanced: 是否启用GraphRAG增强的系统提示词。
             **kwargs: 透传温度、top_p等参数。
 
         返回:
             str: 将所有delta拼接后的原始文本。
         """
+        # 根据是否启用GraphRAG选择不同的系统提示词
+        if graph_enhanced:
+            from ..graphrag.prompts import SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT
+            system_prompt = SYSTEM_PROMPT_CHAPTER_JSON + "\n\n" + SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT
+        else:
+            system_prompt = SYSTEM_PROMPT_CHAPTER_JSON
+        
         chunks: List[str] = []
         with self.storage.capture_stream(chapter_dir) as stream_fp:
             stream = self.llm_client.stream_invoke(
-                SYSTEM_PROMPT_CHAPTER_JSON,
+                system_prompt,
                 user_message,
                 temperature=kwargs.get("temperature", 0.2),
                 top_p=kwargs.get("top_p", 0.95),

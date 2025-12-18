@@ -39,6 +39,21 @@ from .renderers import HTMLRenderer
 from .state import ReportState
 from .utils.config import settings, Settings
 
+# GraphRAG 模块导入
+from .graphrag import (
+    StateParser,
+    ForumParser,
+    GraphBuilder,
+    GraphStorage,
+    Graph,
+    QueryEngine,
+)
+from .nodes import GraphRAGQueryNode
+from .graphrag.prompts import (
+    SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT,
+    format_graph_results_for_prompt
+)
+
 
 class StageOutputFormatError(ValueError):
     """阶段性输出结构不符合预期时抛出的受控异常。"""
@@ -559,6 +574,37 @@ class ReportAgent:
             self._persist_planning_artifacts(run_dir, layout_design, word_plan, template_overview)
             emit('stage', {'stage': 'storage_ready', 'run_dir': str(run_dir)})
 
+            # ==================== GraphRAG 初始化 ====================
+            graphrag_enabled = getattr(self.config, 'GRAPHRAG_ENABLED', False)
+            knowledge_graph = None
+            graphrag_query_node = None
+            
+            if graphrag_enabled:
+                logger.info("GraphRAG 已启用，开始构建知识图谱...")
+                emit('stage', {'stage': 'graphrag_building', 'message': '正在构建知识图谱'})
+                
+                try:
+                    knowledge_graph = self._build_knowledge_graph(
+                        query, normalized_reports, forum_logs, run_dir
+                    )
+                    if knowledge_graph:
+                        graphrag_query_node = GraphRAGQueryNode(self.llm_client)
+                        graph_stats = knowledge_graph.get_stats()
+                        emit('stage', {
+                            'stage': 'graphrag_built',
+                            'node_count': graph_stats.get('total_nodes', 0),
+                            'edge_count': graph_stats.get('total_edges', 0)
+                        })
+                        logger.info(f"知识图谱构建完成: {graph_stats}")
+                    else:
+                        logger.warning("知识图谱构建失败，将使用原始流程")
+                        graphrag_enabled = False
+                except Exception as graph_error:
+                    logger.exception(f"GraphRAG 构建异常: {graph_error}")
+                    graphrag_enabled = False
+                    emit('stage', {'stage': 'graphrag_error', 'error': str(graph_error)})
+            # ==================== GraphRAG 初始化结束 ====================
+
             chapters = []
             chapter_max_attempts = max(
                 self._CONTENT_SPARSE_MIN_ATTEMPTS, self.config.CHAPTER_JSON_MAX_ATTEMPTS
@@ -594,11 +640,47 @@ class ReportAgent:
                 best_sparse_candidate: Dict[str, Any] | None = None
                 best_sparse_score = -1
                 fallback_used = False
+                
+                # ==================== GraphRAG 查询 ====================
+                graph_results = None
+                chapter_context = generation_context.copy()
+                
+                if graphrag_enabled and knowledge_graph and graphrag_query_node:
+                    try:
+                        max_queries = getattr(self.config, 'GRAPHRAG_MAX_QUERIES', 3)
+                        section_info = {
+                            'title': section.title,
+                            'id': section.chapter_id,
+                            'role': section.description,
+                            'target_words': chapter_targets.get(section.chapter_id, {}).get('targetWords', 500),
+                            'emphasis': chapter_targets.get(section.chapter_id, {}).get('emphasisPoints', '')
+                        }
+                        
+                        graph_results = graphrag_query_node.run(
+                            section_info, 
+                            {
+                                'query': query,
+                                'template_name': template_result.get('template_name'),
+                                'chapters': word_plan.get('chapters', [])
+                            },
+                            knowledge_graph,
+                            max_queries=max_queries
+                        )
+                        
+                        if graph_results and graph_results.get('total_nodes', 0) > 0:
+                            # 将图谱结果注入生成上下文
+                            chapter_context['graph_results'] = graph_results
+                            chapter_context['graph_enhancement_prompt'] = format_graph_results_for_prompt(graph_results)
+                            logger.info(f"章节 {section.title} GraphRAG 查询完成: {graph_results.get('total_nodes', 0)} 节点")
+                    except Exception as graph_query_error:
+                        logger.warning(f"GraphRAG 查询失败 ({section.title}): {graph_query_error}")
+                # ==================== GraphRAG 查询结束 ====================
+                
                 while attempt <= chapter_max_attempts:
                     try:
                         chapter_payload = self.chapter_generation_node.run(
                             section,
-                            generation_context,
+                            chapter_context,  # 使用包含图谱结果的上下文
                             run_dir,
                             stream_callback=chunk_callback
                         )
@@ -796,6 +878,62 @@ class ReportAgent:
             self.state.metadata.template_used = fallback_template['template_name']
             return fallback_template
     
+    def _build_knowledge_graph(
+        self,
+        query: str,
+        reports: Dict[str, str],
+        forum_logs: str,
+        run_dir: Path
+    ) -> Optional[Graph]:
+        """
+        构建知识图谱。
+
+        从已加载的 State JSON 和论坛日志中提取结构化数据，
+        构建知识图谱供后续章节生成时查询。
+
+        参数:
+            query: 用户查询主题。
+            reports: 归一化后的报告映射。
+            forum_logs: 论坛日志内容。
+            run_dir: 运行目录，用于保存图谱。
+
+        返回:
+            Graph: 构建好的知识图谱；失败返回 None。
+        """
+        try:
+            # 解析 State JSON（如果在 load_input_files 时已加载）
+            states = {}
+            state_parser = StateParser()
+            
+            # 尝试从 reports 目录查找 State JSON
+            # 注意：这里假设 reports 字典的键对应引擎目录
+            for engine in ['insight', 'media', 'query']:
+                # 尝试从全局状态获取（如果之前已加载）
+                if hasattr(self, '_loaded_states') and engine in self._loaded_states:
+                    states[engine] = self._loaded_states[engine]
+            
+            # 解析论坛日志
+            forum_entries = []
+            if forum_logs:
+                forum_parser = ForumParser()
+                forum_entries = forum_parser.parse(forum_logs)
+                logger.info(f"解析论坛日志: {len(forum_entries)} 条记录")
+            
+            # 构建图谱
+            builder = GraphBuilder()
+            graph = builder.build(query, states, forum_entries)
+            
+            # 保存图谱
+            storage = GraphStorage()
+            graph_path = storage.save(graph, self.state.task_id, run_dir)
+            logger.info(f"知识图谱已保存: {graph_path}")
+            
+            return graph
+            
+        except Exception as e:
+            logger.exception(f"构建知识图谱失败: {e}")
+            return None
+
     def _slice_template(self, template_markdown: str) -> List[TemplateSection]:
         """
         将模板切成章节列表，若为空则提供fallback。
@@ -1459,20 +1597,23 @@ class ReportAgent:
     def load_input_files(self, file_paths: Dict[str, str]) -> Dict[str, Any]:
         """
         加载输入文件内容
-        
+
         Args:
             file_paths: 文件路径字典
-            
+
         Returns:
-            加载的内容字典，包含 `reports` 列表与 `forum_logs` 字符串
+            加载的内容字典，包含 `reports` 列表、`forum_logs` 字符串和 `states` 字典
         """
         content = {
             'reports': [],
-            'forum_logs': ''
+            'forum_logs': '',
+            'states': {}  # 新增：用于 GraphRAG 的 State JSON
         }
-        
+
         # 加载报告文件
         engines = ['query', 'media', 'insight']
+        state_parser = StateParser()
+        
         for engine in engines:
             if engine in file_paths:
                 try:
@@ -1480,10 +1621,24 @@ class ReportAgent:
                         report_content = f.read()
                     content['reports'].append(report_content)
                     logger.info(f"已加载 {engine} 报告: {len(report_content)} 字符")
+                    
+                    # 新增：尝试查找并加载对应的 State JSON（用于 GraphRAG）
+                    if self.config.GRAPHRAG_ENABLED:
+                        state_path = state_parser.find_state_json(file_paths[engine])
+                        if state_path:
+                            parsed_state = state_parser.parse_from_file(engine, state_path)
+                            if parsed_state:
+                                content['states'][engine] = parsed_state
+                                # 同时保存到实例属性，供 _build_knowledge_graph 使用
+                                if not hasattr(self, '_loaded_states'):
+                                    self._loaded_states = {}
+                                self._loaded_states[engine] = parsed_state
+                                logger.info(f"已加载 {engine} State JSON: {len(parsed_state.sections)} 个段落")
+                            
                 except Exception as e:
                     logger.exception(f"加载 {engine} 报告失败: {str(e)}")
                     content['reports'].append("")
-        
+
         # 加载论坛日志
         if 'forum' in file_paths:
             try:
@@ -1492,7 +1647,7 @@ class ReportAgent:
                 logger.info(f"已加载论坛日志: {len(content['forum_logs'])} 字符")
             except Exception as e:
                 logger.exception(f"加载论坛日志失败: {str(e)}")
-        
+
         return content
 
 

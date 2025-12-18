@@ -512,3 +512,129 @@ def build_document_layout_prompt(payload: dict) -> str:
 def build_word_budget_prompt(payload: dict) -> str:
     """将篇幅规划输入转为字符串，便于送入LLM并保持字段精确。"""
     return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+# ==================== GraphRAG 增强提示词 ====================
+
+GRAPHRAG_CHAPTER_ENHANCEMENT_INTRO = """
+<知识图谱查询结果>
+以下是针对本章节从知识图谱中查询到的相关信息，这些信息来自对Insight/Media/Query三个分析引擎结构化数据的聚合：
+
+{graph_results}
+
+请在生成本章内容时：
+1. 充分利用上述图谱查询结果中的具体数据点、关键发现和关联关系
+2. 优先引用图谱中标注的来源（搜索关键词、数据来源等）
+3. 当图谱结果与三引擎报告有重叠时，以图谱中的结构化数据为准
+4. 注意图谱中节点之间的关联关系，体现因果或递进逻辑
+5. 如果图谱结果中有明确的数值或时间点，务必准确引用
+</知识图谱查询结果>
+"""
+
+
+def build_graphrag_enhanced_user_prompt(payload: dict) -> str:
+    """
+    构造包含GraphRAG查询结果的章节用户提示词。
+    
+    当GraphRAG启用且有查询结果时，在标准payload基础上
+    注入图谱查询摘要，指导LLM在章节生成时优先利用这些信息。
+    
+    Args:
+        payload: 包含标准章节上下文和可选 graph_enhancement_prompt 的字典
+        
+    Returns:
+        序列化后的用户提示词字符串
+    """
+    # 提取图谱增强内容（如果有）
+    graph_prompt = payload.pop('graph_enhancement_prompt', None)
+    
+    base_prompt = json.dumps(payload, ensure_ascii=False, indent=2)
+    
+    if graph_prompt:
+        return f"{base_prompt}\n\n{graph_prompt}"
+    
+    return base_prompt
+
+
+def format_graph_nodes_for_prompt(nodes: list) -> str:
+    """
+    将图谱节点列表格式化为提示词友好的文本。
+    
+    Args:
+        nodes: 节点数据列表，每个节点包含 id, type, label, properties
+        
+    Returns:
+        格式化的节点描述文本
+    """
+    if not nodes:
+        return "（无相关节点）"
+    
+    lines = []
+    # 按类型分组
+    by_type = {}
+    for node in nodes:
+        node_type = node.get('type', 'unknown')
+        if node_type not in by_type:
+            by_type[node_type] = []
+        by_type[node_type].append(node)
+    
+    type_labels = {
+        'topic': '主题',
+        'engine': '分析引擎',
+        'section': '报告段落',
+        'search_query': '搜索关键词',
+        'source': '数据来源'
+    }
+    
+    for node_type, type_nodes in by_type.items():
+        type_label = type_labels.get(node_type, node_type)
+        lines.append(f"\n【{type_label}】")
+        for n in type_nodes[:10]:  # 每类最多10个
+            label = n.get('label', n.get('id', ''))
+            props = n.get('properties', {})
+            prop_str = ''
+            if props:
+                key_props = {k: v for k, v in props.items() if k in ['summary', 'content', 'headline', 'url', 'query', 'source']}
+                if key_props:
+                    prop_str = ' | ' + ', '.join(f"{k}:{str(v)[:100]}" for k, v in key_props.items())
+            lines.append(f"  • {label}{prop_str}")
+    
+    return '\n'.join(lines)
+
+
+def format_graph_edges_for_prompt(edges: list) -> str:
+    """
+    将图谱边列表格式化为提示词友好的文本。
+    
+    Args:
+        edges: 边数据列表，每条边包含 source, target, relation
+        
+    Returns:
+        格式化的关系描述文本
+    """
+    if not edges:
+        return "（无关联关系）"
+    
+    relation_labels = {
+        'analyzed_by': '被分析于',
+        'contains': '包含',
+        'searched': '搜索了',
+        'found': '发现于'
+    }
+    
+    lines = []
+    seen = set()
+    for edge in edges[:20]:  # 最多20条关系
+        source = edge.get('source', '')
+        target = edge.get('target', '')
+        relation = edge.get('relation', 'related')
+        
+        key = f"{source}-{relation}-{target}"
+        if key in seen:
+            continue
+        seen.add(key)
+        
+        rel_label = relation_labels.get(relation, relation)
+        lines.append(f"  • {source} —[{rel_label}]→ {target}")
+    
+    return '\n'.join(lines) if lines else "（无关联关系）"
