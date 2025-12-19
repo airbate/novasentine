@@ -13,6 +13,7 @@ os.environ['PYTHONUNBUFFERED'] = '1'  # 禁用Python输出缓冲，确保日志�
 import subprocess
 import time
 import threading
+import json
 from datetime import datetime
 from queue import Queue
 from flask import Flask, render_template, request, jsonify, Response
@@ -362,6 +363,45 @@ def init_forum_log():
 
 # 初始化forum.log
 init_forum_log()
+
+# ===== 知识库查询日志（与 Forum 日志格式类似） =====
+knowledge_log_lock = threading.Lock()
+KNOWLEDGE_LOG_FILE = LOG_DIR / "knowledge_query.log"
+
+
+def _sanitize_log_text(text: str) -> str:
+    """移除换行/回车，防止日志污染。"""
+    return str(text).replace("\n", " ").replace("\r", " ").strip()
+
+
+def init_knowledge_log():
+    """初始化知识库查询日志文件。"""
+    try:
+        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        KNOWLEDGE_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with knowledge_log_lock, open(KNOWLEDGE_LOG_FILE, 'w', encoding='utf-8') as f:
+            f.write(f"=== Knowledge Query Log 初始化 - {start_time} ===\n")
+        logger.info("Knowledge Query: knowledge_query.log 已初始化")
+    except Exception as exc:  # pragma: no cover - 仅运行时执行
+        logger.exception(f"Knowledge Query: 初始化日志失败: {exc}")
+
+
+def append_knowledge_log(source: str, payload: dict):
+    """记录知识库查询关键词与完整请求数据，防止日志污染。"""
+    try:
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        clean_source = _sanitize_log_text(source or "UNKNOWN")
+        # JSON 序列化并截断，避免超大日志污染
+        serialized = json.dumps(payload, ensure_ascii=False)
+        sanitized = _sanitize_log_text(serialized)
+        with knowledge_log_lock, open(KNOWLEDGE_LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(f"[{timestamp}] [KNOWLEDGE] [{clean_source}] {sanitized}\n")
+    except Exception as exc:  # pragma: no cover - 日志失败不影响主流程
+        logger.warning(f"Knowledge Query: 写日志失败: {exc}")
+
+
+# 初始化 knowledge_query.log
+init_knowledge_log()
 
 # 启动ForumEngine智能监控
 def start_forum_engine():
@@ -1466,6 +1506,18 @@ def query_graph():
         
         data = request.get_json() or {}
         report_id = data.get('report_id')
+
+        # 记录查询日志（关键词、过滤条件等）
+        append_knowledge_log(
+            'GRAPH_QUERY',
+            {
+                'report_id': report_id,
+                'keywords': data.get('keywords', []),
+                'node_types': data.get('node_types'),
+                'depth': data.get('depth', 1),
+                'engine_filter': data.get('engine_filter')
+            }
+        )
         
         storage = GraphStorage()
         
