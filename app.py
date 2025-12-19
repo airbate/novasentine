@@ -1599,7 +1599,7 @@ def query_graph():
                 }
             )
         except Exception as log_exc:  # pragma: no cover - 日志失败不阻塞主流程
-            logger.warning(f\"Knowledge Query: 结果写日志失败: {log_exc}\")
+            logger.warning(f"Knowledge Query: 结果写日志失败: {log_exc}")
         
         return jsonify({
             'success': True,
