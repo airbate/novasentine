@@ -151,47 +151,47 @@ class GraphRAGQueryNode(BaseNode):
                 break
             
             # 4. 执行查询
-                params = QueryParams(
-                    keywords=decision.get('keywords', []),
-                    node_types=decision.get('node_types'),
-                    engine_filter=decision.get('engine_filter'),
-                    depth=decision.get('depth', 1)
-                )
-                params_dict = {
-                    'keywords': params.keywords,
-                    'node_types': params.node_types,
-                    'engine_filter': params.engine_filter,
-                    'depth': params.depth,
-                }
+            params = QueryParams(
+                keywords=decision.get('keywords', []),
+                node_types=decision.get('node_types'),
+                engine_filter=decision.get('engine_filter'),
+                depth=decision.get('depth', 1)
+            )
+            params_dict = {
+                'keywords': params.keywords,
+                'node_types': params.node_types,
+                'engine_filter': params.engine_filter,
+                'depth': params.depth,
+            }
 
-                result = query_engine.query(params)
-                all_results.append(result)
-                
-                self.log_info(f"查询返回 {result.total_nodes} 个节点")
-                try:
-                    append_knowledge_log(
-                        "GRAPH_QUERY_NODE",
-                        {
-                            "chapter_id": chapter_id or "",
-                            "chapter_title": chapter_title,
-                            "round": round_idx + 1,
-                            "params": params_dict,
-                            "result_counts": {
-                                "matched_sections": len(result.matched_sections),
-                                "matched_queries": len(result.matched_queries),
-                                "matched_sources": len(result.matched_sources),
-                                "total_nodes": result.total_nodes,
-                            },
-                            "matched_sections": compact_records(result.matched_sections[:5]),
-                            "matched_queries": compact_records(result.matched_queries[:5]),
-                            "matched_sources": compact_records(result.matched_sources[:5]),
+            result = query_engine.query(params)
+            all_results.append(result)
+            
+            self.log_info(f"查询返回 {result.total_nodes} 个节点")
+            try:
+                append_knowledge_log(
+                    "GRAPH_QUERY_NODE",
+                    {
+                        "chapter_id": chapter_id or "",
+                        "chapter_title": chapter_title,
+                        "round": round_idx + 1,
+                        "params": params_dict,
+                        "result_counts": {
+                            "matched_sections": len(result.matched_sections),
+                            "matched_queries": len(result.matched_queries),
+                            "matched_sources": len(result.matched_sources),
+                            "total_nodes": result.total_nodes,
                         },
-                    )
-                except Exception as log_exc:  # pragma: no cover - 日志失败不阻塞流程
-                    logger.warning(f"Knowledge Query: GraphRAG 节点写日志失败: {log_exc}")
-                
-                # 5. 记录历史
-                history.add(decision, result)
+                        "matched_sections": compact_records(result.matched_sections[:5]),
+                        "matched_queries": compact_records(result.matched_queries[:5]),
+                        "matched_sources": compact_records(result.matched_sources[:5]),
+                    },
+                )
+            except Exception as log_exc:  # pragma: no cover - 日志失败不阻塞流程
+                logger.warning(f"Knowledge Query: GraphRAG 节点写日志失败: {log_exc}")
+            
+            # 5. 记录历史
+            history.add(decision, result)
         
         # 6. 合并所有结果
         merged = self._merge_results(all_results)
