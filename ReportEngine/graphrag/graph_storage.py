@@ -376,14 +376,31 @@ class GraphStorage:
         chapters_dir = self.chapters_dir
         if not chapters_dir.exists():
             return None
+
+        # 兼容不同分隔符（report-xxx 与 report_xxx）以及简化匹配
+        if not report_id:
+            return None
+        normalized_target = re.sub(r'[-_]', '', str(report_id)).lower()
+        alt_targets = {
+            report_id,
+            str(report_id).replace('_', '-'),
+            str(report_id).replace('-', '_'),
+            normalized_target,
+        }
         
         # 查找匹配报告ID的目录
         for run_dir in chapters_dir.iterdir():
             if not run_dir.is_dir():
                 continue
             
-            # 检查目录名是否包含报告ID
-            if report_id in run_dir.name:
+            name = run_dir.name
+            normalized_name = re.sub(r'[-_]', '', name).lower()
+
+            # 检查目录名是否包含报告ID或归一化后相等
+            if (
+                any(t for t in alt_targets if t and t in name)
+                or normalized_name == normalized_target
+            ):
                 graph_path = run_dir / self.FILENAME
                 if graph_path.exists():
                     return graph_path
