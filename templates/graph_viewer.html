@@ -129,6 +129,27 @@
             color: var(--text-muted);
         }
 
+        .search-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            max-width: 560px;
+        }
+
+        .search-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .search-status {
+            min-width: 44px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
         /* 统计信息 */
         .stats {
             display: flex;
@@ -444,12 +465,20 @@
             刷新
         </button>
         
-        <div class="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" id="searchInput" placeholder="搜索节点...">
+        <div class="search-group">
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="搜索节点...">
+            </div>
+            <div class="search-actions">
+                <button class="btn" id="searchBtn" title="搜索">搜索</button>
+                <button class="btn" id="searchPrevBtn" title="上一个">↑</button>
+                <button class="btn" id="searchNextBtn" title="下一个">↓</button>
+                <span class="search-status" id="searchStatus">0/0</span>
+            </div>
         </div>
         
         <div class="stats" id="statsContainer">
@@ -590,6 +619,9 @@
         let reportId = {{ report_id | tojson if report_id else 'null' }};
         let graphReady = false;
         let graphPollTimer = null;
+        let graphSearchResults = [];
+        let graphSearchIndex = -1;
+        let graphSearchKeyword = '';
         const GRAPH_POLL_INTERVAL = 4000;
 
         // 初始化
@@ -620,7 +652,13 @@
                     allEdges = data.graph.edges;
                     
                     updateStats(data.graph.stats);
+                    resetGraphSearchState();
                     renderGraph();
+                    const input = document.getElementById('searchInput');
+                    const currentKeyword = (input && input.value) ? input.value : '';
+                    if (currentKeyword) {
+                        runGraphSearch(currentKeyword);
+                    }
                     showLoading(false);
                     showEmpty(false);
                     graphReady = true;
@@ -769,6 +807,13 @@
             network.once('stabilizationIterationsDone', () => {
                 network.fit({ animation: true });
             });
+
+            // 如果已有搜索关键词，重新聚焦当前匹配；否则更新状态显示
+            if (graphSearchKeyword) {
+                runGraphSearch(graphSearchKeyword);
+            } else {
+                updateGraphSearchStatus();
+            }
         }
 
         // 显示节点详情
@@ -810,6 +855,76 @@
         // 隐藏节点详情
         function hideNodeDetail() {
             document.getElementById('nodeDetail').style.display = 'none';
+        }
+
+        function resetGraphSearchState() {
+            graphSearchResults = [];
+            graphSearchIndex = -1;
+            graphSearchKeyword = '';
+            updateGraphSearchStatus();
+        }
+
+        function updateGraphSearchStatus() {
+            const statusEl = document.getElementById('searchStatus');
+            const prevBtn = document.getElementById('searchPrevBtn');
+            const nextBtn = document.getElementById('searchNextBtn');
+            const hasResults = graphSearchResults.length > 0 && graphSearchIndex >= 0;
+            if (statusEl) {
+                statusEl.textContent = hasResults ? `${graphSearchIndex + 1}/${graphSearchResults.length}` : '0/0';
+                statusEl.style.visibility = hasResults ? 'visible' : 'hidden';
+            }
+            if (prevBtn) prevBtn.disabled = !hasResults;
+            if (nextBtn) nextBtn.disabled = !hasResults;
+        }
+
+        function runGraphSearch(keyword) {
+            if (!network) return;
+            const term = (keyword || '').trim();
+            graphSearchKeyword = term;
+
+            if (!term) {
+                resetGraphSearchState();
+                network.selectNodes([]);
+                return;
+            }
+
+            const lower = term.toLowerCase();
+            const nodesDataset = network.body && network.body.data && network.body.data.nodes ? network.body.data.nodes.get() : [];
+            graphSearchResults = nodesDataset.filter(n => (n.label || '').toLowerCase().includes(lower));
+            graphSearchResults.sort((a, b) => {
+                const aLabel = (a.label || '').toLowerCase();
+                const bLabel = (b.label || '').toLowerCase();
+                if (aLabel === bLabel) {
+                    return String(a.id).localeCompare(String(b.id), 'zh');
+                }
+                return aLabel.localeCompare(bLabel, 'zh');
+            });
+            graphSearchIndex = graphSearchResults.length ? 0 : -1;
+
+            if (!graphSearchResults.length) {
+                network.selectNodes([]);
+                hideNodeDetail();
+                updateGraphSearchStatus();
+                return;
+            }
+
+            focusGraphSearchIndex(graphSearchIndex);
+        }
+
+        function focusGraphSearchIndex(index) {
+            if (!network || !graphSearchResults.length) return;
+            const total = graphSearchResults.length;
+            graphSearchIndex = ((index % total) + total) % total;
+            const target = graphSearchResults[graphSearchIndex];
+            network.selectNodes([target.id]);
+            network.focus(target.id, { animation: true, scale: 1.4 });
+            showNodeDetail(target._data || target);
+            updateGraphSearchStatus();
+        }
+
+        function stepGraphSearch(delta) {
+            if (!graphSearchResults.length) return;
+            focusGraphSearchIndex(graphSearchIndex + delta);
         }
 
         // 更新统计
@@ -888,22 +1003,32 @@
             });
 
             // 搜索
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase();
-                if (!query) {
-                    if (network) network.selectNodes([]);
-                    return;
-                }
-                
-                const matchedIds = allNodes
-                    .filter(n => n.label.toLowerCase().includes(query))
-                    .map(n => n.id);
-                
-                if (network && matchedIds.length > 0) {
-                    network.selectNodes(matchedIds);
-                    network.focus(matchedIds[0], { animation: true, scale: 1.5 });
-                }
-            });
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const searchPrevBtn = document.getElementById('searchPrevBtn');
+            const searchNextBtn = document.getElementById('searchNextBtn');
+            if (searchInput) {
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        runGraphSearch(searchInput.value);
+                    }
+                });
+                searchInput.addEventListener('input', () => {
+                    if (!searchInput.value) {
+                        resetGraphSearchState();
+                        if (network) network.selectNodes([]);
+                    }
+                });
+            }
+            if (searchBtn) {
+                searchBtn.addEventListener('click', () => runGraphSearch(searchInput ? searchInput.value : ''));
+            }
+            if (searchPrevBtn) {
+                searchPrevBtn.addEventListener('click', () => stepGraphSearch(-1));
+            }
+            if (searchNextBtn) {
+                searchNextBtn.addEventListener('click', () => stepGraphSearch(1));
+            }
 
             // 筛选
             document.querySelectorAll('.filter-item input[type="checkbox"]').forEach(cb => {
