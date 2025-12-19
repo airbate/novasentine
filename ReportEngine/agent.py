@@ -420,9 +420,16 @@ class ReportAgent:
             error_log_dir=self.config.JSON_ERROR_LOG_DIR,
         )
     
-    def generate_report(self, query: str, reports: List[Any], forum_logs: str = "",
-                        custom_template: str = "", save_report: bool = True,
-                        stream_handler: Optional[Callable[[str, Dict[str, Any]], None]] = None) -> str:
+    def generate_report(
+        self,
+        query: str,
+        reports: List[Any],
+        forum_logs: str = "",
+        custom_template: str = "",
+        save_report: bool = True,
+        stream_handler: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        report_id: Optional[str] = None
+    ) -> str:
         """
         生成综合报告（章节JSON → IR → HTML）。
 
@@ -440,6 +447,7 @@ class ReportAgent:
             custom_template: 用户指定的Markdown模板，如为空则交由模板节点自动挑选。
             save_report: 是否在生成后自动将HTML、IR与状态写入磁盘。
             stream_handler: 可选的流式事件回调，接收阶段标签与payload，用于UI实时展示。
+            report_id: 外部透传的任务ID，用于与前端/SSE保持一致并复用同一个目录。
 
         返回:
             dict: 包含 `html_content` 以及HTML/IR/状态文件路径的字典；若 `save_report=False` 则仅返回HTML字符串。
@@ -448,7 +456,16 @@ class ReportAgent:
             Exception: 任一子节点或渲染阶段失败时抛出，外层调用方负责兜底。
         """
         start_time = datetime.now()
-        report_id = f"report-{uuid4().hex[:8]}"
+        report_id_value = (report_id or "").strip()
+        if report_id_value:
+            # 仅保留易读且安全的字符，确保可直接作为目录名复用
+            report_id_value = "".join(
+                c if c.isalnum() or c in ("-", "_") else "_" for c in report_id_value
+            ) or f"report-{uuid4().hex[:8]}"
+        else:
+            report_id_value = f"report-{uuid4().hex[:8]}"
+
+        report_id = report_id_value
         self.state.task_id = report_id
         self.state.query = query
         self.state.metadata.query = query

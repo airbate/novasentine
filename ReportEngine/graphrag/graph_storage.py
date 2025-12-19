@@ -293,6 +293,28 @@ class GraphStorage:
     """图谱存储管理器"""
     
     FILENAME = "graphrag.json"
+
+    @staticmethod
+    def _normalize_identifier(value: str) -> str:
+        """统一规约ID，去除分隔符便于模糊匹配。"""
+        return re.sub(r'[^a-zA-Z0-9]', '', str(value or '')).lower()
+
+    def _graph_file_matches(self, graph_path: Path, normalized_target: str) -> bool:
+        """检查图文件中的 task_id/report_id 是否与目标匹配。"""
+        try:
+            with open(graph_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            candidates = [
+                data.get('task_id'),
+                data.get('report_id'),
+                data.get('metadata', {}).get('report_id') if isinstance(data.get('metadata'), dict) else None
+            ]
+            for candidate in candidates:
+                if candidate and self._normalize_identifier(candidate) == normalized_target:
+                    return True
+        except Exception:
+            return False
+        return False
     
     @property
     def chapters_dir(self) -> Path:
@@ -377,17 +399,17 @@ class GraphStorage:
         chapters_dir = self.chapters_dir
         if not chapters_dir.exists():
             return None
-
-        # 兼容不同分隔符（report-xxx 与 report_xxx）以及简化匹配
         if not report_id:
             return None
-        normalized_target = re.sub(r'[-_]', '', str(report_id)).lower()
+
+        # 兼容不同分隔符（report-xxx 与 report_xxx）以及简化匹配
+        normalized_target = self._normalize_identifier(report_id)
         alt_targets = {
-            report_id,
+            str(report_id),
             str(report_id).replace('_', '-'),
             str(report_id).replace('-', '_'),
-            normalized_target,
         }
+        fallback_match: Optional[Path] = None
         
         # 查找匹配报告ID的目录
         for run_dir in chapters_dir.iterdir():
@@ -395,7 +417,7 @@ class GraphStorage:
                 continue
             
             name = run_dir.name
-            normalized_name = re.sub(r'[-_]', '', name).lower()
+            normalized_name = self._normalize_identifier(name)
 
             # 检查目录名是否包含报告ID或归一化后相等
             if (
@@ -405,8 +427,14 @@ class GraphStorage:
                 graph_path = run_dir / self.FILENAME
                 if graph_path.exists():
                     return graph_path
+
+            # 若目录名不匹配，则尝试读取文件内容比对 task_id/report_id
+            graph_path = run_dir / self.FILENAME
+            if graph_path.exists() and not fallback_match:
+                if self._graph_file_matches(graph_path, normalized_target):
+                    fallback_match = graph_path
         
-        return None
+        return fallback_match
     
     def find_latest_graph(self) -> Optional[Path]:
         """

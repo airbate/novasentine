@@ -633,21 +633,34 @@
 
         // 加载图谱数据
         async function loadGraphData(options = {}) {
-            const { fromPoll = false, fromManual = false } = options;
+            const { fromPoll = false, fromManual = false, allowFallback = true } = options;
             // 仅在首次或未加载成功时展示大遮罩
             if (!graphReady || !fromPoll) {
                 showLoading(true);
             }
             
             try {
-                const url = reportId 
-                    ? `/api/graph/${reportId}`
-                    : '/api/graph/latest';
+                const fetchGraph = async (id) => {
+                    const url = id ? `/api/graph/${id}` : '/api/graph/latest';
+                    const response = await fetch(url, { cache: 'no-store' });
+                    const data = await response.json();
+                    if (!response.ok || !data.success || !data.graph) {
+                        return null;
+                    }
+                    return data;
+                };
+
+                let data = await fetchGraph(reportId);
+                let usedFallback = false;
+                if ((!data || !data.graph) && allowFallback) {
+                    data = await fetchGraph(null);
+                    usedFallback = !!(data && data.graph);
+                }
                 
-                const response = await fetch(url, { cache: 'no-store' });
-                const data = await response.json();
-                
-                if (data.success && data.graph) {
+                if (data && data.graph) {
+                    if (data.report_id) {
+                        reportId = data.report_id;
+                    }
                     allNodes = data.graph.nodes;
                     allEdges = data.graph.edges;
                     
@@ -664,7 +677,7 @@
                     graphReady = true;
                     stopGraphPolling();
                     if (fromManual) {
-                        showToast('已刷新最新图谱');
+                        showToast(usedFallback ? '未找到指定图谱，已切换至最新版本' : '已刷新最新图谱');
                     }
                 } else {
                     if (!graphReady) {
