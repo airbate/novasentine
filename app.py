@@ -24,6 +24,11 @@ from loguru import logger
 import importlib
 from pathlib import Path
 from MindSpider.main import MindSpider
+from utils.knowledge_logger import (
+    append_knowledge_log,
+    compact_records as _compact_records,
+    init_knowledge_log,
+)
 
 # 导入ReportEngine
 try:
@@ -363,72 +368,6 @@ def init_forum_log():
 
 # 初始化forum.log
 init_forum_log()
-
-# ===== 知识库查询日志（与 Forum 日志格式类似） =====
-knowledge_log_lock = threading.Lock()
-KNOWLEDGE_LOG_FILE = LOG_DIR / "knowledge_query.log"
-
-
-def _sanitize_log_text(text: str) -> str:
-    """移除换行/回车，防止日志污染。"""
-    return str(text).replace("\n", " ").replace("\r", " ").strip()
-
-
-def init_knowledge_log():
-    """初始化知识库查询日志文件。"""
-    try:
-        start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        KNOWLEDGE_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with knowledge_log_lock, open(KNOWLEDGE_LOG_FILE, 'w', encoding='utf-8') as f:
-            f.write(f"=== Knowledge Query Log 初始化 - {start_time} ===\n")
-        logger.info("Knowledge Query: knowledge_query.log 已初始化")
-    except Exception as exc:  # pragma: no cover - 仅运行时执行
-        logger.exception(f"Knowledge Query: 初始化日志失败: {exc}")
-
-
-def append_knowledge_log(source: str, payload: dict):
-    """记录知识库查询关键词与完整请求数据，防止日志污染。"""
-    try:
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        clean_source = _sanitize_log_text(source or "UNKNOWN")
-        # JSON 序列化并截断，避免超大日志污染
-        serialized = json.dumps(payload, ensure_ascii=False)
-        sanitized = _sanitize_log_text(serialized)
-        with knowledge_log_lock, open(KNOWLEDGE_LOG_FILE, 'a', encoding='utf-8') as f:
-            f.write(f"[{timestamp}] [KNOWLEDGE] [{clean_source}] {sanitized}\n")
-    except Exception as exc:  # pragma: no cover - 日志失败不影响主流程
-        logger.warning(f"Knowledge Query: 写日志失败: {exc}")
-
-
-def _trim_text(text: str, limit: int = 300) -> str:
-    text = _sanitize_log_text(text)
-    return text if len(text) <= limit else text[:limit] + "..."
-
-
-def _compact_records(items):
-    """将节点/记录压缩为简洁日志格式，避免污染。"""
-    compacted = []
-    if not items:
-        return compacted
-
-    for item in items:
-        if not isinstance(item, dict):
-            compacted.append(_trim_text(str(item)))
-            continue
-
-        entry = {}
-        for key, value in item.items():
-            # 仅记录必要字段，其他字段做字符串压缩
-            if isinstance(value, (str, int, float, bool)):
-                entry[key] = _trim_text(str(value))
-            else:
-                try:
-                    entry[key] = _trim_text(json.dumps(value, ensure_ascii=False))
-                except Exception:
-                    entry[key] = _trim_text(str(value))
-        compacted.append(entry)
-    return compacted
-
 
 # 初始化 knowledge_query.log
 init_knowledge_log()
