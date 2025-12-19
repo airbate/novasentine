@@ -1503,32 +1503,12 @@ def query_graph():
         return jsonify({
             'success': True,
             'result': {
-                'matched_nodes': [
-                    {
-                        'id': n.id,
-                        'type': n.type,
-                        'label': n.label,
-                        'properties': n.properties
-                    }
-                    for n in result.matched_nodes
-                ],
-                'related_edges': [
-                    {
-                        'source': e.source,
-                        'target': e.target,
-                        'relation': e.relation
-                    }
-                    for e in result.related_edges
-                ],
-                'expanded_nodes': [
-                    {
-                        'id': n.id,
-                        'type': n.type,
-                        'label': n.label,
-                        'properties': n.properties
-                    }
-                    for n in result.expanded_nodes
-                ]
+                'matched_sections': result.matched_sections,
+                'matched_queries': result.matched_queries,
+                'matched_sources': result.matched_sources,
+                'total_nodes': result.total_nodes,
+                'query_params': result.query_params,
+                'summary': result.get_summary()
             }
         })
         
