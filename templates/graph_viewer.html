@@ -656,7 +656,8 @@
 
                 let data = await fetchGraph(reportId);
                 let usedFallback = false;
-                if ((!data || !data.graph) && allowFallback) {
+                const allowLatestFallback = allowFallback && !reportId;
+                if ((!data || !data.graph) && allowLatestFallback) {
                     data = await fetchGraph(null);
                     usedFallback = !!(data && data.graph);
                 }
@@ -684,9 +685,25 @@
                         showToast(usedFallback ? '未找到指定图谱，已切换至最新版本' : '已刷新最新图谱');
                     }
                 } else {
-                    if (!graphReady) {
-                        showEmpty(true);
+                    showEmpty(true);
+                    graphReady = false;
+                    allNodes = [];
+                    allEdges = [];
+                    resetGraphSearchState();
+                    updateStats({
+                        total_nodes: 0,
+                        total_edges: 0,
+                        topic: 0,
+                        engine: 0,
+                        section: 0,
+                        search_query: 0,
+                        source: 0
+                    });
+                    if (network) {
+                        network.destroy();
+                        network = null;
                     }
+                    hideNodeDetail();
                     showLoading(false);
                     if (fromManual) {
                         showToast('未找到图谱数据');

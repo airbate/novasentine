@@ -53,6 +53,7 @@ from .graphrag.prompts import (
     SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT,
     format_graph_results_for_prompt
 )
+from utils.knowledge_logger import init_knowledge_log
 
 
 class StageOutputFormatError(ValueError):
@@ -470,6 +471,8 @@ class ReportAgent:
         self.state.query = query
         self.state.metadata.query = query
         self.state.mark_processing()
+        # 新一轮任务开始时重置知识查询日志，避免跨任务残留
+        init_knowledge_log(force_reset=True)
 
         normalized_reports = self._normalize_reports(reports)
 
