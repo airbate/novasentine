@@ -433,6 +433,16 @@
                 <line x1="8" y1="11" x2="14" y2="11"/>
             </svg>
         </button>
+
+        <button class="btn" id="manualRefreshBtn" title="手动刷新图谱">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+                <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+            </svg>
+            刷新
+        </button>
         
         <div class="search-box">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -591,7 +601,7 @@
 
         // 加载图谱数据
         async function loadGraphData(options = {}) {
-            const { fromPoll = false } = options;
+            const { fromPoll = false, fromManual = false } = options;
             // 仅在首次或未加载成功时展示大遮罩
             if (!graphReady || !fromPoll) {
                 showLoading(true);
@@ -615,11 +625,17 @@
                     showEmpty(false);
                     graphReady = true;
                     stopGraphPolling();
+                    if (fromManual) {
+                        showToast('已刷新最新图谱');
+                    }
                 } else {
                     if (!graphReady) {
                         showEmpty(true);
                     }
                     showLoading(false);
+                    if (fromManual) {
+                        showToast('未找到图谱数据');
+                    }
                 }
             } catch (error) {
                 console.error('加载图谱失败:', error);
@@ -853,6 +869,14 @@
                     network.moveTo({ scale, animation: true });
                 }
             });
+
+            // 手动刷新
+            const manualRefreshBtn = document.getElementById('manualRefreshBtn');
+            if (manualRefreshBtn) {
+                manualRefreshBtn.addEventListener('click', () => {
+                    loadGraphData({ fromManual: true });
+                });
+            }
 
             // 全屏
             document.getElementById('fullscreenBtn').addEventListener('click', () => {
