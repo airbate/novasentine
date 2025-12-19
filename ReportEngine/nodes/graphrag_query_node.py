@@ -225,8 +225,8 @@ class GraphRAGQueryNode(BaseNode):
         """调用 LLM 获取查询决策"""
         try:
             response = self.llm_client.invoke(
-                system=prompt['system'],
-                user=prompt['user']
+                system_prompt=prompt['system'],
+                user_prompt=prompt['user']
             )
             
             # 解析 JSON 响应
