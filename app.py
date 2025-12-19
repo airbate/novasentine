@@ -1323,6 +1323,13 @@ def get_graph_data(report_id):
         
         graph = storage.load(graph_path)
         
+        # 检查图谱是否成功加载（文件可能损坏或格式错误）
+        if graph is None:
+            return jsonify({
+                'success': False,
+                'message': f'图谱文件损坏或格式错误: {report_id}'
+            }), 500
+        
         # 转换为 Vis.js 格式
         vis_nodes = []
         vis_edges = []
@@ -1378,6 +1385,13 @@ def get_latest_graph():
         
         graph = storage.load(latest_path)
         report_id = latest_path.parent.name if latest_path.parent else 'unknown'
+        
+        # 检查图谱是否成功加载（文件可能损坏或格式错误）
+        if graph is None:
+            return jsonify({
+                'success': False,
+                'message': '图谱文件损坏或格式错误'
+            }), 500
         
         # 转换为 Vis.js 格式
         vis_nodes = []
@@ -1467,6 +1481,14 @@ def query_graph():
             }), 404
         
         graph = storage.load(graph_path)
+        
+        # 检查图谱是否成功加载（文件可能损坏或格式错误）
+        if graph is None:
+            return jsonify({
+                'success': False,
+                'message': '图谱文件损坏或格式错误'
+            }), 500
+        
         query_engine = QueryEngine(graph)
         
         params = QueryParams(
