@@ -240,6 +240,9 @@ class ReportAgent:
         # 状态
         self.state = ReportState()
         
+        # GraphRAG 状态数据（每次 load_input_files 时重置）
+        self._loaded_states = {}
+        
         # 确保输出目录存在
         os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
         os.makedirs(self.config.DOCUMENT_IR_OUTPUT_DIR, exist_ok=True)
@@ -901,16 +904,14 @@ class ReportAgent:
             Graph: 构建好的知识图谱；失败返回 None。
         """
         try:
-            # 解析 State JSON（如果在 load_input_files 时已加载）
-            states = {}
-            state_parser = StateParser()
-            
-            # 尝试从 reports 目录查找 State JSON
-            # 注意：这里假设 reports 字典的键对应引擎目录
-            for engine in ['insight', 'media', 'query']:
-                # 尝试从全局状态获取（如果之前已加载）
-                if hasattr(self, '_loaded_states') and engine in self._loaded_states:
-                    states[engine] = self._loaded_states[engine]
+            # 直接使用 load_input_files 中加载的 State JSON
+            # 注意：_loaded_states 在每次 load_input_files 调用时会被重置，
+            # 确保不会有跨任务的数据泄漏
+            states = {
+                engine: state
+                for engine, state in self._loaded_states.items()
+                if engine in ['insight', 'media', 'query']
+            }
             
             # 解析论坛日志
             forum_entries = []
