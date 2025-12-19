@@ -292,7 +292,16 @@ class GraphStorage:
     """图谱存储管理器"""
     
     FILENAME = "graphrag.json"
-    DEFAULT_CHAPTERS_DIR = Path("chapters")
+    
+    @property
+    def chapters_dir(self) -> Path:
+        """获取章节目录路径（与 ChapterStorage 保持一致）"""
+        try:
+            from ..utils.config import settings
+            return Path(settings.CHAPTER_OUTPUT_DIR)
+        except ImportError:
+            # 回退到默认值
+            return Path("final_reports/chapters")
     
     def save(self, graph: Graph, task_id: str, run_dir: Path) -> Path:
         """
@@ -363,8 +372,8 @@ class GraphStorage:
         Returns:
             图谱文件路径，未找到返回 None
         """
-        # 在默认目录中搜索
-        chapters_dir = self.DEFAULT_CHAPTERS_DIR
+        # 在章节目录中搜索（与 ChapterStorage 保持一致）
+        chapters_dir = self.chapters_dir
         if not chapters_dir.exists():
             return None
         
@@ -388,7 +397,7 @@ class GraphStorage:
         Returns:
             最新图谱文件路径，未找到返回 None
         """
-        chapters_dir = self.DEFAULT_CHAPTERS_DIR
+        chapters_dir = self.chapters_dir
         if not chapters_dir.exists():
             return None
         
@@ -416,7 +425,7 @@ class GraphStorage:
         Returns:
             图谱信息列表，包含路径、报告ID、创建时间等
         """
-        chapters_dir = self.DEFAULT_CHAPTERS_DIR
+        chapters_dir = self.chapters_dir
         if not chapters_dir.exists():
             return []
         
