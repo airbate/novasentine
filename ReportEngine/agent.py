@@ -651,12 +651,20 @@ class ReportAgent:
                 if graphrag_enabled and knowledge_graph and graphrag_query_node:
                     try:
                         max_queries = getattr(self.config, 'GRAPHRAG_MAX_QUERIES', 3)
+                        chapter_meta = chapter_targets.get(section.chapter_id, {}) if isinstance(chapter_targets, dict) else {}
+                        emphasis_value = chapter_meta.get('emphasis') or chapter_meta.get('emphasisPoints') or ''
+                        if isinstance(emphasis_value, list):
+                            emphasis_value = '；'.join(str(item) for item in emphasis_value if item)
+                        role_text = getattr(section, 'description', None) or chapter_meta.get('rationale') or ''
+                        if not isinstance(role_text, str):
+                            role_text = self._stringify(role_text)
+
                         section_info = {
                             'title': section.title,
                             'id': section.chapter_id,
-                            'role': section.description,
-                            'target_words': chapter_targets.get(section.chapter_id, {}).get('targetWords', 500),
-                            'emphasis': chapter_targets.get(section.chapter_id, {}).get('emphasisPoints', '')
+                            'role': role_text,
+                            'target_words': chapter_meta.get('targetWords', 500),
+                            'emphasis': emphasis_value
                         }
                         
                         graph_results = graphrag_query_node.run(
