@@ -400,6 +400,36 @@ def append_knowledge_log(source: str, payload: dict):
         logger.warning(f"Knowledge Query: 写日志失败: {exc}")
 
 
+def _trim_text(text: str, limit: int = 300) -> str:
+    text = _sanitize_log_text(text)
+    return text if len(text) <= limit else text[:limit] + "..."
+
+
+def _compact_records(items):
+    """将节点/记录压缩为简洁日志格式，避免污染。"""
+    compacted = []
+    if not items:
+        return compacted
+
+    for item in items:
+        if not isinstance(item, dict):
+            compacted.append(_trim_text(str(item)))
+            continue
+
+        entry = {}
+        for key, value in item.items():
+            # 仅记录必要字段，其他字段做字符串压缩
+            if isinstance(value, (str, int, float, bool)):
+                entry[key] = _trim_text(str(value))
+            else:
+                try:
+                    entry[key] = _trim_text(json.dumps(value, ensure_ascii=False))
+                except Exception:
+                    entry[key] = _trim_text(str(value))
+        compacted.append(entry)
+    return compacted
+
+
 # 初始化 knowledge_query.log
 init_knowledge_log()
 
@@ -1551,6 +1581,25 @@ def query_graph():
         )
         
         result = query_engine.query(params)
+        try:
+            append_knowledge_log(
+                'GRAPH_QUERY_RESULT',
+                {
+                    'report_id': report_id or 'latest',
+                    'counts': {
+                        'matched_sections': len(result.matched_sections),
+                        'matched_queries': len(result.matched_queries),
+                        'matched_sources': len(result.matched_sources),
+                        'total_nodes': result.total_nodes,
+                    },
+                    'query_params': result.query_params,
+                    'matched_sections': _compact_records(result.matched_sections),
+                    'matched_queries': _compact_records(result.matched_queries),
+                    'matched_sources': _compact_records(result.matched_sources),
+                }
+            )
+        except Exception as log_exc:  # pragma: no cover - 日志失败不阻塞主流程
+            logger.warning(f\"Knowledge Query: 结果写日志失败: {log_exc}\")
         
         return jsonify({
             'success': True,
