@@ -538,7 +538,7 @@
     </div>
 
     <!-- 图谱容器 -->
-    <div class="graph-container" id="graphContainer">
+    <div class="graph-container" id="graphContainer" data-report-id="{{ report_id | e if report_id else '' }}">
         <div id="network"></div>
         
         <!-- 加载状态 -->
@@ -616,7 +616,11 @@
         let network = null;
         let allNodes = [];
         let allEdges = [];
-        let reportId = {{ report_id | tojson if report_id else 'null' }};
+        let reportId = null;
+        const graphContainer = document.getElementById('graphContainer');
+        if (graphContainer) {
+            reportId = graphContainer.dataset.reportId || null;
+        }
         let graphReady = false;
         let graphPollTimer = null;
         let graphSearchResults = [];
