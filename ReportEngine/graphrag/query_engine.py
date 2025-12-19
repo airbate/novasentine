@@ -104,7 +104,8 @@ class QueryEngine:
         """关键词匹配"""
         matched_ids = set()
         
-        for node in self.graph.nodes:
+        # 使用 .values() 遍历 Node 对象，而非字典键
+        for node in self.graph.nodes.values():
             # 类型筛选
             if params.node_types and node.type not in params.node_types:
                 continue
