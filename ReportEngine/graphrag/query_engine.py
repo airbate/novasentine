@@ -17,6 +17,10 @@ class QueryParams:
     node_types: Optional[List[str]] = None  # None 表示全部类型
     engine_filter: Optional[List[str]] = None  # 限定引擎来源
     depth: int = 1  # 扩展深度
+    # 结果数量限制（防止空关键词时返回整个图谱）
+    max_sections: int = 15
+    max_queries: int = 20
+    max_sources: int = 10
 
 
 @dataclass
@@ -125,7 +129,9 @@ class QueryEngine:
     def _matches_keywords(self, node: Node, keywords: List[str]) -> bool:
         """检查节点是否匹配关键词"""
         if not keywords:
-            return True  # 无关键词时全部匹配
+            # 无关键词时：只匹配 section 类型（避免返回整个图谱）
+            # 这样至少能获取到各引擎的段落摘要
+            return node.type == 'section'
         
         # 构建搜索文本
         search_text = f"{node.name} {node.get('title', '')} {node.get('query_text', '')} {node.get('summary', '')}"
@@ -192,11 +198,16 @@ class QueryEngine:
         matched_queries.sort(key=lambda x: x.get('query_text', ''))
         matched_sources.sort(key=lambda x: x.get('title', ''))
         
+        # 应用结果数量限制（防止过多节点被注入提示词，超出 token 限制）
+        limited_sections = matched_sections[:params.max_sections]
+        limited_queries = matched_queries[:params.max_queries]
+        limited_sources = matched_sources[:params.max_sources]
+        
         return QueryResult(
-            matched_sections=matched_sections,
-            matched_queries=matched_queries,
-            matched_sources=matched_sources,
-            total_nodes=len(node_ids),
+            matched_sections=limited_sections,
+            matched_queries=limited_queries,
+            matched_sources=limited_sources,
+            total_nodes=len(node_ids),  # 保留原始总数用于统计
             query_params={
                 'keywords': params.keywords,
                 'node_types': params.node_types,
