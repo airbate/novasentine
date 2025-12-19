@@ -1609,6 +1609,9 @@ class ReportAgent:
             'forum_logs': '',
             'states': {}  # 新增：用于 GraphRAG 的 State JSON
         }
+        
+        # 重要：清空上一次任务的状态数据，防止污染当前任务的知识图谱
+        self._loaded_states = {}
 
         # 加载报告文件
         engines = ['query', 'media', 'insight']
@@ -1630,8 +1633,6 @@ class ReportAgent:
                             if parsed_state:
                                 content['states'][engine] = parsed_state
                                 # 同时保存到实例属性，供 _build_knowledge_graph 使用
-                                if not hasattr(self, '_loaded_states'):
-                                    self._loaded_states = {}
                                 self._loaded_states[engine] = parsed_state
                                 logger.info(f"已加载 {engine} State JSON: {len(parsed_state.sections)} 个段落")
                             
