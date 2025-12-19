@@ -578,23 +578,31 @@
         let allNodes = [];
         let allEdges = [];
         let reportId = {{ report_id | tojson if report_id else 'null' }};
+        let graphReady = false;
+        let graphPollTimer = null;
+        const GRAPH_POLL_INTERVAL = 4000;
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadGraphData();
+            startGraphPolling();
             setupEventListeners();
         });
 
         // 加载图谱数据
-        async function loadGraphData() {
-            showLoading(true);
+        async function loadGraphData(options = {}) {
+            const { fromPoll = false } = options;
+            // 仅在首次或未加载成功时展示大遮罩
+            if (!graphReady || !fromPoll) {
+                showLoading(true);
+            }
             
             try {
                 const url = reportId 
                     ? `/api/graph/${reportId}`
                     : '/api/graph/latest';
                 
-                const response = await fetch(url);
+                const response = await fetch(url, { cache: 'no-store' });
                 const data = await response.json();
                 
                 if (data.success && data.graph) {
@@ -604,15 +612,36 @@
                     updateStats(data.graph.stats);
                     renderGraph();
                     showLoading(false);
+                    showEmpty(false);
+                    graphReady = true;
+                    stopGraphPolling();
                 } else {
-                    showEmpty(true);
+                    if (!graphReady) {
+                        showEmpty(true);
+                    }
                     showLoading(false);
                 }
             } catch (error) {
                 console.error('加载图谱失败:', error);
                 showToast('加载图谱失败: ' + error.message);
-                showEmpty(true);
+                if (!graphReady) {
+                    showEmpty(true);
+                }
                 showLoading(false);
+            }
+        }
+
+        function startGraphPolling() {
+            if (graphPollTimer) return;
+            graphPollTimer = setInterval(() => {
+                loadGraphData({ fromPoll: true });
+            }, GRAPH_POLL_INTERVAL);
+        }
+
+        function stopGraphPolling() {
+            if (graphPollTimer) {
+                clearInterval(graphPollTimer);
+                graphPollTimer = null;
             }
         }
 
