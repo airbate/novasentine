@@ -190,10 +190,10 @@ class GraphRAGQueryNode(BaseNode):
         # 获取搜索词样例
         sample_queries = query_engine.get_sample_search_queries(20)
         
-        # 获取章节概览
+        # 获取章节概览（word_plan 中的 chapters 使用 chapterId 而非 id）
         chapters = context.get('chapters', [])
         chapters_text = "\n".join([
-            f"- {c.get('id', '')}: {c.get('title', '')}"
+            f"- {c.get('chapterId', c.get('id', ''))}: {c.get('title', c.get('display', ''))}"
             for c in chapters[:10]
         ])
         
