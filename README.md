@@ -166,6 +166,11 @@ BettaFish/
 │   ├── ir/                                 # 报告中间表示（IR）契约与校验
 │   │   ├── schema.py                       # 块/标记Schema常量定义
 │   │   └── validator.py                    # 章节JSON结构校验器
+│   ├── graphrag/                           # GraphRAG 知识图谱构建与检索
+│   │   ├── graph_builder.py                # state+forum日志→知识图谱
+│   │   ├── graph_storage.py                # Graph对象管理与graphrag.json落盘
+│   │   ├── query_engine.py                 # 关键词/类型/深度检索入口
+│   │   └── ...                             # forum/state解析、提示词等
 │   ├── nodes/                              # 全流程推理节点
 │   │   ├── base_node.py                    # 节点基类+日志/状态钩子
 │   │   ├── template_selection_node.py      # 模板候选收集与LLM筛选
