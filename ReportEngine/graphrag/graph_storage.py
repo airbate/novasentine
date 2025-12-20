@@ -107,7 +107,12 @@ class Edge:
 
 
 class Graph:
-    """知识图谱"""
+    """
+    知识图谱
+    
+    仅负责存储节点/边与邻接表，不依赖外部数据库，便于在章节侧内存查询。
+    邻接表 _adjacency 用于 QueryEngine 按深度扩展邻居节点。
+    """
     
     def __init__(self):
         self._nodes: Dict[str, Node] = {}
@@ -290,7 +295,13 @@ class Graph:
 
 
 class GraphStorage:
-    """图谱存储管理器"""
+    """
+    图谱存储管理器
+    
+    将 Graph 对象序列化为 JSON（graphrag.json），路径与 ChapterStorage 输出目录一致，
+    便于 Web/Report 引擎共享。支持按报告ID查找、列举最新图谱，供 Flask API 或
+    GraphRAGQueryNode 直接读取。
+    """
     
     FILENAME = "graphrag.json"
 
@@ -394,6 +405,11 @@ class GraphStorage:
             
         Returns:
             图谱文件路径，未找到返回 None
+        
+        工作方式：
+        1) 优先匹配目录名是否含 report_id（兼容 _/- 差异）；
+        2) 否则读取 graphrag.json 内 task_id/report_id 做兜底匹配；
+        适配 Agent 运行目录命名不一致的场景。
         """
         # 在章节目录中搜索（与 ChapterStorage 保持一致）
         chapters_dir = self.chapters_dir
@@ -442,6 +458,8 @@ class GraphStorage:
         
         Returns:
             最新图谱文件路径，未找到返回 None
+        
+        根据文件修改时间排序，用于前端“最近一次生成”快速预览。
         """
         chapters_dir = self.chapters_dir
         if not chapters_dir.exists():

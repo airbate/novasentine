@@ -598,6 +598,7 @@ class ReportAgent:
             emit('stage', {'stage': 'storage_ready', 'run_dir': str(run_dir)})
 
             # ==================== GraphRAG 初始化 ====================
+            # 根据配置开关决定是否启用图谱构建/查询（需 .env 设置 GRAPHRAG_ENABLED=True）
             graphrag_enabled = getattr(self.config, 'GRAPHRAG_ENABLED', False)
             knowledge_graph = None
             graphrag_query_node = None
@@ -607,6 +608,7 @@ class ReportAgent:
                 emit('stage', {'stage': 'graphrag_building', 'message': '正在构建知识图谱'})
                 
                 try:
+                    # 将 state_*.json + forum.log 转为结构化图谱，并立即落盘 graphrag.json
                     knowledge_graph = self._build_knowledge_graph(
                         query, normalized_reports, forum_logs, run_dir
                     )
@@ -687,6 +689,7 @@ class ReportAgent:
                             'emphasis': emphasis_value
                         }
                         
+                        # 先让 GraphRAG 节点多轮查询，再把结果附加到章节上下文
                         graph_results = graphrag_query_node.run(
                             section_info, 
                             {
@@ -699,7 +702,7 @@ class ReportAgent:
                         )
                         
                         if graph_results and graph_results.get('total_nodes', 0) > 0:
-                            # 将图谱结果注入生成上下文
+                            # 将图谱结果注入生成上下文，后续章节 LLM 自动使用增强提示词
                             chapter_context['graph_results'] = graph_results
                             chapter_context['graph_enhancement_prompt'] = format_graph_results_for_prompt(graph_results)
                             logger.info(f"章节 {section.title} GraphRAG 查询完成: {graph_results.get('total_nodes', 0)} 节点")

@@ -2,6 +2,8 @@
 Forum 日志解析器
 
 解析 forum.log 文件，提取结构化的讨论记录用于构建知识图谱。
+日志与 GraphRAG 的关系：仅将主持人/三引擎发言转为结构化节点，
+用于补充 Host 总结或跨引擎观点。
 """
 
 from dataclasses import dataclass
@@ -41,6 +43,7 @@ class ForumParser:
     
     解析 forum.log，提取结构化的讨论记录。
     日志格式: [HH:MM:SS] [SPEAKER] content
+    SPEAKER 需属于 VALID_SPEAKERS；非规范行会被忽略，确保图谱不被噪音污染。
     """
     
     # 匹配日志行的正则表达式

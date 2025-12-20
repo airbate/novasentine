@@ -121,6 +121,9 @@ def format_graph_results_for_prompt(graph_results: dict) -> str:
         
     Returns:
         格式化的字符串
+    
+    供 ReportAgent 在章节生成前注入 `graph_enhancement_prompt`，
+    将多轮查询结果以结构化文本交给章节 LLM，避免直接传递大 JSON。
     """
     if not graph_results:
         return ""

@@ -19,6 +19,10 @@ class GraphBuilder:
     基于已有的结构化数据（State JSON、Forum 日志）构建图谱，
     无需 LLM 进行实体/关系提取。
     
+    ReportAgent 在 _build_knowledge_graph 中调用本构建器，将 load_input_files
+    提前解析好的 ParsedState / ForumEntry 转为 Graph 对象，再交由 GraphStorage
+    落盘并供 GraphRAGQueryNode 查询。
+    
     节点类型（5种）:
     - topic: 用户查询主题
     - engine: 四个引擎来源 (insight/media/query/host)
@@ -108,7 +112,7 @@ class GraphBuilder:
             if not search.query:
                 continue
             
-            # 搜索词去重
+            # 搜索词去重（同一段落相同查询仅保留首条，避免图谱冗余）
             query_key = search.query.strip().lower()
             if query_key in seen_queries:
                 continue

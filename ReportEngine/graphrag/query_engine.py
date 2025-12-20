@@ -12,7 +12,15 @@ from .graph_storage import Graph, Node
 
 @dataclass
 class QueryParams:
-    """查询参数"""
+    """
+    查询参数
+    
+    由 GraphRAGQueryNode 或 Flask API 注入，控制查询范围：
+    - keywords: 关键词列表，可为空（空时默认返回各引擎 section 摘要）；
+    - node_types: 限定节点类型；None 表示全量；
+    - engine_filter: 仅保留指定引擎来源；
+    - depth: 匹配节点向外扩展的层级。
+    """
     keywords: List[str] = field(default_factory=list)
     node_types: Optional[List[str]] = None  # None 表示全部类型
     engine_filter: Optional[List[str]] = None  # 限定引擎来源

@@ -1307,6 +1307,8 @@ def shutdown_system():
         return jsonify({'success': False, 'message': f'系统关闭异常: {exc}'}), 500
 
 # ==================== GraphRAG API 端点 ====================
+# 前端控制台与 /graph-viewer 调用，均依赖 ReportEngine 在章节目录落盘的 graphrag.json。
+# 若 GRAPHRAG_ENABLED 关闭，这些接口仅返回“未找到图谱”提示。
 
 @app.route('/api/graph/<report_id>')
 def get_graph_data(report_id):
@@ -1493,6 +1495,7 @@ def query_graph():
         if report_id:
             graph_path = storage.find_graph_by_report_id(report_id)
         else:
+            # 未指定报告ID时默认取最近一次生成的图谱，便于快速试用
             graph_path = storage.find_latest_graph()
         
         if not graph_path or not graph_path.exists():

@@ -133,7 +133,7 @@ class GraphRAGQueryNode(BaseNode):
         for round_idx in range(max_queries):
             self.log_info(f"查询轮次 {round_idx + 1}/{max_queries}")
             
-            # 1. 构建决策提示词
+            # 1. 构建决策提示词：将章节目标+图谱概览+查询历史一起交给 LLM
             prompt = self._build_decision_prompt(
                 section, context, query_engine, history
             )
@@ -145,12 +145,12 @@ class GraphRAGQueryNode(BaseNode):
                 self.log_error("LLM 返回无效决策，终止查询")
                 break
             
-            # 3. 检查是否停止
+            # 3. 检查是否停止：LLM 可主动返回 should_query=false 以节省轮次
             if not decision.get('should_query', False):
                 self.log_info(f"LLM 决定停止查询: {decision.get('reasoning', '无原因')}")
                 break
             
-            # 4. 执行查询
+            # 4. 执行查询：按 LLM 给出的参数查询本地图谱
             params = QueryParams(
                 keywords=decision.get('keywords', []),
                 node_types=decision.get('node_types'),
@@ -222,7 +222,12 @@ class GraphRAGQueryNode(BaseNode):
                                 context: Dict[str, Any],
                                 query_engine: QueryEngine,
                                 history: QueryHistory) -> Dict[str, str]:
-        """构建查询决策提示词"""
+        """
+        构建查询决策提示词
+        
+        将章节目标、模板章节概览、图谱统计、历史查询摘要整合为
+        system/user prompt，指导 LLM 生成下一轮 QueryParams。
+        """
         # 获取图谱概览
         summary = query_engine.get_node_summary()
         stats = summary.get('stats', {})
@@ -268,7 +273,12 @@ class GraphRAGQueryNode(BaseNode):
         }
     
     def _get_query_decision(self, prompt: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        """调用 LLM 获取查询决策"""
+        """
+        调用 LLM 获取查询决策
+        
+        返回的 JSON 将被转换为 QueryParams；任何解析失败都会终止后续轮次，
+        避免章节生成被异常输出阻断。
+        """
         try:
             response = self.llm_client.invoke(
                 system_prompt=prompt['system'],

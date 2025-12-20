@@ -3,6 +3,10 @@ State JSON 解析器
 
 解析 Insight/Media/Query 三引擎的 State JSON 文件，
 提取结构化数据用于构建知识图谱。
+
+默认假设 state_* 文件结构与三引擎输出一致：
+- 顶层包含 query/report_title/paragraphs；
+- 段落内的 research.search_history 记录搜索关键词、URL与摘要。
 """
 
 from dataclasses import dataclass, field
@@ -45,6 +49,8 @@ class StateParser:
     State JSON 解析器
     
     解析三引擎的 State JSON，提取用于构建知识图谱的结构化数据。
+    适用于 load_input_files 阶段：先查找与 MD 同目录的 state_*.json，
+    若存在则转为 ParsedState 供 GraphBuilder 直接消费。
     """
     
     def parse(self, engine_name: str, state_json: Dict[str, Any]) -> ParsedState:
@@ -84,7 +90,7 @@ class StateParser:
                 timestamp=search.get('timestamp', '')
             ))
         
-        # 获取摘要，优先使用 latest_summary
+        # 获取摘要，优先使用 latest_summary；若缺失则回退到段落正文
         summary = research.get('latest_summary', '')
         if not summary:
             summary = para.get('content', '')
@@ -124,6 +130,7 @@ class StateParser:
         根据 Markdown 报告路径查找对应的 State JSON 文件
         
         State JSON 通常与 MD 文件在同一目录下，命名格式为 state_*.json
+        用于 GraphRAG：在 load_input_files 时自动匹配最新或同名 state 文件。
         
         Args:
             md_path: Markdown 文件路径
