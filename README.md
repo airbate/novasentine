@@ -166,6 +166,11 @@ BettaFish/
 │   ├── ir/                                 # 报告中间表示（IR）契约与校验
 │   │   ├── schema.py                       # 块/标记Schema常量定义
 │   │   └── validator.py                    # 章节JSON结构校验器
+│   ├── graphrag/                           # GraphRAG 知识图谱构建与检索
+│   │   ├── graph_builder.py                # state+forum日志→知识图谱
+│   │   ├── graph_storage.py                # Graph对象管理与graphrag.json落盘
+│   │   ├── query_engine.py                 # 关键词/类型/深度检索入口
+│   │   └── ...                             # forum/state解析、提示词等
 │   ├── nodes/                              # 全流程推理节点
 │   │   ├── base_node.py                    # 节点基类+日志/状态钩子
 │   │   ├── template_selection_node.py      # 模板候选收集与LLM筛选
@@ -501,6 +506,9 @@ python report_engine_only.py --skip-markdown
 # 显示详细日志
 python report_engine_only.py --verbose
 
+# 按需开启 GraphRAG 并调整查询次数（未传参则遵循 .env，默认关闭）
+python report_engine_only.py --graphrag-enabled true --graphrag-max-queries 3
+
 # 查看帮助信息
 python report_engine_only.py --help
 ```
@@ -516,6 +524,7 @@ python report_engine_only.py --help
    - PDF报告（如果有依赖）保存到 `final_reports/pdf/` 目录
    - Markdown报告（可用 `--skip-markdown` 关闭）保存到 `final_reports/md/` 目录
    - 文件命名格式：`final_report_{主题}_{时间戳}.html/pdf/md`
+6. **GraphRAG 可选启用**：命令行参数优先于 `.env`，若两者均未配置则保持关闭状态
 
 **注意事项：**
 

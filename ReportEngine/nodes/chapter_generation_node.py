@@ -205,11 +205,15 @@ class ChapterGenerationNode(BaseNode):
         llm_payload = self._build_payload(section, context)
         user_message = build_chapter_user_prompt(llm_payload)
 
+        # 检查是否有GraphRAG结果，决定是否使用增强提示词
+        graph_enhanced = bool(context.get("graph_results"))
+
         raw_text = self._stream_llm(
             user_message,
             chapter_dir,
             stream_callback=stream_callback,
             section_meta=chapter_meta,
+            graph_enhanced=graph_enhanced,
             **kwargs,
         )
         parse_context: List[str] = []
@@ -351,6 +355,22 @@ class ChapterGenerationNode(BaseNode):
             "chapterPlan": chapter_plan,
             "wordPlan": context.get("word_plan"),
         }
+        
+        # GraphRAG 增强：如果上下文中包含图谱查询结果，添加到payload
+        graph_results = context.get("graph_results")
+        if graph_results:
+            payload["graphResults"] = {
+                "totalNodes": graph_results.get("total_nodes", 0),
+                "queryRounds": graph_results.get("query_rounds", 0),
+                "matchedSections": graph_results.get("matched_sections", []),
+                "matchedQueries": graph_results.get("matched_queries", []),
+                "matchedSources": graph_results.get("matched_sources", []),
+            }
+            # 同时添加增强提示（如果有）
+            graph_enhancement = context.get("graph_enhancement_prompt")
+            if graph_enhancement:
+                payload["graphEnhancementPrompt"] = graph_enhancement
+        
         if chapter_plan:
             constraints = payload["constraints"]
             if chapter_plan.get("targetWords"):
@@ -438,6 +458,7 @@ class ChapterGenerationNode(BaseNode):
         chapter_dir: Path,
         stream_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
         section_meta: Optional[Dict[str, Any]] = None,
+        graph_enhanced: bool = False,
         **kwargs,
     ) -> str:
         """
@@ -448,15 +469,23 @@ class ChapterGenerationNode(BaseNode):
             chapter_dir: 章节的本地缓存目录，用于存放 stream.raw。
             stream_callback: SSE流式推送的回调函数。
             section_meta: 附带的章节ID/标题，用于回调payload。
+            graph_enhanced: 是否启用GraphRAG增强的系统提示词。
             **kwargs: 透传温度、top_p等参数。
 
         返回:
             str: 将所有delta拼接后的原始文本。
         """
+        # 根据是否启用GraphRAG选择不同的系统提示词
+        if graph_enhanced:
+            from ..graphrag.prompts import SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT
+            system_prompt = SYSTEM_PROMPT_CHAPTER_JSON + "\n\n" + SYSTEM_PROMPT_CHAPTER_GRAPH_ENHANCEMENT
+        else:
+            system_prompt = SYSTEM_PROMPT_CHAPTER_JSON
+        
         chunks: List[str] = []
         with self.storage.capture_stream(chapter_dir) as stream_fp:
             stream = self.llm_client.stream_invoke(
-                SYSTEM_PROMPT_CHAPTER_JSON,
+                system_prompt,
                 user_message,
                 temperature=kwargs.get("temperature", 0.2),
                 top_p=kwargs.get("top_p", 0.95),
@@ -642,7 +671,7 @@ class ChapterGenerationNode(BaseNode):
             cleaned = cleaned[:-3]
         cleaned = cleaned.strip()
         if not cleaned:
-            raise ValueError("LLM返回空内容")
+            raise ChapterJsonParseError("LLM返回空内容", raw_text=raw_text)
 
         candidate_payloads = [cleaned]
         repaired = self._repair_llm_json(cleaned)
@@ -685,7 +714,7 @@ class ChapterGenerationNode(BaseNode):
                         return item["chapter"]
                     if all(key in item for key in ("chapterId", "title", "blocks")):
                         return item
-        raise ValueError("章节JSON缺少chapter字段")
+        raise ChapterJsonParseError("章节JSON缺少chapter字段或结构不完整", raw_text=cleaned)
 
     def _persist_error_payload(
         self,
@@ -967,13 +996,41 @@ class ChapterGenerationNode(BaseNode):
             """递归检查并修复嵌套结构，保证每个block合法"""
             if not isinstance(blocks, list):
                 return
-            for block in blocks:
+            # 先过滤掉非字典类型的异常 block
+            valid_indices = []
+            for idx, block in enumerate(blocks):
+                if not isinstance(block, dict):
+                    # 尝试将字符串转换为 paragraph
+                    if isinstance(block, str) and block.strip():
+                        blocks[idx] = self._as_paragraph_block(block)
+                        valid_indices.append(idx)
+                        logger.warning(f"walk: 将字符串 block 转换为 paragraph")
+                    elif isinstance(block, list):
+                        # 尝试提取列表中的有效字典
+                        for item in block:
+                            if isinstance(item, dict):
+                                self._ensure_block_type(item)
+                                blocks[idx] = item
+                                valid_indices.append(idx)
+                                logger.warning(f"walk: 从列表中提取字典 block")
+                                break
+                        else:
+                            logger.warning(f"walk: 跳过无效的列表 block: {block}")
+                    else:
+                        logger.warning(f"walk: 跳过无效的 block（类型: {type(block).__name__}）")
+                else:
+                    valid_indices.append(idx)
+            
+            for idx in valid_indices:
+                block = blocks[idx]
                 if not isinstance(block, dict):
                     continue
                 self._ensure_block_type(block)
                 self._sanitize_block_content(block)
                 block_type = block.get("type")
                 if block_type == "list":
+                    # 自动修复 listType：确保是合法值
+                    self._normalize_list_type(block)
                     items = block.get("items")
                     normalized = self._normalize_list_items(items)
                     if normalized:
@@ -984,8 +1041,12 @@ class ChapterGenerationNode(BaseNode):
                     walk(block.get("blocks"))
                 elif block_type == "table":
                     for row in block.get("rows", []):
+                        if not isinstance(row, dict):
+                            continue
                         cells = row.get("cells") or []
                         for cell in cells:
+                            if not isinstance(cell, dict):
+                                continue
                             walk(cell.get("blocks"))
                 elif block_type == "widget":
                     self._normalize_widget_block(block)
@@ -998,7 +1059,9 @@ class ChapterGenerationNode(BaseNode):
 
         blocks = chapter.get("blocks")
         if isinstance(blocks, list):
-            chapter["blocks"] = self._merge_fragment_sequences(blocks)
+            # 在合并前先过滤掉所有非字典类型的 block
+            filtered_blocks = [b for b in blocks if isinstance(b, dict)]
+            chapter["blocks"] = self._merge_fragment_sequences(filtered_blocks)
 
     def _ensure_content_density(self, chapter: Dict[str, Any]):
         """
@@ -1657,6 +1720,25 @@ class ChapterGenerationNode(BaseNode):
             fragment_buffer = []
 
         for block in blocks:
+            # 类型检查：跳过非字典类型的异常 block，避免 AttributeError
+            if not isinstance(block, dict):
+                # 尝试将非字典类型转换为 paragraph
+                if isinstance(block, str) and block.strip():
+                    converted = self._as_paragraph_block(block)
+                    logger.warning(f"检测到非字典类型的 block（字符串），已转换为 paragraph: {block[:50]}...")
+                    merged.append(converted)
+                elif isinstance(block, list):
+                    # 列表类型的 block 可能是 LLM 输出错误，尝试提取有效内容
+                    logger.warning(f"检测到列表类型的 block，尝试提取有效内容: {block}")
+                    for item in block:
+                        if isinstance(item, dict):
+                            self._ensure_block_type(item)
+                            merged.append(self._merge_nested_fragments(item))
+                        elif isinstance(item, str) and item.strip():
+                            merged.append(self._as_paragraph_block(item))
+                else:
+                    logger.warning(f"跳过无效的 block（类型: {type(block).__name__}）: {block}")
+                continue
             if self._is_paragraph_fragment(block):
                 fragment_buffer.append(block)
                 continue
@@ -1668,6 +1750,24 @@ class ChapterGenerationNode(BaseNode):
 
     def _merge_nested_fragments(self, block: Dict[str, Any]) -> Dict[str, Any]:
         """对嵌套结构（callout/blockquote/engineQuote/list/table）递归处理片段合并"""
+        # 类型检查：确保 block 是字典类型
+        if not isinstance(block, dict):
+            # 尝试将非字典类型转换为 paragraph
+            if isinstance(block, str) and block.strip():
+                logger.warning(f"_merge_nested_fragments 收到字符串类型，已转换为 paragraph")
+                return self._as_paragraph_block(block)
+            elif isinstance(block, list):
+                # 尝试提取列表中的第一个有效字典
+                for item in block:
+                    if isinstance(item, dict):
+                        self._ensure_block_type(item)
+                        return self._merge_nested_fragments(item)
+                logger.warning(f"_merge_nested_fragments 收到无效列表，返回空 paragraph")
+                return self._as_paragraph_block("")
+            else:
+                logger.warning(f"_merge_nested_fragments 收到无效类型（{type(block).__name__}），返回空 paragraph")
+                return self._as_paragraph_block("")
+        
         block_type = block.get("type")
         if block_type in {"callout", "blockquote", "engineQuote"}:
             nested = block.get("blocks")
@@ -1682,8 +1782,12 @@ class ChapterGenerationNode(BaseNode):
                         entry[:] = merged_entry
         elif block_type == "table":
             for row in block.get("rows", []):
+                if not isinstance(row, dict):
+                    continue
                 cells = row.get("cells") or []
                 for cell in cells:
+                    if not isinstance(cell, dict):
+                        continue
                     nested_blocks = cell.get("blocks")
                     if isinstance(nested_blocks, list):
                         cell["blocks"] = self._merge_fragment_sequences(nested_blocks)
@@ -1818,6 +1922,42 @@ class ChapterGenerationNode(BaseNode):
             if value is not None:
                 return str(value)
         return ""
+
+    # 合法的 listType 值
+    _ALLOWED_LIST_TYPES = {"ordered", "bullet", "task"}
+    # listType 的别名映射
+    _LIST_TYPE_ALIASES = {
+        "unordered": "bullet",
+        "ul": "bullet",
+        "ol": "ordered",
+        "numbered": "ordered",
+        "checkbox": "task",
+        "check": "task",
+        "todo": "task",
+    }
+
+    def _normalize_list_type(self, block: Dict[str, Any]):
+        """
+        确保 list block 的 listType 是合法值。
+
+        如果 listType 缺失或非法，自动修复为 bullet。
+        """
+        list_type = block.get("listType")
+        if list_type in self._ALLOWED_LIST_TYPES:
+            return
+        # 尝试别名映射
+        if isinstance(list_type, str):
+            lowered = list_type.strip().lower()
+            if lowered in self._LIST_TYPE_ALIASES:
+                block["listType"] = self._LIST_TYPE_ALIASES[lowered]
+                logger.warning(f"已将 listType '{list_type}' 映射为 '{block['listType']}'")
+                return
+            if lowered in self._ALLOWED_LIST_TYPES:
+                block["listType"] = lowered
+                return
+        # 无法识别，默认使用 bullet
+        logger.warning(f"检测到非法 listType: {list_type}，已修复为 bullet")
+        block["listType"] = "bullet"
 
     def _normalize_list_items(self, items: Any) -> List[List[Dict[str, Any]]]:
         """确保list block的items为[[block, block], ...]结构"""

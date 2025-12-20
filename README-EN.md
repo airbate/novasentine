@@ -165,6 +165,11 @@ BettaFish/
 │   ├── ir/                                 # Report Intermediate Representation (IR) contract & validation
 │   │   ├── schema.py                       # Block/mark schema constant definitions
 │   │   └── validator.py                    # Chapter JSON structure validator
+│   ├── graphrag/                           # GraphRAG graph building and search
+│   │   ├── graph_builder.py                # Build graph from state JSON + forum logs
+│   │   ├── graph_storage.py                # Graph object manager and graphrag.json I/O
+│   │   ├── query_engine.py                 # Keyword/type/depth query entry
+│   │   └── ...                             # Forum/state parsers, prompts, etc.
 │   ├── nodes/                              # Full workflow reasoning nodes
 │   │   ├── base_node.py                    # Node base class + logging/state hooks
 │   │   ├── template_selection_node.py      # Template candidate collection and LLM selection
@@ -496,6 +501,9 @@ python report_engine_only.py --skip-markdown
 # Show verbose logging
 python report_engine_only.py --verbose
 
+# Turn on GraphRAG via CLI and adjust query cap (falls back to .env, default off)
+python report_engine_only.py --graphrag-enabled true --graphrag-max-queries 3
+
 # Show help information
 python report_engine_only.py --help
 ```
@@ -511,6 +519,7 @@ python report_engine_only.py --help
    - PDF reports (if dependencies available) saved to `final_reports/pdf/` directory
    - Markdown reports (disable with `--skip-markdown`) saved to `final_reports/md/` directory
    - File naming format: `final_report_{topic}_{timestamp}.html/pdf/md`
+6. **Optional GraphRAG**: CLI flags override `.env`; if neither is set the feature stays off
 
 **Notes:**
 

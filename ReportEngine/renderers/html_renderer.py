@@ -1329,8 +1329,84 @@ class HTMLRenderer:
         返回:
             List[Dict]: 修复后的表格行数组。
         """
-        if not rows or len(rows) != 1:
-            # 只处理只有1行的异常情况
+        if not rows:
+            return []
+
+        # 辅助函数：获取单元格文本
+        def _get_cell_text(cell: Dict[str, Any]) -> str:
+            """获取单元格的文本内容"""
+            blocks = cell.get("blocks", [])
+            for block in blocks:
+                if isinstance(block, dict) and block.get("type") == "paragraph":
+                    inlines = block.get("inlines", [])
+                    for inline in inlines:
+                        if isinstance(inline, dict):
+                            text = inline.get("text", "")
+                            if text:
+                                return str(text).strip()
+            return ""
+
+        def _is_placeholder_cell(cell: Dict[str, Any]) -> bool:
+            """判断单元格是否是占位符（如 '--', '-', '—' 等）"""
+            text = _get_cell_text(cell)
+            return text in ("--", "-", "—", "——", "", "N/A", "n/a")
+
+        def _is_heading_like_cell(cell: Dict[str, Any]) -> bool:
+            """检测是否疑似被错误并入表格的章节/标题单元格"""
+            text = _get_cell_text(cell)
+            if not text:
+                return False
+            stripped = text.strip()
+            # 章节号或“第X章/部分”常见格式，避免误删正常数字值
+            heading_patterns = (
+                r"^\d{1,2}(?:\.\d{1,2}){1,3}\s+",
+                r"^第[一二三四五六七八九十]+[章节部分]",
+            )
+            return any(re.match(pat, stripped) for pat in heading_patterns)
+
+        # 第一阶段：处理“有表头行 + 数据被串在一行”的情况
+        header_cells = self._flatten_nested_cells((rows[0] or {}).get("cells", []))
+        header_count = len(header_cells)
+        overflow_fixed = None
+        if header_count >= 2:
+            rebuilt_rows: List[Dict[str, Any]] = [
+                {
+                    **{k: v for k, v in (rows[0] or {}).items() if k != "cells"},
+                    "cells": header_cells,
+                }
+            ]
+            changed = False
+            for row in rows[1:]:
+                cells = self._flatten_nested_cells((row or {}).get("cells", []))
+                cell_count = len(cells)
+                if cell_count <= header_count:
+                    rebuilt_rows.append({**{k: v for k, v in (row or {}).items() if k != "cells"}, "cells": cells})
+                    continue
+
+                remainder = cell_count % header_count
+                trimmed_cells = cells
+                if remainder:
+                    trailing = cells[-remainder:]
+                    if all(_is_placeholder_cell(c) or _is_heading_like_cell(c) for c in trailing):
+                        trimmed_cells = cells[:-remainder]
+                        remainder = 0
+
+                if remainder == 0 and len(trimmed_cells) >= header_count * 2:
+                    for i in range(0, len(trimmed_cells), header_count):
+                        chunk = trimmed_cells[i : i + header_count]
+                        rebuilt_rows.append({"cells": chunk})
+                    changed = True
+                else:
+                    rebuilt_rows.append({**{k: v for k, v in (row or {}).items() if k != "cells"}, "cells": cells})
+
+            if changed:
+                overflow_fixed = rebuilt_rows
+
+        if overflow_fixed is not None:
+            rows = overflow_fixed
+
+        if len(rows) != 1:
+            # 只有一行的异常情况由后续逻辑处理；正常多行直接返回
             return rows
 
         first_row = rows[0]
@@ -1352,25 +1428,6 @@ class HTMLRenderer:
         if len(all_cells) <= 2:
             # 单元格太少，不需要重组
             return rows
-
-        # 辅助函数：获取单元格文本
-        def _get_cell_text(cell: Dict[str, Any]) -> str:
-            """获取单元格的文本内容"""
-            blocks = cell.get("blocks", [])
-            for block in blocks:
-                if isinstance(block, dict) and block.get("type") == "paragraph":
-                    inlines = block.get("inlines", [])
-                    for inline in inlines:
-                        if isinstance(inline, dict):
-                            text = inline.get("text", "")
-                            if text:
-                                return str(text).strip()
-            return ""
-
-        def _is_placeholder_cell(cell: Dict[str, Any]) -> bool:
-            """判断单元格是否是占位符（如 '--', '-', '—' 等）"""
-            text = _get_cell_text(cell)
-            return text in ("--", "-", "—", "——", "", "N/A", "n/a")
 
         # 先过滤掉占位符单元格
         all_cells = [c for c in all_cells if not _is_placeholder_cell(c)]
