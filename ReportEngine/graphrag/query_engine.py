@@ -136,6 +136,13 @@ class QueryEngine:
     
     def _matches_keywords(self, node: Node, keywords: List[str]) -> bool:
         """检查节点是否匹配关键词"""
+        # 防御性检查：确保 keywords 为列表类型
+        # 若传入字符串，逐字符迭代会导致单字符匹配（如 'a', 'e'），污染结果
+        if isinstance(keywords, str):
+            keywords = [k.strip() for k in keywords.replace(',', ' ').split() if k.strip()]
+        elif not isinstance(keywords, list):
+            keywords = []
+        
         if not keywords:
             # 无关键词时：只匹配 section 类型（避免返回整个图谱）
             # 这样至少能获取到各引擎的段落摘要

@@ -151,8 +151,16 @@ class GraphRAGQueryNode(BaseNode):
                 break
             
             # 4. 执行查询：按 LLM 给出的参数查询本地图谱
+            # 规范化 keywords：确保为列表类型（LLM 可能返回字符串）
+            raw_keywords = decision.get('keywords', [])
+            if isinstance(raw_keywords, str):
+                # 按空格和逗号分割字符串为关键词列表
+                raw_keywords = [k.strip() for k in raw_keywords.replace(',', ' ').split() if k.strip()]
+            elif not isinstance(raw_keywords, list):
+                raw_keywords = []
+            
             params = QueryParams(
-                keywords=decision.get('keywords', []),
+                keywords=raw_keywords,
                 node_types=decision.get('node_types'),
                 engine_filter=decision.get('engine_filter'),
                 depth=decision.get('depth', 1)
