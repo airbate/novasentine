@@ -165,6 +165,11 @@ BettaFish/
 │   ├── ir/                                 # Report Intermediate Representation (IR) contract & validation
 │   │   ├── schema.py                       # Block/mark schema constant definitions
 │   │   └── validator.py                    # Chapter JSON structure validator
+│   ├── graphrag/                           # GraphRAG graph building and search
+│   │   ├── graph_builder.py                # Build graph from state JSON + forum logs
+│   │   ├── graph_storage.py                # Graph object manager and graphrag.json I/O
+│   │   ├── query_engine.py                 # Keyword/type/depth query entry
+│   │   └── ...                             # Forum/state parsers, prompts, etc.
 │   ├── nodes/                              # Full workflow reasoning nodes
 │   │   ├── base_node.py                    # Node base class + logging/state hooks
 │   │   ├── template_selection_node.py      # Template candidate collection and LLM selection
