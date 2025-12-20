@@ -191,7 +191,7 @@ class GraphRAGQueryNode(BaseNode):
                 logger.warning(f"Knowledge Query: GraphRAG 节点写日志失败: {log_exc}")
             
             # 5. 记录历史
-            history.add(decision, result)
+            history.add(params_dict, result)
         
         # 6. 合并所有结果
         merged = self._merge_results(all_results)
