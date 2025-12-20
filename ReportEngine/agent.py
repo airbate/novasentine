@@ -719,6 +719,40 @@ class ReportAgent:
                             stream_callback=chunk_callback
                         )
                         break
+                    except (AttributeError, TypeError, KeyError, IndexError, ValueError, json.JSONDecodeError) as structure_error:
+                        # 捕获因 JSON 结构异常导致的运行时错误，包装为可重试异常
+                        # 包括：
+                        # - AttributeError: 如 list.get() 调用失败
+                        # - TypeError: 类型不匹配
+                        # - KeyError: 字典键缺失
+                        # - IndexError: 列表索引越界
+                        # - ValueError: 值错误（如 LLM 返回空内容、缺少必要字段）
+                        # - json.JSONDecodeError: JSON 解析失败（未被内部捕获的情况）
+                        error_type = type(structure_error).__name__
+                        logger.warning(
+                            "章节 {title} 生成过程中发生 {error_type}（第 {attempt}/{total} 次尝试），将尝试重新生成: {error}",
+                            title=section.title,
+                            error_type=error_type,
+                            attempt=attempt,
+                            total=chapter_max_attempts,
+                            error=structure_error,
+                        )
+                        emit('chapter_status', {
+                            'chapterId': section.chapter_id,
+                            'title': section.title,
+                            'status': 'retrying' if attempt < chapter_max_attempts else 'error',
+                            'attempt': attempt,
+                            'error': str(structure_error),
+                            'reason': 'structure_error',
+                            'error_type': error_type
+                        })
+                        if attempt >= chapter_max_attempts:
+                            # 达到最大重试次数，包装为 ChapterJsonParseError 抛出
+                            raise ChapterJsonParseError(
+                                f"{section.title} 章节因 {error_type} 在 {chapter_max_attempts} 次尝试后仍无法生成: {structure_error}"
+                            ) from structure_error
+                        attempt += 1
+                        continue
                     except (ChapterJsonParseError, ChapterContentError, ChapterValidationError) as structured_error:
                         if isinstance(structured_error, ChapterContentError):
                             error_kind = "content_sparse"
