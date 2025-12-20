@@ -501,6 +501,9 @@ python report_engine_only.py --skip-markdown
 # 显示详细日志
 python report_engine_only.py --verbose
 
+# 按需开启 GraphRAG 并调整查询次数（未传参则遵循 .env，默认关闭）
+python report_engine_only.py --graphrag-enabled true --graphrag-max-queries 3
+
 # 查看帮助信息
 python report_engine_only.py --help
 ```
@@ -516,6 +519,7 @@ python report_engine_only.py --help
    - PDF报告（如果有依赖）保存到 `final_reports/pdf/` 目录
    - Markdown报告（可用 `--skip-markdown` 关闭）保存到 `final_reports/md/` 目录
    - 文件命名格式：`final_report_{主题}_{时间戳}.html/pdf/md`
+6. **GraphRAG 可选启用**：命令行参数优先于 `.env`，若两者均未配置则保持关闭状态
 
 **注意事项：**
 

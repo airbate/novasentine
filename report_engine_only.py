@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from loguru import logger
+from config import settings as global_settings, Settings
 
 # 全局配置
 VERBOSE = False
@@ -221,7 +222,12 @@ def extract_query_from_reports(latest_files: Dict[str, str]) -> str:
     return "综合分析报告"
 
 
-def generate_report(reports: list[str], query: str, pdf_available: bool) -> Dict[str, Any]:
+def generate_report(
+    reports: list[str],
+    query: str,
+    pdf_available: bool,
+    agent_config: Optional[Settings] = None
+) -> Dict[str, Any]:
     """
     调用Report Engine生成报告
 
@@ -229,6 +235,7 @@ def generate_report(reports: list[str], query: str, pdf_available: bool) -> Dict
         reports: 报告内容列表
         query: 报告主题
         pdf_available: PDF功能是否可用
+        agent_config: ReportAgent 配置（命令行可覆盖 .env）
 
     Returns:
         Dict[str, Any]: 包含生成结果的字典
@@ -244,7 +251,7 @@ def generate_report(reports: list[str], query: str, pdf_available: bool) -> Dict
 
         # 初始化Report Agent
         logger.info("正在初始化 Report Engine...")
-        agent = ReportAgent()
+        agent = ReportAgent(config=agent_config)
 
         # 定义流式事件处理器
         def stream_handler(event_type: str, payload: Dict[str, Any]):
@@ -407,6 +414,19 @@ def save_markdown(document_ir_path: str, query: str) -> Optional[str]:
         return None
 
 
+def parse_bool_arg(value: str) -> bool:
+    """将字符串解析为布尔值，用于命令行参数"""
+    true_values = {'true', '1', 'yes', 'y', 'on'}
+    false_values = {'false', '0', 'no', 'n', 'off'}
+
+    value_lower = value.lower()
+    if value_lower in true_values:
+        return True
+    if value_lower in false_values:
+        return False
+    raise argparse.ArgumentTypeError("GRAPHRAG_ENABLED 仅接受 true/false")
+
+
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
@@ -449,7 +469,39 @@ def parse_arguments():
         help='显示详细日志信息'
     )
 
+    parser.add_argument(
+        '--graphrag-enabled',
+        type=parse_bool_arg,
+        default=None,
+        help='是否开启GraphRAG，默认遵循 .env（未设置则关闭）'
+    )
+
+    parser.add_argument(
+        '--graphrag-max-queries',
+        type=int,
+        default=None,
+        help='GraphRAG 每章节最大查询次数（默认遵循 .env，且仅在开启时生效）'
+    )
+
     return parser.parse_args()
+
+
+def build_agent_config(args) -> Settings:
+    """基于 .env 配置并融合命令行覆盖项生成最终配置"""
+    config_overrides: Dict[str, Any] = {}
+
+    if args.graphrag_enabled is not None:
+        config_overrides['GRAPHRAG_ENABLED'] = args.graphrag_enabled
+    if args.graphrag_max_queries is not None:
+        if args.graphrag_max_queries <= 0:
+            logger.warning("GRAPHRAG_MAX_QUERIES 必须大于 0，本次将继续使用 .env/默认值")
+        else:
+            config_overrides['GRAPHRAG_MAX_QUERIES'] = args.graphrag_max_queries
+
+    if not config_overrides:
+        return global_settings
+
+    return global_settings.model_copy(update=config_overrides)
 
 
 def main():
@@ -465,6 +517,15 @@ def main():
     logger.info("║" + " " * 20 + "Report Engine 命令行版本" + " " * 24 + "║")
     logger.info("╚" + "═" * 68 + "╝")
     logger.info("\n")
+
+    # 合并 GraphRAG 相关配置（命令行 > .env > 默认关闭）
+    agent_config = build_agent_config(args)
+    logger.info(
+        f"GraphRAG 开关: {agent_config.GRAPHRAG_ENABLED} "
+        "(优先级：命令行 > .env > 默认False)"
+    )
+    if agent_config.GRAPHRAG_ENABLED:
+        logger.info(f"GraphRAG 查询上限: {agent_config.GRAPHRAG_MAX_QUERIES}")
 
     # 步骤 1: 检查依赖
     pdf_available, _ = check_dependencies()
@@ -498,7 +559,7 @@ def main():
     logger.info(f"使用报告主题: {query}")
 
     # 步骤 3: 生成报告
-    result = generate_report(reports, query, pdf_available)
+    result = generate_report(reports, query, pdf_available, agent_config)
 
     # 步骤 4: 保存文件
     logger.info("\n" + "=" * 70)

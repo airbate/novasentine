@@ -496,6 +496,9 @@ python report_engine_only.py --skip-markdown
 # Show verbose logging
 python report_engine_only.py --verbose
 
+# Turn on GraphRAG via CLI and adjust query cap (falls back to .env, default off)
+python report_engine_only.py --graphrag-enabled true --graphrag-max-queries 3
+
 # Show help information
 python report_engine_only.py --help
 ```
@@ -511,6 +514,7 @@ python report_engine_only.py --help
    - PDF reports (if dependencies available) saved to `final_reports/pdf/` directory
    - Markdown reports (disable with `--skip-markdown`) saved to `final_reports/md/` directory
    - File naming format: `final_report_{topic}_{timestamp}.html/pdf/md`
+6. **Optional GraphRAG**: CLI flags override `.env`; if neither is set the feature stays off
 
 **Notes:**
 
