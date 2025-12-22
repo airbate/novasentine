@@ -255,10 +255,11 @@ BettaFish/
 ├── templates/                              # Flask前端模板
 │   └── index.html                          # 主界面HTML
 ├── static/                                 # 静态资源
-│   └── image/                              # 图片资源
-│       ├── logo_compressed.png
-│       ├── framework.png
-│       └── ...
+│   ├── image/                              # 图片资源
+│   │   └── ...
+│   ├── Partial README for PDF Exporting/   # PDF导出依赖配置说明
+│   └── v2_report_example/                  # 报告渲染示例
+│       └── report_all_blocks_demo/         # 全块类型演示（HTML/PDF/MD）
 ├── logs/                                   # 运行日志目录
 ├── final_reports/                          # 最终生成的报告文件
 │   ├── ir/                                 # 报告IR JSON文件
