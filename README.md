@@ -27,10 +27,9 @@
 > [!IMPORTANT]  
 > 查看我们最新发布的预测引擎：[MiroFish-简洁通用的群体智能引擎，预测万物](https://github.com/666ghj/MiroFish)
 > 
-> “数据分析三板斧”全线贯通：我们激动的宣布 MiroFish 正式发布！随着最后一块版图补齐，我们构建了从 BettaFish（数据收集与分析）到 MiroFish（全景预测）的完整链路，至此，从原始数据到智能决策的闭环已成，让预见未来成为可能。
-<div align="center">
-<img src="static/image/MiroFish_logo_compressed.jpeg" alt="banner" width="400">
-</div>
+> <img src="static/image/MiroFish_logo_compressed.jpeg" alt="banner" width="300">
+>
+> “数据分析三板斧”全线贯通：我们激动的宣布 MiroFish 正式发布！随着最后一块版图补齐，我们构建了从 BettaFish（数据收集与分析）到 MiroFish（全景预测）的完整链路。至此，从原始数据到智能决策的闭环已成，让预见未来成为可能！
 
 ## ⚡ 项目概述
 
