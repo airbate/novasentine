@@ -254,10 +254,11 @@ BettaFish/
 ├── templates/                              # Flask frontend templates
 │   └── index.html                          # Main interface HTML
 ├── static/                                 # Static resources
-│   └── image/                              # Image resources
-│       ├── logo_compressed.png
-│       ├── framework.png
-│       └── ...
+│   ├── image/                              # Image resources
+│   │   └── ...
+│   ├── Partial README for PDF Exporting/   # PDF export dependency setup guide
+│   └── v2_report_example/                  # Report rendering examples
+│       └── report_all_blocks_demo/         # Full block types demo (HTML/PDF/MD)
 ├── logs/                                   # Runtime log directory
 ├── final_reports/                          # Final generated report files
 │   ├── ir/                                 # Report IR JSON files
