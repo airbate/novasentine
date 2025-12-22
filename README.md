@@ -715,13 +715,12 @@ class DeepSearchAgent:
 
 ## 🦖 下一步开发计划
 
-现在系统只完成了"三板斧"中的前两步，即：输入要求->详细分析，还缺少一步预测，直接将他继续交给LLM是不具有说服力的。
+现在系统完成了最后一步预测！访问查看【MiroFish-预测万物】：https://github.com/666ghj/MiroFish
 
 <div align="center">
+<img src="static/image/MiroFish_logo_compressed.jpeg" alt="banner" width="800">
 <img src="static/image/banner_compressed.png" alt="banner" width="800">
 </div>
-
-目前我们经过很长一段时间的爬取收集，拥有了大量全网话题热度随时间、爆点等的变化趋势热度数据，已经具备了可以开发预测模型的条件。我们团队将运用时序模型、图神经网络、多模态融合等预测模型技术储备于此，实现真正基于数据驱动的舆情预测功能。
 
 ## ⚠️ 免责声明
 
