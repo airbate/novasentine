@@ -340,6 +340,7 @@ test_results/
 # Ai操作指引文件
 OperationGuidance/
 
+db_data/
 insight_engine_streamlit_reports/
 media_engine_streamlit_reports/
 query_engine_streamlit_reports/

@@ -186,8 +186,8 @@ flowchart TB
    - 记录任务状态、进度、结果等
 
 5. **平台内容表**（继承自MediaCrawler）
-   - xhs_note - 小红书笔记（暂时废弃，详情查看：https://github.com/NanmiCoder/MediaCrawler/issues/754）
-   - douyin_aweme - 抖音视频
+    - xhs_note - 小红书笔记
+    - douyin_aweme - 抖音视频
    - kuaishou_video - 快手视频
    - bilibili_video - B站视频
    - weibo_note - 微博帖子
@@ -204,12 +204,26 @@ flowchart TB
 - 操作系统：Windows/Linux/macOS
 
 
-### 1. 克隆项目
+### 1. 克隆项目与获取子模块
+
+MindSpider 作为 BettaFish 的核心组件运行。请克隆 BettaFish 主项目并同步获取 `MediaCrawler` 爬虫子模块。
+
+**方式一：克隆时直接获取（推荐）**
 
 ```bash
-git clone https://github.com/yourusername/MindSpider.git
-cd MindSpider
+git clone --recurse-submodules https://github.com/666ghj/BettaFish.git
+cd BettaFish/MindSpider
 ```
+
+**方式二：已克隆主项目后补充拉取**
+
+如果你已经克隆了 BettaFish 但 `MindSpider/DeepSentimentCrawling/MediaCrawler` 目录为空，请在**项目根目录**运行：
+
+```bash
+git submodule update --init --recursive
+```
+
+> **注意**：MediaCrawler 的 Python 依赖会在首次运行 `python main.py` 时由系统自动检测并静默安装到当前环境。
 
 ### 2. 创建并激活环境
 
@@ -316,7 +330,7 @@ python main.py --broad-topic --date 2024-01-15
 
 **首次使用每个平台都需要登录，这是最关键的步骤：**
 
-1. **小红书登录**（暂时废弃，详情查看：https://github.com/NanmiCoder/MediaCrawler/issues/754）
+1. **小红书登录**
 ```bash
 # 测试小红书爬取（会弹出二维码）
 python main.py --deep-sentiment --platforms xhs --test
