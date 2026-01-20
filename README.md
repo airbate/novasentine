@@ -6,7 +6,7 @@
 
 <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
+<a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -79,9 +79,8 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 </details>
 
 <details>
-<summary>免费领取1GB免费试用，企业级全球代理IP与Scraper API解决方案提供商，立即注册：</a><span style="margin-left: 10px"><a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></summary>
-<img src="static/image/banner_thordata.png" height="250" alt="banner">
-Thordata通过高可靠性的代理网络和自动化抓取解决方案，帮助企业轻松获取网络公开数据，并承诺99.9%的正常运行时间与99.7%的成功率。
+<summary>免费试用流量，永不过期！覆盖全球 IP资源，轻松应对数据爬取与大数据采集：</a><span style="margin-left: 10px"><a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></summary>
+免费试用流量，流量时效永不过期！覆盖 200+ 国家与地区的 9000 万+高品质真实住宅 IP，全面支持 HTTP(S) / SOCKS5 协议与无限并发连接，轻松应对数据爬取、市场调研与大数据采集，保障 99.99% 稳定运行。立即开启全球高效代理访问。
 </details>
 
 ## 🏗️ 系统架构

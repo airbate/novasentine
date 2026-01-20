@@ -6,7 +6,7 @@
 
 <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
+<a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -78,9 +78,8 @@ Anspire Open is a leading infrastructure provider for the agent era. We offer de
 </details>
 
 <details>
-<summary>Claim 1GB free trial, enterprise-grade global proxy IP and Scraper API solution provider, register now: <span style="margin-left: 10px"><a href="https://www.thordata.com/?ls=github&lk=BettaFish" target="_blank"><img src="./static/image/logo_thordata.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
-<img src="static/image/banner_thordata.png" height="250" alt="banner">
-Thordata helps enterprises easily access publicly available web data through highly reliable proxy networks and automated scraping solutions, with a commitment to 99.9% uptime and 99.7% success rate.
+<summary>Free trial traffic, never expires! Global IP resources covering 200+ countries and regions, easily handle data scraping and big data collection: <span style="margin-left: 10px"><a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
+Free trial traffic, never expires! Over 90 million high-quality real residential IPs covering 200+ countries and regions, fully supporting HTTP(S)/SOCKS5 protocols and unlimited concurrent connections, easily handle data scraping, market research, and big data collection, with 99.99% stable uptime. Start your global efficient proxy access now.
 </details>
 
 ## 🏗️ System Architecture
