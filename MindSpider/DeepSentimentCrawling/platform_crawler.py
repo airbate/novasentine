@@ -57,7 +57,7 @@ class PlatformCrawler:
             pg_password = config.settings.DB_PASSWORD if is_postgresql else "bettafish"
             pg_user = config.settings.DB_USER if is_postgresql else "bettafish"
             pg_host = config.settings.DB_HOST if is_postgresql else "127.0.0.1"
-            pg_port = config.settings.DB_PORT if is_postgresql else 5432
+            pg_port = config.settings.DB_PORT if is_postgresql else 5444
             pg_db_name = config.settings.DB_NAME if is_postgresql else "bettafish"
             
             # 替换数据库配置 - 使用MindSpider的数据库配置
@@ -105,6 +105,21 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datab
 
 sqlite_db_config = {{
     "db_path": SQLITE_DB_PATH
+}}
+
+# mongodb config
+MONGODB_HOST = os.getenv("MONGODB_HOST", "localhost")
+MONGODB_PORT = os.getenv("MONGODB_PORT", 27017)
+MONGODB_USER = os.getenv("MONGODB_USER", "")
+MONGODB_PWD = os.getenv("MONGODB_PWD", "")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "media_crawler")
+
+mongodb_config = {{
+    "host": MONGODB_HOST,
+    "port": int(MONGODB_PORT),
+    "user": MONGODB_USER,
+    "password": MONGODB_PWD,
+    "db_name": MONGODB_DB_NAME,
 }}
 
 # postgresql config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
@@ -401,7 +416,7 @@ postgresql_db_config = {{
                             total_stats["keyword_results"][keyword] = {}
                         total_stats["keyword_results"][keyword][platform] = result
                     
-                    logger.info(f"   ✅ 成功: {notes_count} 条内容, {comments_count} 条评论")
+                    logger.info(f"   ✅ 爬取成功")
                 else:
                     total_stats["failed_tasks"] += len(keywords)
                     total_stats["platform_summary"][platform]["failed_keywords"] = len(keywords)
@@ -433,15 +448,12 @@ postgresql_db_config = {{
         finish_message += f"\n   成功: {total_stats['successful_tasks']}"
         finish_message += f"\n   失败: {total_stats['failed_tasks']}"
         finish_message += f"\n   成功率: {total_stats['successful_tasks']/total_stats['total_tasks']*100:.1f}%"
-        finish_message += f"\n   总内容: {total_stats['total_notes']} 条"
-        finish_message += f"\n   总评论: {total_stats['total_comments']} 条"
         logger.info(finish_message)
         
-        platform_summary_message = f"\n� 各平台统计:"
+        platform_summary_message = f"\n📈 各平台统计:"
         for platform, stats in total_stats["platform_summary"].items():
             success_rate = stats["successful_keywords"] / len(keywords) * 100 if keywords else 0
-            platform_summary_message += f"\n   {platform}: {stats['successful_keywords']}/{len(keywords)} 关键词成功 ({success_rate:.1f}%), "
-            platform_summary_message += f"{stats['total_notes']} 条内容"
+            platform_summary_message += f"\n   {platform}: {stats['successful_keywords']}/{len(keywords)} 关键词成功 ({success_rate:.1f}%)"
         logger.info(platform_summary_message)
         
         return total_stats
