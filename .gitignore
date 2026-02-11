@@ -346,3 +346,6 @@ media_engine_streamlit_reports/
 query_engine_streamlit_reports/
 final_reports/
 forward_prs.sh
+
+# Claude Code settings
+.claude/
