@@ -349,3 +349,6 @@ forward_prs.sh
 
 # Claude Code settings
 .claude/
+findings.md
+progress.md
+task_plan.md
