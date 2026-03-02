@@ -5,6 +5,7 @@
 import os
 import sys
 import platform
+import unicodedata
 from pathlib import Path
 from loguru import logger
 from ctypes import util as ctypes_util
@@ -12,9 +13,48 @@ from ctypes import util as ctypes_util
 BOX_CONTENT_WIDTH = 62
 
 
+def _display_width(text: str) -> int:
+    """计算字符串在终端中的显示宽度（中文/emoji 等宽字符占 2 列）。"""
+    width = 0
+    chars = list(text)
+    n = len(chars)
+    i = 0
+    while i < n:
+        ch = chars[i]
+        cp = ord(ch)
+
+        # 零宽：组合标记 / 格式字符（含 Zero Width Joiner 等）
+        if unicodedata.category(ch) in ('Mn', 'Me', 'Cf'):
+            i += 1
+            continue
+
+        # East Asian Fullwidth / Wide（中文汉字、全角标点等）
+        if unicodedata.east_asian_width(ch) in ('F', 'W'):
+            width += 2
+            i += 1
+            continue
+
+        # 补充平面 emoji（U+1F000 及以上，如 📄🍎📖🐧🪟）
+        if cp >= 0x1F000:
+            width += 2
+            i += 1
+            continue
+
+        # 文本符号 + VS16 (U+FE0F) → emoji 呈现，宽 2 列（如 ⚠️）
+        if i + 1 < n and ord(chars[i + 1]) == 0xFE0F:
+            width += 2
+            i += 2  # 跳过当前字符和 VS16
+            continue
+
+        width += 1
+        i += 1
+    return width
+
+
 def _box_line(text: str = "") -> str:
     """Render a single line inside the 66-char help box."""
-    return f"║  {text:<{BOX_CONTENT_WIDTH}}║\n"
+    padding = max(0, BOX_CONTENT_WIDTH - _display_width(text))
+    return f"║  {text}{' ' * padding}║\n"
 
 
 def _get_platform_specific_instructions():
