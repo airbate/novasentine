@@ -5,8 +5,7 @@
 <a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
+<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -75,11 +74,6 @@ LLM Model API Sponsor: <a href="https://aihubmix.com/?aff=8Ds9" target="_blank">
 <details>
 <summary>Provider of core agent capabilities including AI web search, file parsing, and web content scraping: <span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></span></summary>
 Anspire Open is a leading infrastructure provider for the agent era. We offer developers the core capability stack needed to build powerful agents. Currently available services include AI web search (multiple versions, highly competitive pricing), file parsing (limited-time free), web content scraping (limited-time free), cloud browser automation (Anspire Browser Agent, in beta), multi-turn rewriting, and more. We continue to provide a solid foundation for agents to connect and operate in complex digital worlds. Seamlessly integrates with mainstream agent platforms such as Dify, Coze, and Yuanqi. Through a transparent credit-based billing system and modular design, we provide enterprises with efficient, low-cost customized support to accelerate intelligent transformation.
-</details>
-
-<details>
-<summary>Free trial traffic, never expires! Global IP resources covering 200+ countries and regions, easily handle data scraping and big data collection: <span style="margin-left: 10px"><a href="https://www.swiftproxy.net/?ref=dai" target="_blank"><img src="./static/image/logo_SwiftProxy.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
-Free trial traffic, never expires! Over 90 million high-quality real residential IPs covering 200+ countries and regions, fully supporting HTTP(S)/SOCKS5 protocols and unlimited concurrent connections, easily handle data scraping, market research, and big data collection, with 99.99% stable uptime. Start your global efficient proxy access now.
 </details>
 
 ## 🏗️ System Architecture
