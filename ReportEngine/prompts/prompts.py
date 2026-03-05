@@ -336,6 +336,7 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
 18. 输出前务必自检JSON语法：禁止出现`{{}}{{`或`][`相连缺少逗号、列表项嵌套超过一层、未闭合的括号或未转义换行，`list` block的items必须是`[[block,...], ...]`结构，若无法满足则返回错误提示而不是输出不合法JSON。
 19. 所有widget块必须在顶层提供`data`或`dataRef`（可将props中的`data`上移），确保Chart.js能够直接渲染；缺失数据时宁可输出表格或段落，绝不留空。
 20. 任何block都必须声明合法`type`（heading/paragraph/list/...）；若需要普通文本请使用`paragraph`并给出`inlines`，禁止返回`type:null`或未知值。
+21. blockquote内容限制：blockquote块内部的blocks只允许包含paragraph类型的block，严禁在blockquote内嵌套表格（table）、列表（list）、图表（widget）、标题（heading）、代码块（code）、公式（math）、嵌套引用（blockquote）等任何非paragraph块；如果引用内容需要用表格/列表等复杂结构呈现，必须将其移到blockquote外部。
 
 <CHAPTER JSON SCHEMA>
 {CHAPTER_JSON_SCHEMA_TEXT}
