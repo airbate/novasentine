@@ -1357,14 +1357,14 @@ class HTMLRenderer:
             if not text:
                 return False
             stripped = text.strip()
-            # 章节号或“第X章/部分”常见格式，避免误删正常数字值
+            # 章节号或"第X章/部分"常见格式，避免误删正常数字值
             heading_patterns = (
                 r"^\d{1,2}(?:\.\d{1,2}){1,3}\s+",
                 r"^第[一二三四五六七八九十]+[章节部分]",
             )
             return any(re.match(pat, stripped) for pat in heading_patterns)
 
-        # 第一阶段：处理“有表头行 + 数据被串在一行”的情况
+        # 第一阶段：处理"有表头行 + 数据被串在一行"的情况
         header_cells = self._flatten_nested_cells((rows[0] or {}).get("cells", []))
         header_count = len(header_cells)
         overflow_fixed = None
