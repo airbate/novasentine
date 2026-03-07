@@ -126,19 +126,19 @@ mongodb_config = {{
     "db_name": MONGODB_DB_NAME,
 }}
 
-# postgresql config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
-POSTGRESQL_DB_PWD = os.getenv("POSTGRESQL_DB_PWD", "{pg_password}")
-POSTGRESQL_DB_USER = os.getenv("POSTGRESQL_DB_USER", "{pg_user}")
-POSTGRESQL_DB_HOST = os.getenv("POSTGRESQL_DB_HOST", "{pg_host}")
-POSTGRESQL_DB_PORT = os.getenv("POSTGRESQL_DB_PORT", "{pg_port}")
-POSTGRESQL_DB_NAME = os.getenv("POSTGRESQL_DB_NAME", "{pg_db_name}")
+# postgres config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
+POSTGRES_DB_PWD = os.getenv("POSTGRES_DB_PWD", "{pg_password}")
+POSTGRES_DB_USER = os.getenv("POSTGRES_DB_USER", "{pg_user}")
+POSTGRES_DB_HOST = os.getenv("POSTGRES_DB_HOST", "{pg_host}")
+POSTGRES_DB_PORT = os.getenv("POSTGRES_DB_PORT", "{pg_port}")
+POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME", "{pg_db_name}")
 
-postgresql_db_config = {{
-    "user": POSTGRESQL_DB_USER,
-    "password": POSTGRESQL_DB_PWD,
-    "host": POSTGRESQL_DB_HOST,
-    "port": POSTGRESQL_DB_PORT,
-    "db_name": POSTGRESQL_DB_NAME,
+postgres_db_config = {{
+    "user": POSTGRES_DB_USER,
+    "password": POSTGRES_DB_PWD,
+    "host": POSTGRES_DB_HOST,
+    "port": POSTGRES_DB_PORT,
+    "db_name": POSTGRES_DB_NAME,
 }}
 
 '''
