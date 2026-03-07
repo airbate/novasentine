@@ -73,7 +73,7 @@ class MindSpider:
         
         def build_async_url() -> str:
             dialect = (settings.DB_DIALECT or "mysql").lower()
-            if dialect == "postgresql":
+            if dialect in ("postgresql", "postgres"):
                 return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
             # 默认使用 mysql 异步驱动 asyncmy
             return (
@@ -104,7 +104,7 @@ class MindSpider:
         
         def build_async_url() -> str:
             dialect = (settings.DB_DIALECT or "mysql").lower()
-            if dialect == "postgresql":
+            if dialect in ("postgresql", "postgres"):
                 return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
             return (
                 f"mysql+asyncmy://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
