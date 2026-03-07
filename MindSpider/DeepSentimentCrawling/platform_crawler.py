@@ -33,10 +33,14 @@ class PlatformCrawler:
         self.supported_platforms = ['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu']
         self.crawl_stats = {}
         
-        # 确保MediaCrawler目录存在
-        if not self.mediacrawler_path.exists():
-            raise FileNotFoundError(f"MediaCrawler目录不存在: {self.mediacrawler_path}")
-        
+        # 确保MediaCrawler子模块已初始化
+        db_config_path = self.mediacrawler_path / "config" / "db_config.py"
+        if not self.mediacrawler_path.exists() or not db_config_path.exists():
+            logger.error("MediaCrawler子模块未初始化或不完整")
+            logger.error("请在项目根目录运行以下命令初始化子模块:")
+            logger.error("   git submodule update --init --recursive")
+            raise FileNotFoundError("MediaCrawler子模块未初始化，请先运行: git submodule update --init --recursive")
+
         logger.info(f"初始化平台爬虫管理器，MediaCrawler路径: {self.mediacrawler_path}")
     
     def configure_mediacrawler_db(self):
