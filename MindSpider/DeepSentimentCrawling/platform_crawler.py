@@ -281,7 +281,8 @@ postgres_db_config = {{
                 "--platform", platform,
                 "--lt", login_type,
                 "--type", "search",
-                "--save_data_option", save_data_option
+                "--save_data_option", save_data_option,
+                "--headless", "false"
             ]
             
             logger.info(f"执行命令: {' '.join(cmd)}")
