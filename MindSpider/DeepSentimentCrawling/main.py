@@ -59,6 +59,8 @@ class DeepSentimentCrawling:
         
         if not summary['has_data']:
             print("⚠️ 没有找到话题数据，无法进行爬取")
+            print("💡 请先运行以下命令获取今日话题数据:")
+            print("   uv run main.py --broad-topic")
             return {"success": False, "error": "没有话题数据"}
         
         # 2. 获取关键词（不分配，所有平台使用相同关键词）
