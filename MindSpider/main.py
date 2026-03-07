@@ -232,7 +232,7 @@ class MindSpider:
         logger.info("正在安装MediaCrawler依赖...")
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", str(mediacrawler_req), "-q"],
+                ["uv", "pip", "install", "-r", str(mediacrawler_req), "-q"],
                 capture_output=True,
                 text=True,
                 timeout=300  # 5分钟超时
