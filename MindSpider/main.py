@@ -8,6 +8,8 @@ MindSpider - AI爬虫项目主程序
 import os
 import sys
 import argparse
+import difflib
+import re
 from datetime import date, datetime
 from pathlib import Path
 import subprocess
@@ -437,9 +439,42 @@ class MindSpider:
         logger.info("MindSpider项目初始化完成！")
         return True
 
+PLATFORM_CHOICES = ['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu']
+
+PLATFORM_ALIASES = {
+    'weibo': 'wb', 'webo': 'wb', '微博': 'wb',
+    'douyin': 'dy', '抖音': 'dy',
+    'kuaishou': 'ks', '快手': 'ks',
+    'bilibili': 'bili', 'b站': 'bili', 'bstation': 'bili',
+    'xiaohongshu': 'xhs', '小红书': 'xhs', 'redbook': 'xhs',
+    'zhihu': 'zhihu', '知乎': 'zhihu',
+    'tieba': 'tieba', '贴吧': 'tieba',
+}
+
+class SuggestiveArgumentParser(argparse.ArgumentParser):
+    """在参数错误时给出相似候选项提示"""
+
+    def error(self, message: str):
+        match = re.search(r"invalid choice: '([^']+)'", message)
+        if match:
+            bad = match.group(1)
+            alias = PLATFORM_ALIASES.get(bad.lower())
+            suggestions = difflib.get_close_matches(bad, PLATFORM_CHOICES, n=3, cutoff=0.3)
+            if alias:
+                print(f"错误: '{bad}' 不是合法的平台代码。您是否想输入 '{alias}'？", file=sys.stderr)
+            elif suggestions:
+                print(f"错误: '{bad}' 不是合法的平台代码。最接近的选项: {suggestions}", file=sys.stderr)
+            else:
+                print(f"错误: '{bad}' 不是合法的平台代码。合法平台: {PLATFORM_CHOICES}", file=sys.stderr)
+            print(f"完整错误: {message}", file=sys.stderr)
+        else:
+            print(f"错误: {message}", file=sys.stderr)
+        self.print_usage(sys.stderr)
+        sys.exit(2)
+
 def main():
     """命令行入口"""
-    parser = argparse.ArgumentParser(description="MindSpider - AI爬虫项目主程序")
+    parser = SuggestiveArgumentParser(description="MindSpider - AI爬虫项目主程序")
     
     # 基本操作
     parser.add_argument("--setup", action="store_true", help="初始化项目设置")
@@ -453,8 +488,8 @@ def main():
     
     # 参数配置
     parser.add_argument("--date", type=str, help="目标日期 (YYYY-MM-DD)，默认为今天")
-    parser.add_argument("--platforms", type=str, nargs='+', 
-                       choices=['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu'],
+    parser.add_argument("--platforms", type=str, nargs='+',
+                       choices=PLATFORM_CHOICES,
                        help="指定爬取平台")
     parser.add_argument("--keywords-count", type=int, default=100, help="话题提取的关键词数量")
     parser.add_argument("--max-keywords", type=int, default=50, help="每个平台最大关键词数量")
