@@ -185,26 +185,42 @@ postgresql_db_config = {{
                 content = f.read()
             
             # 修改关键配置项
+            # skip_until_paren: 当原始行是多行赋值（以"("结尾）被替换为单行后，
+            # 需要跳过后续续行直到遇到配对的")"
             lines = content.split('\n')
             new_lines = []
-            
+            skip_until_paren = False
+
             for line in lines:
+                # 跳过多行赋值的续行
+                if skip_until_paren:
+                    if line.strip() == ')':
+                        skip_until_paren = False
+                    continue
+
+                replaced = None
                 if line.startswith('PLATFORM = '):
-                    new_lines.append(f'PLATFORM = "{platform}"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu')
+                    replaced = f'PLATFORM = "{platform}"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu'
                 elif line.startswith('KEYWORDS = '):
-                    new_lines.append(f'KEYWORDS = "{keywords_str}"  # 关键词搜索配置，以英文逗号分隔')
+                    replaced = f'KEYWORDS = "{keywords_str}"  # 关键词搜索配置，以英文逗号分隔'
                 elif line.startswith('CRAWLER_TYPE = '):
-                    new_lines.append(f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)')
+                    replaced = f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)'
                 elif line.startswith('SAVE_DATA_OPTION = '):
-                    new_lines.append(f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql')
+                    replaced = f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql'
                 elif line.startswith('CRAWLER_MAX_NOTES_COUNT = '):
-                    new_lines.append(f'CRAWLER_MAX_NOTES_COUNT = {max_notes}')
+                    replaced = f'CRAWLER_MAX_NOTES_COUNT = {max_notes}'
                 elif line.startswith('ENABLE_GET_COMMENTS = '):
-                    new_lines.append('ENABLE_GET_COMMENTS = True')
+                    replaced = 'ENABLE_GET_COMMENTS = True'
                 elif line.startswith('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = '):
-                    new_lines.append('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20')
+                    replaced = 'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20'
                 elif line.startswith('HEADLESS = '):
-                    new_lines.append('HEADLESS = True')  # 使用无头模式
+                    replaced = 'HEADLESS = True'
+
+                if replaced is not None:
+                    new_lines.append(replaced)
+                    # 若原始行是多行赋值开头（以"("结尾），跳过后续续行
+                    if line.rstrip().endswith('('):
+                        skip_until_paren = True
                 else:
                     new_lines.append(line)
             
