@@ -230,23 +230,27 @@ class MindSpider:
                 return True
         
         logger.info("正在安装MediaCrawler依赖...")
+        install_commands = [
+            [sys.executable, "-m", "pip", "install", "-r", str(mediacrawler_req), "-q"],
+            ["uv", "pip", "install", "-r", str(mediacrawler_req), "-q"],
+        ]
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", str(mediacrawler_req), "-q"],
-                capture_output=True,
-                text=True,
-                timeout=300  # 5分钟超时
-            )
-            
-            if result.returncode == 0:
-                # 创建标记文件
-                marker_file.touch()
-                logger.info("MediaCrawler依赖安装成功")
-                return True
-            else:
-                logger.error(f"MediaCrawler依赖安装失败: {result.stderr}")
-                return False
-                
+            for cmd in install_commands:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5分钟超时
+                )
+                if result.returncode == 0:
+                    marker_file.touch()
+                    logger.info(f"MediaCrawler依赖安装成功 (via {cmd[0]})")
+                    return True
+                logger.debug(f"{cmd[0]} 安装失败，尝试下一种方式: {result.stderr.strip()}")
+
+            logger.error("MediaCrawler依赖安装失败：所有安装方式均不可用")
+            return False
+
         except subprocess.TimeoutExpired:
             logger.error("MediaCrawler依赖安装超时")
             return False
