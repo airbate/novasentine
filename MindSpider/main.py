@@ -298,10 +298,13 @@ class MindSpider:
                                    test_mode: bool = False) -> bool:
         """运行DeepSentimentCrawling模块"""
         logger.info("运行DeepSentimentCrawling模块...")
-        
+
         # 自动检查并初始化数据库表
         if not self._ensure_database_ready():
             return False
+
+        # 自动安装MediaCrawler依赖
+        self._install_mediacrawler_dependencies()
         
         if not target_date:
             target_date = date.today()
