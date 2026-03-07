@@ -173,8 +173,8 @@ postgres_db_config = {{
             # 判断数据库类型，确定 SAVE_DATA_OPTION
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
-            
+            save_data_option = "postgres" if is_postgresql else "db"
+
             base_config_path = self.mediacrawler_path / "config" / "base_config.py"
             
             # 将关键词列表转换为逗号分隔的字符串
@@ -206,7 +206,7 @@ postgres_db_config = {{
                 elif line.startswith('CRAWLER_TYPE = '):
                     replaced = f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)'
                 elif line.startswith('SAVE_DATA_OPTION = '):
-                    replaced = f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql'
+                    replaced = f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgres'
                 elif line.startswith('CRAWLER_MAX_NOTES_COUNT = '):
                     replaced = f'CRAWLER_MAX_NOTES_COUNT = {max_notes}'
                 elif line.startswith('ENABLE_GET_COMMENTS = '):
@@ -273,8 +273,8 @@ postgres_db_config = {{
             # 判断数据库类型，确定 save_data_option
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
-            
+            save_data_option = "postgres" if is_postgresql else "db"
+
             # 构建命令
             cmd = [
                 sys.executable, "main.py",
