@@ -8,6 +8,8 @@ MindSpider - AI爬虫项目主程序
 import os
 import sys
 import argparse
+import difflib
+import re
 from datetime import date, datetime
 from pathlib import Path
 import subprocess
@@ -73,7 +75,7 @@ class MindSpider:
         
         def build_async_url() -> str:
             dialect = (settings.DB_DIALECT or "mysql").lower()
-            if dialect == "postgresql":
+            if dialect in ("postgresql", "postgres"):
                 return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
             # 默认使用 mysql 异步驱动 asyncmy
             return (
@@ -104,7 +106,7 @@ class MindSpider:
         
         def build_async_url() -> str:
             dialect = (settings.DB_DIALECT or "mysql").lower()
-            if dialect == "postgresql":
+            if dialect in ("postgresql", "postgres"):
                 return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
             return (
                 f"mysql+asyncmy://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
@@ -230,23 +232,27 @@ class MindSpider:
                 return True
         
         logger.info("正在安装MediaCrawler依赖...")
+        install_commands = [
+            [sys.executable, "-m", "pip", "install", "-r", str(mediacrawler_req), "-q"],
+            ["uv", "pip", "install", "-r", str(mediacrawler_req), "-q"],
+        ]
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", str(mediacrawler_req), "-q"],
-                capture_output=True,
-                text=True,
-                timeout=300  # 5分钟超时
-            )
-            
-            if result.returncode == 0:
-                # 创建标记文件
-                marker_file.touch()
-                logger.info("MediaCrawler依赖安装成功")
-                return True
-            else:
-                logger.error(f"MediaCrawler依赖安装失败: {result.stderr}")
-                return False
-                
+            for cmd in install_commands:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5分钟超时
+                )
+                if result.returncode == 0:
+                    marker_file.touch()
+                    logger.info(f"MediaCrawler依赖安装成功 (via {cmd[0]})")
+                    return True
+                logger.debug(f"{cmd[0]} 安装失败，尝试下一种方式: {result.stderr.strip()}")
+
+            logger.error("MediaCrawler依赖安装失败：所有安装方式均不可用")
+            return False
+
         except subprocess.TimeoutExpired:
             logger.error("MediaCrawler依赖安装超时")
             return False
@@ -298,10 +304,13 @@ class MindSpider:
                                    test_mode: bool = False) -> bool:
         """运行DeepSentimentCrawling模块"""
         logger.info("运行DeepSentimentCrawling模块...")
-        
+
         # 自动检查并初始化数据库表
         if not self._ensure_database_ready():
             return False
+
+        # 自动安装MediaCrawler依赖
+        self._install_mediacrawler_dependencies()
         
         if not target_date:
             target_date = date.today()
@@ -430,9 +439,42 @@ class MindSpider:
         logger.info("MindSpider项目初始化完成！")
         return True
 
+PLATFORM_CHOICES = ['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu']
+
+PLATFORM_ALIASES = {
+    'weibo': 'wb', 'webo': 'wb', '微博': 'wb',
+    'douyin': 'dy', '抖音': 'dy',
+    'kuaishou': 'ks', '快手': 'ks',
+    'bilibili': 'bili', 'b站': 'bili', 'bstation': 'bili',
+    'xiaohongshu': 'xhs', '小红书': 'xhs', 'redbook': 'xhs',
+    'zhihu': 'zhihu', '知乎': 'zhihu',
+    'tieba': 'tieba', '贴吧': 'tieba',
+}
+
+class SuggestiveArgumentParser(argparse.ArgumentParser):
+    """在参数错误时给出相似候选项提示"""
+
+    def error(self, message: str):
+        match = re.search(r"invalid choice: '([^']+)'", message)
+        if match:
+            bad = match.group(1)
+            alias = PLATFORM_ALIASES.get(bad.lower())
+            suggestions = difflib.get_close_matches(bad, PLATFORM_CHOICES, n=3, cutoff=0.3)
+            if alias:
+                print(f"错误: '{bad}' 不是合法的平台代码。您是否想输入 '{alias}'？", file=sys.stderr)
+            elif suggestions:
+                print(f"错误: '{bad}' 不是合法的平台代码。最接近的选项: {suggestions}", file=sys.stderr)
+            else:
+                print(f"错误: '{bad}' 不是合法的平台代码。合法平台: {PLATFORM_CHOICES}", file=sys.stderr)
+            print(f"完整错误: {message}", file=sys.stderr)
+        else:
+            print(f"错误: {message}", file=sys.stderr)
+        self.print_usage(sys.stderr)
+        sys.exit(2)
+
 def main():
     """命令行入口"""
-    parser = argparse.ArgumentParser(description="MindSpider - AI爬虫项目主程序")
+    parser = SuggestiveArgumentParser(description="MindSpider - AI爬虫项目主程序")
     
     # 基本操作
     parser.add_argument("--setup", action="store_true", help="初始化项目设置")
@@ -446,8 +488,8 @@ def main():
     
     # 参数配置
     parser.add_argument("--date", type=str, help="目标日期 (YYYY-MM-DD)，默认为今天")
-    parser.add_argument("--platforms", type=str, nargs='+', 
-                       choices=['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu'],
+    parser.add_argument("--platforms", type=str, nargs='+',
+                       choices=PLATFORM_CHOICES,
                        help="指定爬取平台")
     parser.add_argument("--keywords-count", type=int, default=100, help="话题提取的关键词数量")
     parser.add_argument("--max-keywords", type=int, default=50, help="每个平台最大关键词数量")

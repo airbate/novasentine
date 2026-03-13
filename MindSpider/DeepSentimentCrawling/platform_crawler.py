@@ -33,10 +33,14 @@ class PlatformCrawler:
         self.supported_platforms = ['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu']
         self.crawl_stats = {}
         
-        # 确保MediaCrawler目录存在
-        if not self.mediacrawler_path.exists():
-            raise FileNotFoundError(f"MediaCrawler目录不存在: {self.mediacrawler_path}")
-        
+        # 确保MediaCrawler子模块已初始化
+        db_config_path = self.mediacrawler_path / "config" / "db_config.py"
+        if not self.mediacrawler_path.exists() or not db_config_path.exists():
+            logger.error("MediaCrawler子模块未初始化或不完整")
+            logger.error("请在项目根目录运行以下命令初始化子模块:")
+            logger.error("   git submodule update --init --recursive")
+            raise FileNotFoundError("MediaCrawler子模块未初始化，请先运行: git submodule update --init --recursive")
+
         logger.info(f"初始化平台爬虫管理器，MediaCrawler路径: {self.mediacrawler_path}")
     
     def configure_mediacrawler_db(self):
@@ -122,19 +126,19 @@ mongodb_config = {{
     "db_name": MONGODB_DB_NAME,
 }}
 
-# postgresql config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
-POSTGRESQL_DB_PWD = os.getenv("POSTGRESQL_DB_PWD", "{pg_password}")
-POSTGRESQL_DB_USER = os.getenv("POSTGRESQL_DB_USER", "{pg_user}")
-POSTGRESQL_DB_HOST = os.getenv("POSTGRESQL_DB_HOST", "{pg_host}")
-POSTGRESQL_DB_PORT = os.getenv("POSTGRESQL_DB_PORT", "{pg_port}")
-POSTGRESQL_DB_NAME = os.getenv("POSTGRESQL_DB_NAME", "{pg_db_name}")
+# postgres config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
+POSTGRES_DB_PWD = os.getenv("POSTGRES_DB_PWD", "{pg_password}")
+POSTGRES_DB_USER = os.getenv("POSTGRES_DB_USER", "{pg_user}")
+POSTGRES_DB_HOST = os.getenv("POSTGRES_DB_HOST", "{pg_host}")
+POSTGRES_DB_PORT = os.getenv("POSTGRES_DB_PORT", "{pg_port}")
+POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME", "{pg_db_name}")
 
-postgresql_db_config = {{
-    "user": POSTGRESQL_DB_USER,
-    "password": POSTGRESQL_DB_PWD,
-    "host": POSTGRESQL_DB_HOST,
-    "port": POSTGRESQL_DB_PORT,
-    "db_name": POSTGRESQL_DB_NAME,
+postgres_db_config = {{
+    "user": POSTGRES_DB_USER,
+    "password": POSTGRES_DB_PWD,
+    "host": POSTGRES_DB_HOST,
+    "port": POSTGRES_DB_PORT,
+    "db_name": POSTGRES_DB_NAME,
 }}
 
 '''
@@ -169,8 +173,8 @@ postgresql_db_config = {{
             # 判断数据库类型，确定 SAVE_DATA_OPTION
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
-            
+            save_data_option = "postgres" if is_postgresql else "db"
+
             base_config_path = self.mediacrawler_path / "config" / "base_config.py"
             
             # 将关键词列表转换为逗号分隔的字符串
@@ -181,26 +185,42 @@ postgresql_db_config = {{
                 content = f.read()
             
             # 修改关键配置项
+            # skip_until_paren: 当原始行是多行赋值（以"("结尾）被替换为单行后，
+            # 需要跳过后续续行直到遇到配对的")"
             lines = content.split('\n')
             new_lines = []
-            
+            skip_until_paren = False
+
             for line in lines:
+                # 跳过多行赋值的续行
+                if skip_until_paren:
+                    if line.strip() == ')':
+                        skip_until_paren = False
+                    continue
+
+                replaced = None
                 if line.startswith('PLATFORM = '):
-                    new_lines.append(f'PLATFORM = "{platform}"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu')
+                    replaced = f'PLATFORM = "{platform}"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu'
                 elif line.startswith('KEYWORDS = '):
-                    new_lines.append(f'KEYWORDS = "{keywords_str}"  # 关键词搜索配置，以英文逗号分隔')
+                    replaced = f'KEYWORDS = "{keywords_str}"  # 关键词搜索配置，以英文逗号分隔'
                 elif line.startswith('CRAWLER_TYPE = '):
-                    new_lines.append(f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)')
+                    replaced = f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)'
                 elif line.startswith('SAVE_DATA_OPTION = '):
-                    new_lines.append(f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql')
+                    replaced = f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgres'
                 elif line.startswith('CRAWLER_MAX_NOTES_COUNT = '):
-                    new_lines.append(f'CRAWLER_MAX_NOTES_COUNT = {max_notes}')
+                    replaced = f'CRAWLER_MAX_NOTES_COUNT = {max_notes}'
                 elif line.startswith('ENABLE_GET_COMMENTS = '):
-                    new_lines.append('ENABLE_GET_COMMENTS = True')
+                    replaced = 'ENABLE_GET_COMMENTS = True'
                 elif line.startswith('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = '):
-                    new_lines.append('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20')
+                    replaced = 'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20'
                 elif line.startswith('HEADLESS = '):
-                    new_lines.append('HEADLESS = True')  # 使用无头模式
+                    replaced = 'HEADLESS = True'
+
+                if replaced is not None:
+                    new_lines.append(replaced)
+                    # 若原始行是多行赋值开头（以"("结尾），跳过后续续行
+                    if line.rstrip().endswith('('):
+                        skip_until_paren = True
                 else:
                     new_lines.append(line)
             
@@ -253,15 +273,16 @@ postgresql_db_config = {{
             # 判断数据库类型，确定 save_data_option
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
-            
+            save_data_option = "postgres" if is_postgresql else "db"
+
             # 构建命令
             cmd = [
                 sys.executable, "main.py",
                 "--platform", platform,
                 "--lt", login_type,
                 "--type", "search",
-                "--save_data_option", save_data_option
+                "--save_data_option", save_data_option,
+                "--headless", "false"
             ]
             
             logger.info(f"执行命令: {' '.join(cmd)}")
