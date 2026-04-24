@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # ====================== 数据库配置 ======================
     DB_DIALECT: str = Field("postgresql", description="数据库类型，可选 mysql 或 postgresql；请与其他连接信息同时配置")
     DB_HOST: str = Field("your_db_host", description="数据库主机，例如localhost 或 127.0.0.1")
-    DB_PORT: int = Field(3306, description="数据库端口号，默认为3306")
+    DB_PORT: int = Field(5432, description="数据库端口号，postgresql默认为5432，mysql默认为3306")
     DB_USER: str = Field("your_db_user", description="数据库用户名")
     DB_PASSWORD: str = Field("your_db_password", description="数据库密码")
     DB_NAME: str = Field("your_db_name", description="数据库名称")

@@ -385,8 +385,8 @@ playwright install chromium
 # ====================== 数据库配置 ======================
 # 数据库主机，例如localhost 或 127.0.0.1
 DB_HOST=your_db_host
-# 数据库端口号，默认为3306
-DB_PORT=3306
+# 数据库端口号，postgresql默认为5432，mysql默认为3306
+DB_PORT=5432
 # 数据库用户名
 DB_USER=your_db_user
 # 数据库密码
