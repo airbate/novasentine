@@ -380,8 +380,8 @@ Edit the `.env` file and fill in your API keys (you can also choose your own mod
 # ====================== Database Configuration ======================
 # Database host, e.g., localhost or 127.0.0.1
 DB_HOST=your_db_host
-# Database port number, default is 3306
-DB_PORT=3306
+# Database port number, postgresql default is 5432, mysql default is 3306
+DB_PORT=5432
 # Database username
 DB_USER=your_db_user
 # Database password
