@@ -348,7 +348,7 @@ uv venv --python 3.11 # Create Python 3.11 environment
 
 ### 2. Install System Dependencies for PDF Export (Optional)
 
-This section contains detailed configuration instructions:[Configure the dependencies](./static/Partial%20README%20for%20PDF%20Exporting/README-EN.md)
+This section contains detailed configuration instructions: [Configure the dependencies](./static/Partial%20README%20for%20PDF%20Exporting/README-EN.md)
 
 ### 3. Install Dependencies
 
@@ -376,7 +376,7 @@ Copy the `.env.example` file in the project root directory and rename it to `.en
 
 Edit the `.env` file and fill in your API keys (you can also choose your own models and search proxies; see `.env.example` in the project root directory or `config.py` for details):
 
-```yml
+```bash
 # ====================== Database Configuration ======================
 # Database host, e.g., localhost or 127.0.0.1
 DB_HOST=your_db_host
@@ -430,7 +430,7 @@ python app.py
 
 > Note 1: After a run is terminated, the Streamlit app might not shut down correctly and may still be occupying the port. If this occurs, find the process that is holding the port and kill it.
 
-> Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 5.3.
+> Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 6.3.
 
 Visit http://localhost:5000 to use the complete system
 
@@ -452,7 +452,7 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 This section has detailed configuration documentation: [MindSpider Usage Guide](./MindSpider/README.md)
 
 <div align="center">
-<img src="MindSpider\img\example.png" alt="banner" width="600">
+<img src="MindSpider/img/example.png" alt="banner" width="600">
 
 MindSpider Running Example
 </div>

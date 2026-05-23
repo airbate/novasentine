@@ -56,7 +56,7 @@
 
 **始于舆情，而不止于舆情**。“微舆”的目标，是成为驱动一切业务场景的简洁通用的数据分析引擎。
 
-> 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把他变成一个金融领域的市场分析系统
+> 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把它变成一个金融领域的市场分析系统
 >
 > 附一个比较活跃的L站项目讨论帖：https://linux.do/t/topic/1009280
 >
@@ -381,7 +381,7 @@ playwright install chromium
 
 编辑 `.env` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example文件内或根目录config.py中的说明）：
 
-```yml
+```bash
 # ====================== 数据库配置 ======================
 # 数据库主机，例如localhost 或 127.0.0.1
 DB_HOST=your_db_host
@@ -457,7 +457,7 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 这部分有详细的配置文档：[MindSpider使用说明](./MindSpider/README.md)
 
 <div align="center">
-<img src="MindSpider\img\example.png" alt="banner" width="600">
+<img src="MindSpider/img/example.png" alt="banner" width="600">
 
 MindSpider 运行示例
 </div>
@@ -570,7 +570,7 @@ SENTIMENT_CONFIG = {
 
 ### 接入不同的LLM模型
 
-支持任意openAI调用格式的LLM提供商，只需要在/config.py中填写对应的KEY、BASE_URL、MODEL_NAME即可。
+支持任意OpenAI调用格式的LLM提供商，只需要在/config.py中填写对应的KEY、BASE_URL、MODEL_NAME即可。
 
 > 什么是openAI调用格式？下面提供一个简单的例子：
 >```python
