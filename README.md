@@ -1,8 +1,62 @@
-<div align="center">
+# 🔱 NovaSentinel
 
-<img src="static/image/logo_compressed.png" alt="BettaFish Logo" width="100%">
+**AI-native sentiment-driven trading signal engine on Injective**
 
-<a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+> Injective Nova 2026 Hackathon Entry | Built on [BettaFish](https://github.com/666ghj/BettaFish) architecture
+
+[![License: GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
+
+## What it does
+
+NovaSentinel watches crypto market signals 24/7 across three dimensions:
+
+- **Social Sentinel** — Twitter/X, Reddit, CryptoPanic sentiment
+- **OnChain Sentinel** — Injective OI, funding rates, large transfers (CoinGecko)
+- **Macro Sentinel** — Fed/CPI event calendar, BTC dominance trends
+
+Three AI agents debate in a **Forum Engine** (adapted from BettaFish). A Forum Host LLM moderates — surfacing consensus or conflict, flagging risks, directing next-round research.
+
+A **Signal Engine** translates the debate into a structured trading signal (LONG/SHORT/NEUTRAL + confidence + entry/SL/TP). A **Risk Manager** validates position size. An **Injective iAgent SDK** executor fires the trade on-chain.
+
+```
+Social + OnChain + Macro → Forum Debate → Signal → Risk Check → Injective Execution
+```
+
+## Quick Start
+
+```bash
+cp .env.example .env  # fill in your API keys
+pip install -r requirements.txt
+python nova_app.py    # visit http://localhost:5000
+```
+
+Then POST to `/api/system/start` to begin analysis.
+
+## Key Files
+
+```
+nova_app.py                  ← main Flask + SocketIO server
+SignalEngine/schema.py       ← TradingSignal Pydantic model + confidence aggregation
+SignalEngine/parser.py       ← Forum text → structured JSON signal (LLM)
+RiskManager/risk_manager.py  ← position sizing, daily loss guard
+InjectiveExecutor/executor.py← iAgent SDK wrapper (testnet / mock)
+ForumEngine/llm_host.py      ← trading-focused Forum Host prompt
+SocialSentinel/tools/        ← Twitter, Reddit, CryptoPanic clients
+OnChainSentinel/tools/       ← Injective RPC, CoinGecko
+MacroSentinel/tools/         ← macro event calendar
+```
+
+## Architecture
+
+Built on [BettaFish](https://github.com/666ghj/BettaFish) open-source multi-agent framework:
+- Reused: ForumEngine (90%), node architecture (80%), LLM wrappers (90%)
+- Replaced: data sources → financial APIs; output → Injective chain execution
+
+## Injective Integration
+
+- `InjectiveExecutor` wraps `injective-py` SDK for perpetual contract open/close
+- Supports testnet (default) and mainnet
+- `INJECTIVE_MOCK=true` for safe demo without real funds
 
 <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>

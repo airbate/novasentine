@@ -544,6 +544,8 @@ class LogMonitor:
             if host_speech:
                 # 写入主持人发言到forum.log
                 self.write_to_forum_log(host_speech, "HOST")
+                # Task 5.2-5.3: parse consensus/investigate tags from HOST speech
+                _parse_host_tags(host_speech)
                 logger.info(f"ForumEngine: 主持人发言已记录")
                 
                 # 清空已处理的5条发言
@@ -835,6 +837,29 @@ class LogMonitor:
                 
         except Exception:
             return None
+
+# Task 5.2-5.3: investigate hints storage, keyed by agent name (SOCIAL/ONCHAIN/MACRO)
+_investigate_hints: dict[str, str] = {}
+
+
+def get_investigate_hints() -> dict[str, str]:
+    """Return current investigate hints parsed from HOST messages."""
+    return dict(_investigate_hints)
+
+
+def _parse_host_tags(content: str) -> None:
+    """Parse [INVESTIGATE:topic] tags from HOST message, store in _investigate_hints."""
+    for match in re.finditer(r'\[INVESTIGATE:([^\]]+)\]', content):
+        topic = match.group(1).strip()
+        # Infer agent from topic keywords
+        topic_upper = topic.upper()
+        if any(k in topic_upper for k in ("CHAIN", "FUNDING", "OI", "WHALE", "ONCHAIN")):
+            _investigate_hints["ONCHAIN"] = topic
+        elif any(k in topic_upper for k in ("MACRO", "FED", "CPI", "FOMC", "NFP")):
+            _investigate_hints["MACRO"] = topic
+        else:
+            _investigate_hints["SOCIAL"] = topic
+
 
 # 全局监控器实例
 _monitor_instance = None

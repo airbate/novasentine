@@ -1,6 +1,6 @@
 # ========================================
-#   Weibo舆情分析多智能体系统依赖包
-#   适用于Windows环境 + Conda部署
+#   NovaSentinel — AI Trading Signal Engine
+#   Fork of BettaFish × Injective Nova 2026
 # ========================================
 
 # ===== 核心Web框架 =====

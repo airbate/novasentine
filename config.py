@@ -26,8 +26,31 @@ class Settings(BaseSettings):
     变量名与原 config.py 大写一致，便于平滑过渡。
     """
     # ================== Flask 服务器配置 ====================
-    HOST: str = Field("0.0.0.0", description="BETTAFISH 主机地址，例如 0.0.0.0 或 127.0.0.1")
-    PORT: int = Field(5000, description="Flask服务器端口号，默认5000")
+    HOST: str = Field("0.0.0.0")
+    PORT: int = Field(5000)
+
+    # ================== NovaSentinel — Signal Engine LLM ====================
+    SIGNAL_ENGINE_API_KEY: Optional[str] = Field(None)
+    SIGNAL_ENGINE_BASE_URL: Optional[str] = Field("https://api.openai.com/v1")
+    SIGNAL_ENGINE_MODEL_NAME: str = Field("gpt-4o-mini")
+
+    # ================== NovaSentinel — Social Sentinel ====================
+    TWITTER_BEARER_TOKEN: Optional[str] = Field(None)
+    REDDIT_CLIENT_ID: Optional[str] = Field(None)
+    REDDIT_CLIENT_SECRET: Optional[str] = Field(None)
+
+    # ================== NovaSentinel — OnChain Sentinel ====================
+    COINGECKO_API_KEY: Optional[str] = Field(None)
+    INJECTIVE_NETWORK: str = Field("testnet")
+    INJECTIVE_PRIVATE_KEY: Optional[str] = Field(None)
+    INJECTIVE_MOCK: bool = Field(True)
+
+    # ================== NovaSentinel — Risk Manager ====================
+    TOTAL_CAPITAL_USD: float = Field(10000.0)
+    MAX_POSITION_PCT: float = Field(0.05)
+    MAX_DAILY_LOSS_PCT: float = Field(0.02)
+    MAX_LEVERAGE: int = Field(3)
+    RISK_PROFILE: str = Field("medium")
 
     # ====================== 数据库配置 ======================
     DB_DIALECT: str = Field("postgresql", description="数据库类型，可选 mysql 或 postgresql；请与其他连接信息同时配置")
