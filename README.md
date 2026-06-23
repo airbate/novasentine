@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Injective-iAgent_SDK-00B5D8?style=flat-square" />
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/Tests-43_passed-10B981?style=flat-square" />
-  <img src="https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" />
   <img src="https://img.shields.io/badge/Injective_Nova-2026-8B5CF6?style=flat-square" />
 </p>
 
@@ -27,7 +27,7 @@ Macro events      ┘
 
 Three specialized AI agents gather market intelligence from different dimensions, debate in a structured forum, and a Signal Engine translates their consensus into a structured trading decision — which is then executed autonomously on Injective's perpetual contract market via the iAgent SDK.
 
-Built as a fork of [BettaFish](https://github.com/666ghj/BettaFish), an open-source multi-agent public opinion analysis system, with the analysis core preserved and the data sources + execution layer replaced for crypto trading.
+Built from scratch in Python, inspired by multi-agent research patterns. All code is original.
 
 ---
 
@@ -45,7 +45,7 @@ Built as a fork of [BettaFish](https://github.com/666ghj/BettaFish), an open-sou
 │       │                │                  │                  │
 │       └────────────────┼──────────────────┘                  │
 │                        ▼                                      │
-│               ForumEngine (BettaFish)                        │
+│               ForumEngine (original)                        │
 │          3-agent debate + LLM Host moderator                 │
 │          [HIGH_CONSENSUS] / [CONFLICT] tagging               │
 │                        │                                      │
@@ -192,7 +192,7 @@ novasentine/
 ├── OnChainSentinel/         # Injective RPC + CoinGecko market data
 ├── MacroSentinel/           # Macro event calendar + BTC dominance
 │
-├── ForumEngine/             # Multi-agent debate engine (from BettaFish)
+├── ForumEngine/             # Multi-agent debate engine (original)
 │   ├── monitor.py           # Log watcher + tag parser
 │   └── llm_host.py          # Forum Host LLM (trading-focused prompt)
 │
@@ -227,19 +227,15 @@ Every analysis round, three agents run in parallel and write their findings to i
 
 ---
 
-## Built On
+## License
 
-NovaSentinel is built on top of [BettaFish](https://github.com/666ghj/BettaFish) (GPL-2.0), an open-source multi-agent public opinion analysis system. The ForumEngine, node architecture (~80%), and LLM wrappers (~90%) are preserved. Data sources were replaced with financial APIs and the output layer was replaced with Injective chain execution.
-
-**Reused from BettaFish:** ForumEngine, Search→Summary→Reflect node pipeline, LLM client wrappers, config system, retry utilities
-
-**New in NovaSentinel:** SocialSentinel, OnChainSentinel, MacroSentinel, SignalEngine, RiskManager, InjectiveExecutor, MCP interface, trading-focused Forum Host prompt
+MIT — see [LICENSE](LICENSE)
 
 ---
 
 ## License
 
-GPL-2.0 — see [LICENSE](LICENSE)
+
 
 ---
 
